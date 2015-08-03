@@ -1,0 +1,9 @@
+*~
+*.o
+*.d
+*.d.$
+.DS_Store
+*.tmp
+
+/.dir-locals.el
+/tmp

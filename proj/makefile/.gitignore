@@ -1,0 +1,6 @@
+*.pyc
+
+/*.a
+/*.so
+/*.dylib
+/test_loofah
