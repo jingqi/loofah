@@ -5,23 +5,31 @@ LD = gcc
 AR = ar
 
 HOST = $(shell uname -s)
+
+# INC
 INC = -I../../src
+
+# LIB
 ifeq ($(HOST), Darwin)
 	LIB = -lstdc++
 else
 	LIB = -lpthread
 endif
-ifeq ($(HOST), Darwin)
-	CC_FLAGS = -Wall -g -std=c++11
-else
-	CC_FLAGS = -Wall -g -rdynamic -std=c++11
+
+# CC_FLAGS
+CC_FLAGS = -Wall -g -std=c++11
+ifneq ($(HOST), Darwin)
+	CC_FLAGS += -rdynamic
 endif
 
+# OBJS DEPS
 PWD = $(shell pwd)
 DIRS = $(shell find ../../src/loofah -maxdepth 10 -type d)
 CPPS = $(foreach dir,$(DIRS),$(wildcard $(dir)/*.cpp))
 OBJS = $(patsubst %.cpp,%.o,$(CPPS))
 DEPS = $(patsubst %.cpp,%.d,$(CPPS))
+
+# TARGET
 TARGET = $(PWD)/libloofah.a
 
 all: $(TARGET)

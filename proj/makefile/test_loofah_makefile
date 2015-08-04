@@ -5,23 +5,33 @@ LD = gcc
 AR = ar
 
 HOST = $(shell uname -s)
+
+# INC
 INC = -I../../src
+
+# LIB
+LIB = -L. -lloofah
 ifeq ($(HOST), Darwin)
-	LIB = -lstdc++ -L. -lloofah
+	LIB += -lstdc++
 else
-	LIB = -lpthread -lrt -L. -lloofah
+	LIB += -lpthread -lrt
 endif
-ifeq ($(HOST), Darwin)
-	CC_FLAGS = -Wall -g -std=c++11
-else
-	CC_FLAGS = -Wall -g -rdynamic -std=c++11
+LIB_DEPS = ./libloofah.a
+
+# CC_FLAGS
+CC_FLAGS = -Wall -g -std=c++11
+ifneq ($(HOST), Darwin)
+	CC_FLAGS += -rdynamic
 endif
 
+# OBJS DEPS
 PWD = $(shell pwd)
 DIRS = $(shell find ../../src/test_loofah -maxdepth 10 -type d)
 CPPS = $(foreach dir,$(DIRS),$(wildcard $(dir)/*.cpp))
 OBJS = $(patsubst %.cpp,%.o,$(CPPS))
 DEPS = $(patsubst %.cpp,%.d,$(CPPS))
+
+# TARGET
 TARGET = $(PWD)/test_loofah
 
 all: $(TARGET)
@@ -49,7 +59,7 @@ valgrind: $(TARGET)
 	valgrind -v --leak-check=full $(TARGET)
 
 # NOTE: in linux, $(LIB) should be the last parameter
-$(TARGET): $(OBJS)
+$(TARGET): $(OBJS) $(LIB_DEPS)
 	$(CC) -o $@ $^ $(LIB)
 
 %.o: %.cpp
