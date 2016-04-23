@@ -1,20 +1,22 @@
 #!/user/bin/env make
 
 all:
-	make -f loofah_makefile
-	make -f test_loofah_makefile
+	(cd ../../lib/nut.git/proj/makefile ; make -f nut.mk)
+	make -f loofah.mk
+	make -f test_loofah.mk
 
 clean:
-	make -f loofah_makefile clean
-	make -f test_loofah_makefile clean
+	make -f test_loofah.mk clean
+	make -f loofah.mk clean
+	(cd ../../lib/nut.git/proj/makefile ; make -f nut.mk clean)
 
 rebuild: clean all
 
 run: all
-	make -f test_loofah_makefile run
+	make -f test_loofah.mk run
 
 cgdb: all
-	make -f test_loofah_makefile cgdb
+	make -f test_loofah.mk cgdb
 
 valgrind: all
-	make -f test_loofah_makefile valgrind
+	make -f test_loofah.mk valgrind

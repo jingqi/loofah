@@ -1,5 +1,14 @@
 
-#ifndef ___HEADFILE_2DB78B2F_25A4_4704_A89A_6B1F2757551C_
-#define ___HEADFILE_2DB78B2F_25A4_4704_A89A_6B1F2757551C_
+#ifndef ___HEADFILE_F7D25C02_82B8_45D8_ACB0_C2504E27D677_
+#define ___HEADFILE_F7D25C02_82B8_45D8_ACB0_C2504E27D677_
+
+namespace loofah
+{
+
+// native file descriptor or handle
+typedef int handle_t;
+#define INVALID_HANDLE -1
+
+}
 
 #endif
