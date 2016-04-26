@@ -22,11 +22,11 @@ THIS = test_loofah.mk
 INC += -I../../lib/nut.git/src -I${SRC_ROOT} -I${SRC_ROOT}/..
 
 # DEF
-DEF =
+DEF +=
 
 # CC_FLAGS
 HOST = $(shell uname -s)
-CC_FLAGS = -Wall -std=c++11
+CC_FLAGS += -Wall -std=c++11
 ifeq (${DEBUG}, 1)
 	CC_FLAGS += -DDEBUG -g
 else
@@ -42,7 +42,7 @@ endif
 ifeq (${HOST}, Darwin)
 	LIB += -lc++
 else
-	LIB += -lpthread -lrt
+	LIB += -lpthread
 endif
 LIB += -L${NUT_OUT_DIR} -lnut -L${OUT_DIR} -lloofah
 LIB_DEPS += ${NUT_OUT_DIR}/libnut.a ${OUT_DIR}/libloofah.a
@@ -91,7 +91,7 @@ valgrind: ${TARGET}
 
 # NOTE: in linux, ${LIB} should be the last parameter
 $(TARGET): ${OBJS} ${LIB_DEPS} ${THIS}
-	${LD} ${OBJS} ${LIB} -o $@
+	${CC} -o $@ ${OBJS} ${LIB}
 
 ${OBJ_ROOT}/%.o: ${SRC_ROOT}/%.cpp ${THIS}
 	${CC} ${INC} ${DEF} ${CC_FLAGS} -c $< -o $@

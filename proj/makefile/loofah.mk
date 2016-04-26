@@ -19,14 +19,14 @@ OBJ_ROOT = ${OUT_DIR}/obj/loofah
 THIS = loofah.mk
 
 # INC
-INC = -I../../lib/nut.git/src -I${SRC_ROOT}
+INC += -I../../lib/nut.git/src -I${SRC_ROOT}
 
 # DEF
-DEF =
+DEF +=
 
 # CC_FLAGS
 HOST = $(shell uname -s)
-CC_FLAGS = -Wall -fPIC -std=c++11
+CC_FLAGS += -Wall -fPIC -std=c++11
 ifeq (${DEBUG}, 1)
 	CC_FLAGS += -DDEBUG -g
 else
