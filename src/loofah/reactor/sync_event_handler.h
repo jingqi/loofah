@@ -9,6 +9,9 @@ namespace loofah
 
 class SyncEventHandler
 {
+	int _registered_events = 0;
+	friend class Reactor;
+
 public:
     enum EventType
     {

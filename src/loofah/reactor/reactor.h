@@ -14,8 +14,10 @@ class Reactor
 {
 #if defined(NUT_PLATFORM_OS_WINDOWS)
     // TODO
+#elif defined(NUT_PLATFORM_OS_LINUX)
+	int _epoll_fd = -1;
 #elif defined(NUT_PLATFORM_OS_MAC)
-    int _kq = 0;
+    int _kq = -1;
 #else
     // TODO
 #endif
@@ -24,7 +26,7 @@ public:
     Reactor();
 
     void register_handler(SyncEventHandler *handler, int mask);
-    void unregister_handler(SyncEventHandler *handler, int mask);
+    void unregister_handler(SyncEventHandler *handler);
 
 	void enable_handler(SyncEventHandler *handler, int mask);
 	void disable_handler(SyncEventHandler *handler, int mask);
