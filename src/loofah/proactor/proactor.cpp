@@ -1,7 +1,7 @@
 
 #include <nut/platform/platform.h>
 
-#if defined(NUT_PLATFORM_OS_MAC)
+#if NUT_PLATFORM_OS_MAC
 #   include <sys/types.h>
 #   include <sys/event.h>
 #   include <sys/time.h>
@@ -18,7 +18,7 @@ namespace loofah
 
 Proactor::Proactor()
 {
-#if defined(NUT_PLATFORM_OS_MAC)
+#if NUT_PLATFORM_OS_MAC
     _kq = ::kqueue();
 #endif
 }

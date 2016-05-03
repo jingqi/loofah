@@ -11,7 +11,7 @@ namespace loofah
 
 class Proactor
 {
-#if defined(NUT_PLATFORM_OS_MAC)
+#if NUT_PLATFORM_OS_MAC
     int _kq = 0;
 #endif
 

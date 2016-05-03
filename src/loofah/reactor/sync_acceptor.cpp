@@ -1,7 +1,7 @@
 
 #include <nut/platform/platform.h>
 
-#if defined(NUT_PLATFORM_OS_WINDOWS)
+#if NUT_PLATFORM_OS_WINDOWS
 #   include <windows.h>
 #else
 #   include <sys/socket.h> // for socket() and so on

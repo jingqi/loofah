@@ -1,7 +1,7 @@
 
 #include <nut/platform/platform.h>
 
-#if defined(NUT_PLATFORM_OS_WINDOWS)
+#if NUT_PLATFORM_OS_WINDOWS
 #   include <windows.h>
 #else
 #   include <sys/socket.h> // for setsockopt() and so on
@@ -15,7 +15,7 @@ namespace loofah
 
 bool make_listen_socket_reuseable(int listen_socket_fd)
 {
-#if defined(NUT_PLATFORM_OS_WINDOWS)
+#if NUT_PLATFORM_OS_WINDOWS
     BOOL optval = TRUE;
     return 0 == ::setsockopt(listen_socket_fd, SOL_SOCKET, SO_REUSEPORT, (char*)&optval, sizeof(optval));
 #else
@@ -26,7 +26,7 @@ bool make_listen_socket_reuseable(int listen_socket_fd)
 
 bool make_socket_nonblocking(int socket_fd, bool nonblocking)
 {
-#if defined(NUT_PLATFORM_OS_WINDOWS)
+#if NUT_PLATFORM_OS_WINDOWS
     unsigned long mode = (blocking ? 0 : 1);
     return ::ioctlsocket(socket_fd, FIONBIO, &mode) == 0;
 #else

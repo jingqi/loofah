@@ -16,7 +16,7 @@ else
 	NUT_OUT_DIR = $(CURDIR)/../../lib/nut.git/proj/makefile/release
 endif
 OBJ_ROOT = ${OUT_DIR}/obj/test_loofah
-THIS = test_loofah.mk
+MAKEFILE = test_loofah.mk
 
 # INC
 INC += -I../../lib/nut.git/src -I${SRC_ROOT} -I${SRC_ROOT}/..
@@ -90,15 +90,15 @@ valgrind: ${TARGET}
 	valgrind -v --leak-check=full ${TARGET}
 
 # NOTE: in linux, ${LIB} should be the last parameter
-$(TARGET): ${OBJS} ${LIB_DEPS} ${THIS}
+$(TARGET): ${OBJS} ${LIB_DEPS} ${MAKEFILE}
 	${CC} -o $@ ${OBJS} ${LIB}
 
-${OBJ_ROOT}/%.o: ${SRC_ROOT}/%.cpp ${THIS}
+${OBJ_ROOT}/%.o: ${SRC_ROOT}/%.cpp ${MAKEFILE}
 	${CC} ${INC} ${DEF} ${CC_FLAGS} -c $< -o $@
 
 ## 动态生成依赖关系
 # %.d: %.cpp
-${OBJ_ROOT}/%.d:${SRC_ROOT}/%.cpp ${THIS}
+${OBJ_ROOT}/%.d: ${SRC_ROOT}/%.cpp ${MAKEFILE}
 	@rm -f $@
 	@# 向 *.d.$ 中写入 "xx/xx/*.d xx/xx/*.o:\" 这样一个字符串
 	@echo '$@ $@.o:\' | sed 's/[.]d[.]o/.o/g' > $@.$$

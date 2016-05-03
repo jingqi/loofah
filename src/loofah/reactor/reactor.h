@@ -12,14 +12,12 @@ namespace loofah
 
 class Reactor
 {
-#if defined(NUT_PLATFORM_OS_WINDOWS)
+#if NUT_PLATFORM_OS_WINDOWS
     // TODO
-#elif defined(NUT_PLATFORM_OS_LINUX)
+#elif NUT_PLATFORM_OS_LINUX
 	int _epoll_fd = -1;
-#elif defined(NUT_PLATFORM_OS_MAC)
+#elif NUT_PLATFORM_OS_MAC
     int _kq = -1;
-#else
-    // TODO
 #endif
 
 public:

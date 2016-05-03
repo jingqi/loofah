@@ -3,9 +3,9 @@
 
 #include <nut/platform/platform.h>
 
-#if defined(NUT_PLATFORM_OS_LINUX)
+#if NUT_PLATFORM_OS_LINUX
 #   include <sys/epoll.h>
-#elif defined(NUT_PLATFORM_OS_MAC)
+#elif NUT_PLATFORM_OS_MAC
 #   include <sys/types.h>
 #   include <sys/event.h>
 #   include <sys/time.h>
@@ -25,9 +25,9 @@ namespace loofah
 
 Reactor::Reactor()
 {
-#if defined(NUT_PLATFORM_OS_LINUX)
+#if NUT_PLATFORM_OS_LINUX
 	_epoll_fd = ::epoll_create(MAX_EPOLL_EVENTS);
-#elif defined(NUT_PLATFORM_OS_MAC)
+#elif NUT_PLATFORM_OS_MAC
     _kq = ::kqueue();
 #endif
 }
@@ -37,7 +37,7 @@ void Reactor::register_handler(SyncEventHandler *handler, int mask)
     assert(NULL != handler && 0 == handler->_registered_events);
     const handle_t fd = handler->get_handle();
 
-#if defined(NUT_PLATFORM_OS_LINUX)
+#if NUT_PLATFORM_OS_LINUX
 	struct epoll_event epv;
 	::memset(&epv, 0, sizeof(epv));
 	epv.data.ptr = (void*) handler;
@@ -50,7 +50,7 @@ void Reactor::register_handler(SyncEventHandler *handler, int mask)
         NUT_LOG_E(TAG, "failed to call ::epoll_ctl()");
         return;
 	}
-#elif defined(NUT_PLATFORM_OS_MAC)
+#elif NUT_PLATFORM_OS_MAC
     struct kevent ev[2];
     int n = 0;
     if (0 != (mask & SyncEventHandler::READ_MASK))
@@ -72,7 +72,7 @@ void Reactor::unregister_handler(SyncEventHandler *handler)
     assert(NULL != handler);
     const handle_t fd = handler->get_handle();
 
-#if defined(NUT_PLATFORM_OS_LINUX)
+#if NUT_PLATFORM_OS_LINUX
 	struct epoll_event epv;
 	::memset(&epv, 0, sizeof(epv));
 	epv.data.ptr = (void*) handler;
@@ -81,7 +81,7 @@ void Reactor::unregister_handler(SyncEventHandler *handler)
         NUT_LOG_E(TAG, "failed to call ::epoll_ctl()");
         return;
 	}
-#elif defined(NUT_PLATFORM_OS_MAC)
+#elif NUT_PLATFORM_OS_MAC
     struct kevent ev[2];
     EV_SET(ev + 0, fd, EVFILT_READ, EV_DELETE, 0, 0, (void*) handler);
     EV_SET(ev + 1, fd, EVFILT_WRITE, EV_DELETE, 0, 0, (void*) handler);
@@ -100,7 +100,7 @@ void Reactor::enable_handler(SyncEventHandler *handler, int mask)
 	assert(NULL != handler);
 	const handle_t fd = handler->get_handle();
 
-#if defined(NUT_PLATFORM_OS_LINUX)
+#if NUT_PLATFORM_OS_LINUX
 	struct epoll_event epv;
 	::memset(&epv, 0, sizeof(epv));
 	epv.data.ptr = (void*) handler;
@@ -113,7 +113,7 @@ void Reactor::enable_handler(SyncEventHandler *handler, int mask)
         NUT_LOG_E(TAG, "failed to call ::epoll_ctl()");
         return;
 	}
-#elif defined(NUT_PLATFORM_OS_MAC)
+#elif NUT_PLATFORM_OS_MAC
 	struct kevent ev[2];
 	int n = 0;
 	if (0 != (mask & SyncEventHandler::READ_MASK))
@@ -145,7 +145,7 @@ void Reactor::disable_handler(SyncEventHandler *handler, int mask)
 	assert(NULL != handler);
 	const handle_t fd = handler->get_handle();
 
-#if defined(NUT_PLATFORM_OS_LINUX)
+#if NUT_PLATFORM_OS_LINUX
 	struct epoll_event epv;
 	::memset(&epv, 0, sizeof(epv));
 	epv.data.ptr = (void*) handler;
@@ -158,7 +158,7 @@ void Reactor::disable_handler(SyncEventHandler *handler, int mask)
         NUT_LOG_E(TAG, "failed to call ::epoll_ctl()");
         return;
 	}
-#elif defined(NUT_PLATFORM_OS_MAC)
+#elif NUT_PLATFORM_OS_MAC
 	struct kevent ev[2];
 	int n = 0;
 	if (0 != (mask & SyncEventHandler::READ_MASK))
@@ -175,20 +175,20 @@ void Reactor::disable_handler(SyncEventHandler *handler, int mask)
 
 void Reactor::handle_events(int timeout_ms)
 {
-#if defined(NUT_PLATFORM_OS_LINUX)
+#if NUT_PLATFORM_OS_LINUX
 	struct epoll_event events[MAX_EPOLL_EVENTS];
 	int n = ::epoll_wait(_epoll_fd, events, MAX_EPOLL_EVENTS, timeout_ms);
 	for (int i = 0; i < n; ++i)
 	{
 		SyncEventHandler *handler = (SyncEventHandler*) events[i].data.ptr;
 		assert(NULL != handler);
-		
+
 		if (0 != (events[i].events & EPOLLIN))
 			handler->handle_read_ready();
 		if (0 != (events[i].events & EPOLLOUT))
 			handler->handle_write_ready();
 	}
-#elif defined(NUT_PLATFORM_OS_MAC)
+#elif NUT_PLATFORM_OS_MAC
     struct timespec timeout;
     timeout.tv_sec = timeout_ms / 1000;
     timeout.tv_nsec = (timeout_ms % 1000) * 1000 * 1000;
