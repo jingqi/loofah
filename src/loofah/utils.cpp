@@ -17,7 +17,7 @@ bool make_listen_socket_reuseable(int listen_socket_fd)
 {
 #if NUT_PLATFORM_OS_WINDOWS
     BOOL optval = TRUE;
-    return 0 == ::setsockopt(listen_socket_fd, SOL_SOCKET, SO_REUSEPORT, (char*)&optval, sizeof(optval));
+    return 0 == ::setsockopt(listen_socket_fd, SOL_SOCKET, SO_REUSEADDR, (char*)&optval, sizeof(optval));
 #else
     int optval = 1;
     return 0 == ::setsockopt(listen_socket_fd, SOL_SOCKET, SO_REUSEPORT, &optval, sizeof(optval));
@@ -27,7 +27,7 @@ bool make_listen_socket_reuseable(int listen_socket_fd)
 bool make_socket_nonblocking(int socket_fd, bool nonblocking)
 {
 #if NUT_PLATFORM_OS_WINDOWS
-    unsigned long mode = (blocking ? 0 : 1);
+    unsigned long mode = (nonblocking ? 1 : 0);
     return ::ioctlsocket(socket_fd, FIONBIO, &mode) == 0;
 #else
     int flags = ::fcntl(socket_fd, F_GETFL, 0);

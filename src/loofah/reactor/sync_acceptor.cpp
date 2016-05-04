@@ -2,6 +2,7 @@
 #include <nut/platform/platform.h>
 
 #if NUT_PLATFORM_OS_WINDOWS
+#   include <winsock2.h>
 #   include <windows.h>
 #else
 #   include <sys/socket.h> // for socket() and so on
@@ -23,7 +24,7 @@ bool SyncAcceptorBase::open(int port, int listen_num)
 {
     // new socket
     _listen_socket_fd = ::socket(AF_INET, SOCK_STREAM, 0);
-    if (-1 == _listen_socket_fd)
+    if (INVALID_HANDLE == _listen_socket_fd)
     {
         NUT_LOG_E(TAG, "failed to call ::socket()");
         return false;
@@ -41,7 +42,11 @@ bool SyncAcceptorBase::open(int port, int listen_num)
     if (::bind(_listen_socket_fd, (struct sockaddr*)&sin, sizeof(sin)) < 0)
     {
         NUT_LOG_E(TAG, "failed to call ::bind() with port %d", port);
-		::close(_listen_socket_fd);
+#if NUT_PLATFORM_OS_WINDOWS
+        ::closesocket(_listen_socket_fd);
+#else
+        ::close(_listen_socket_fd);
+#endif
 		_listen_socket_fd = INVALID_HANDLE;
         return false;
     }
@@ -50,7 +55,11 @@ bool SyncAcceptorBase::open(int port, int listen_num)
     if (::listen(_listen_socket_fd, listen_num) < 0)
     {
         NUT_LOG_E(TAG, "failed to call ::listen() with port %d", port);
+#if NUT_PLATFORM_OS_WINDOWS
+        ::closesocket(_listen_socket_fd);
+#else
 		::close(_listen_socket_fd);
+#endif
 		_listen_socket_fd = INVALID_HANDLE;
         return false;
     }
@@ -65,20 +74,32 @@ bool SyncAcceptorBase::open(int port, int listen_num)
 handle_t SyncAcceptorBase::handle_accept()
 {
     struct sockaddr_in remote_addr;
+#if NUT_PLATFORM_OS_WINDOWS
+    int rsz = sizeof(remote_addr);
+#else
     socklen_t rsz = sizeof(remote_addr);
+#endif
     handle_t fd = ::accept(_listen_socket_fd, (struct sockaddr*)&remote_addr, &rsz);
-    if (fd < 0)
+    if (INVALID_HANDLE == fd)
     {
         NUT_LOG_E(TAG, "failed to call ::accept()");
         return INVALID_HANDLE;
     }
 
     struct sockaddr_in peer;
+#if NUT_PLATFORM_OS_WINDOWS
+    int plen = sizeof(peer);
+#else
     socklen_t plen = sizeof(peer);
+#endif
     if (::getpeername(fd, (struct sockaddr*)&peer, &plen) < 0)
     {
         NUT_LOG_W(TAG, "failed to call ::getpeername(), socketfd %d", fd);
+#if NUT_PLATFORM_OS_WINDOWS
+        ::closesocket(fd);
+#else
 		::close(fd);
+#endif
         return INVALID_HANDLE;
     }
 

@@ -5,6 +5,7 @@
 #include <nut/platform/platform.h>
 
 #if NUT_PLATFORM_OS_WINDOWS
+#   include <winsock2.h>
 #   include <windows.h>
 #else
 #   include <sys/socket.h> // for socket() and so on

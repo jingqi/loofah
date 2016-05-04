@@ -4,7 +4,12 @@
 
 #include <nut/platform/platform.h>
 
-#include <netinet/in.h> // for struct sockaddr_in
+#if NUT_PLATFORM_OS_WINDOWS
+#   include <winsock2.h> // NOTE should include winsock2.h before windows.h
+#   include <windows.h>
+#else
+#   include <netinet/in.h> // for struct sockaddr_in
+#endif
 
 namespace loofah
 {

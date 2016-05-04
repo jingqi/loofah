@@ -26,7 +26,7 @@ public:
         ::free(_buf);
     }
 
-    void open(handle_t fd) override
+    void open(loofah::handle_t fd) override
     {
         SyncStream::open(fd);
 
@@ -73,7 +73,7 @@ public:
         ::free(_buf);
     }
 
-    void open(handle_t fd) override
+    void open(loofah::handle_t fd) override
     {
         SyncStream::open(fd);
 
