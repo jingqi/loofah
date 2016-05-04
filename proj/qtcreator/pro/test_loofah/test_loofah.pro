@@ -62,6 +62,6 @@ mac {
     LIBS += -lrt
 } else {
     LIBS += -lpthread
-    LIBS += -lws2_32 -lwininet -lwsock32 # NOTE 这些 win 网络库必须放在最后，否则会出错
+    LIBS += -lws2_32 -lwininet -lwsock32 -lmswsock # NOTE 这些 win 网络库必须放在最后，否则会出错
         # see http://stackoverflow.com/questions/2033608/mingw-linker-error-winsock
 }

@@ -22,7 +22,7 @@ public:
 
     virtual ~SyncEventHandler() {}
 
-    virtual handle_t get_handle() const = 0;
+    virtual socket_t get_socket() const = 0;
 
     virtual void handle_read_ready() {}
     virtual void handle_write_ready() {}

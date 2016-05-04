@@ -4,7 +4,7 @@
 namespace loofah
 {
 
-void SyncStream::open(handle_t fd)
+void SyncStream::open(socket_t fd)
 {
     _fd = fd;
 }

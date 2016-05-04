@@ -22,56 +22,56 @@ namespace loofah
 
 bool SyncAcceptorBase::open(int port, int listen_num)
 {
-    // new socket
-    _listen_socket_fd = ::socket(AF_INET, SOCK_STREAM, 0);
-    if (INVALID_HANDLE == _listen_socket_fd)
+    // create socket
+    _listen_socket = ::socket(AF_INET, SOCK_STREAM, 0);
+    if (INVALID_SOCKET_VALUE == _listen_socket)
     {
         NUT_LOG_E(TAG, "failed to call ::socket()");
         return false;
     }
 
     // make port reuseable
-    if (!make_listen_socket_reuseable(_listen_socket_fd))
-		NUT_LOG_W(TAG, "failed to make listen socket reuseable, socketfd %d", _listen_socket_fd);
+    if (!make_listen_socket_reuseable(_listen_socket))
+		NUT_LOG_W(TAG, "failed to make listen socket reuseable, socketfd %d", _listen_socket);
 
     // bind
     struct sockaddr_in sin;
     sin.sin_family = AF_INET;
     sin.sin_addr.s_addr = 0;
     sin.sin_port = htons(port);
-    if (::bind(_listen_socket_fd, (struct sockaddr*)&sin, sizeof(sin)) < 0)
+    if (::bind(_listen_socket, (struct sockaddr*)&sin, sizeof(sin)) < 0)
     {
         NUT_LOG_E(TAG, "failed to call ::bind() with port %d", port);
 #if NUT_PLATFORM_OS_WINDOWS
-        ::closesocket(_listen_socket_fd);
+        ::closesocket(_listen_socket);
 #else
-        ::close(_listen_socket_fd);
+        ::close(_listen_socket);
 #endif
-		_listen_socket_fd = INVALID_HANDLE;
+		_listen_socket = INVALID_SOCKET_VALUE;
         return false;
     }
 
     // listen
-    if (::listen(_listen_socket_fd, listen_num) < 0)
+    if (::listen(_listen_socket, listen_num) < 0)
     {
         NUT_LOG_E(TAG, "failed to call ::listen() with port %d", port);
 #if NUT_PLATFORM_OS_WINDOWS
-        ::closesocket(_listen_socket_fd);
+        ::closesocket(_listen_socket);
 #else
-		::close(_listen_socket_fd);
+		::close(_listen_socket);
 #endif
-		_listen_socket_fd = INVALID_HANDLE;
+		_listen_socket = INVALID_SOCKET_VALUE;
         return false;
     }
 
     // make socket non-blocking
-    if (!make_socket_nonblocking(_listen_socket_fd))
-		NUT_LOG_W(TAG, "failed to make listen socket nonblocking, socketfd %d", _listen_socket_fd);
+    if (!make_socket_nonblocking(_listen_socket))
+		NUT_LOG_W(TAG, "failed to make listen socket nonblocking, socketfd %d", _listen_socket);
 
     return true;
 }
 
-handle_t SyncAcceptorBase::handle_accept()
+socket_t SyncAcceptorBase::handle_accept()
 {
     struct sockaddr_in remote_addr;
 #if NUT_PLATFORM_OS_WINDOWS
@@ -79,11 +79,11 @@ handle_t SyncAcceptorBase::handle_accept()
 #else
     socklen_t rsz = sizeof(remote_addr);
 #endif
-    handle_t fd = ::accept(_listen_socket_fd, (struct sockaddr*)&remote_addr, &rsz);
-    if (INVALID_HANDLE == fd)
+    socket_t fd = ::accept(_listen_socket, (struct sockaddr*)&remote_addr, &rsz);
+    if (INVALID_SOCKET_VALUE == fd)
     {
         NUT_LOG_E(TAG, "failed to call ::accept()");
-        return INVALID_HANDLE;
+        return INVALID_SOCKET_VALUE;
     }
 
     struct sockaddr_in peer;
@@ -100,7 +100,7 @@ handle_t SyncAcceptorBase::handle_accept()
 #else
 		::close(fd);
 #endif
-        return INVALID_HANDLE;
+        return INVALID_SOCKET_VALUE;
     }
 
     if (!make_socket_nonblocking(fd))

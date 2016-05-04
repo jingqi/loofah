@@ -14,11 +14,11 @@ namespace loofah
 
 // native file descriptor or handle
 #if NUT_PLATFORM_OS_WINDOWS
-    typedef SOCKET handle_t;
-    #define INVALID_HANDLE INVALID_SOCKET
+    typedef SOCKET socket_t;
+    #define INVALID_SOCKET_VALUE INVALID_SOCKET
 #else
-    typedef int handle_t;
-    #define INVALID_HANDLE -1
+    typedef int socket_t;
+    #define INVALID_SOCKET_VALUE -1
 #endif
 
 }

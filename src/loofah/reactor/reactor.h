@@ -14,14 +14,15 @@ class Reactor
 {
 #if NUT_PLATFORM_OS_WINDOWS
     // TODO
-#elif NUT_PLATFORM_OS_LINUX
-	int _epoll_fd = -1;
 #elif NUT_PLATFORM_OS_MAC
     int _kq = -1;
+#elif NUT_PLATFORM_OS_LINUX
+	int _epoll_fd = -1;
 #endif
 
 public:
     Reactor();
+	~Reactor();
 
     void register_handler(SyncEventHandler *handler, int mask);
     void unregister_handler(SyncEventHandler *handler);

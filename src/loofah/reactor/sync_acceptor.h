@@ -13,17 +13,17 @@ namespace loofah
 
 class SyncAcceptorBase : public SyncEventHandler
 {
-    handle_t _listen_socket_fd = INVALID_HANDLE;
+    socket_t _listen_socket = INVALID_SOCKET_VALUE;
 
 protected:
-    handle_t handle_accept();
+    socket_t handle_accept();
 
 public:
-    bool open(int port, int listen_num = 10);
+    bool open(int port, int listen_num = SOMAXCONN);
 
-    virtual handle_t get_handle() const override
+    virtual socket_t get_socket() const override
     {
-        return _listen_socket_fd;
+        return _listen_socket;
     }
 };
 
@@ -33,7 +33,7 @@ class SyncAcceptor : public SyncAcceptorBase
 public:
     virtual void handle_read_ready() override
     {
-        handle_t fd = handle_accept();
+        socket_t fd = handle_accept();
         STREAM *handler = (STREAM*) ::malloc(sizeof(STREAM));
         assert(NULL != handler);
         new (handler) STREAM;

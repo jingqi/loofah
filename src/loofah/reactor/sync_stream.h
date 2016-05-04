@@ -13,12 +13,12 @@ namespace loofah
 class SyncStream : public SyncEventHandler
 {
 protected:
-    handle_t _fd = INVALID_HANDLE;
+    socket_t _fd = INVALID_SOCKET_VALUE;
 
 public:
-    virtual void open(handle_t fd);
+    virtual void open(socket_t fd);
 
-    virtual handle_t get_handle() const override
+    virtual socket_t get_socket() const override
     {
         return _fd;
     }
