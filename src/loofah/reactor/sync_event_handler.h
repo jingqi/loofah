@@ -9,6 +9,7 @@ namespace loofah
 
 class SyncEventHandler
 {
+	// 用于记录注册状态，参见 Reactor 的实现
 	int _registered_events = 0;
 	friend class Reactor;
 

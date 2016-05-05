@@ -21,31 +21,32 @@ class AsyncEventHandler;
 #if NUT_PLATFORM_OS_WINDOWS
 struct IOContext
 {
-    OVERLAPPED overlapped; // NOTE 必须放在首位
+    // NOTE OVERLAPPED 必须放在首位
+    OVERLAPPED overlapped;
 
-    AsyncEventHandler *handler = NULL;
-    int mask = 0;
-
-    int buf_len = 0;
-    char *buf = NULL;
+    // 事件类型
+    int event_type = 0;
 
     socket_t accept_socket = INVALID_SOCKET_VALUE;
 
     WSABUF wsabuf;
 
-    IOContext(AsyncEventHandler *handler_, int mask_, int buf_len_, socket_t accept_socket_ = INVALID_SOCKET_VALUE)
-        : handler(handler_), mask(mask_), buf_len(buf_len_), accept_socket(accept_socket_)
+    IOContext(int event_type_, int buf_len, socket_t accept_socket_ = INVALID_SOCKET_VALUE)
+        : event_type(event_type_), accept_socket(accept_socket_)
     {
-        assert(NULL != handler_ && buf_len_ > 0);
+        assert(buf_len > 0);
         ::memset(&overlapped, 0, sizeof(overlapped));
-        buf = (char*) ::malloc(buf_len);
+
+        wsabuf.buf = (char*) ::malloc(buf_len);
+        assert(NULL != wsabuf.buf);
+        wsabuf.len = buf_len;
     }
 
     ~IOContext()
     {
-        if (NULL != buf)
-            ::free(buf);
-        buf = NULL;
+        if (NULL != wsabuf.buf)
+            ::free(wsabuf.buf);
+        wsabuf.buf = NULL;
     }
 };
 #endif

@@ -19,7 +19,10 @@ protected:
     socket_t handle_accept();
 
 public:
-    bool open(int port, int listen_num = SOMAXCONN);
+    /**
+     * @param listen_num For windows, you can pass 'SOMAXCONN' to handle max number of sockets
+     */
+    bool open(int port, int listen_num = 2048);
 
     virtual socket_t get_socket() const override
     {
@@ -33,6 +36,7 @@ class SyncAcceptor : public SyncAcceptorBase
 public:
     virtual void handle_read_ready() override
     {
+        // create new handler
         socket_t fd = handle_accept();
         STREAM *handler = (STREAM*) ::malloc(sizeof(STREAM));
         assert(NULL != handler);

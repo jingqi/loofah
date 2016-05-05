@@ -1,4 +1,7 @@
 
+#include <assert.h>
+#include <new>
+
 #include <nut/platform/platform.h>
 
 #if NUT_PLATFORM_OS_WINDOWS
@@ -21,6 +24,7 @@ bool AsyncAcceptorBase::open(int port, int listen_num)
 {
 #if NUT_PLATFORM_OS_WINDOWS
     // create socket
+    // NOTE 必须使用 ::WSASocket() 创建 socket 并带上 WSA_FLAG_OVERLAPPED 标记
     _listen_socket = ::WSASocket(AF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
     if (INVALID_SOCKET_VALUE == _listen_socket)
     {
@@ -55,58 +59,24 @@ bool AsyncAcceptorBase::open(int port, int listen_num)
 #endif
 }
 
-void AsyncAcceptorBase::associate_proactor(Proactor *proactor)
+socket_t AsyncAcceptorBase::handle_accept(struct IOContext *io_context)
 {
-    assert(NULL != proactor);
-    assert(INVALID_SOCKET_VALUE != _listen_socket && NULL == _proactor);
+    assert(NULL != io_context);
 
-#if NUT_PLATFORM_OS_WINDOWS
-    const HANDLE rs_iocp = ::CreateIoCompletionPort((HANDLE)_listen_socket, proactor->get_iocp(), 0, 0);
-    if (NULL == rs_iocp)
-    {
-        NUT_LOG_E(TAG, "failed to associate IOCP with errno %d", ::GetLastError());
-        return;
-    }
-    _proactor = proactor;
-#endif
-}
+    // get peer address
+    SOCKADDR_IN *remote_addr = NULL, *local_addr = NULL;
+    int remote_len = sizeof(SOCKADDR_IN), local_len = sizeof(SOCKADDR_IN);
+    assert(NULL != func_GetAcceptExSockaddrs);
+    func_GetAcceptExSockaddrs(io_context->wsabuf.buf,
+                              io_context->wsabuf.len - 2 * (sizeof(struct sockaddr_in) + 16),
+                              sizeof(struct sockaddr_in) + 16,
+                              sizeof(struct sockaddr_in) + 16,
+                              (LPSOCKADDR*)&local_addr,
+                              &local_len,
+                              (LPSOCKADDR*)&remote_addr,
+                              &remote_len);
 
-void AsyncAcceptorBase::launch_accept()
-{
-    assert(INVALID_SOCKET_VALUE != _listen_socket && NULL != _proactor);
-
-#if NUT_PLATFORM_OS_WINDOWS
-    socket_t accept_socket = ::socket(AF_INET, SOCK_STREAM, 0);
-    if (INVALID_SOCKET_VALUE == accept_socket)
-    {
-        NUT_LOG_E(TAG, "failed to call ::socket()");
-        return;
-    }
-
-    struct IOContext io_context(this, AsyncEventHandler::ACCEPT_MASK, 2 * (sizeof(struct sockaddr_in) + 16), accept_socket);
-    DWORD bytes = 0;
-    assert(NULL != func_AcceptEx);
-    const BOOL rs = func_AcceptEx(_listen_socket,
-                                  accept_socket,
-                                  io_context.buf,
-                                  io_context.buf_len - 2 * (sizeof(struct sockaddr_in) + 16), // substract address length
-                                  sizeof(struct sockaddr_in) + 16, // local address length
-                                  sizeof(struct sockaddr_in) + 16, // remote address length
-                                  &bytes, (LPOVERLAPPED)&io_context);
-    if (FALSE == rs)
-    {
-        NUT_LOG_E(TAG, "failed to call ::AcceptEx()");
-        ::closesocket(accept_socket);
-        return;
-    }
-    HANDLE rs_iocp = ::CreateIoCompletionPort((HANDLE)accept_socket, _proactor->get_iocp(), 0, 0);
-    if (NULL == rs_iocp)
-    {
-        NUT_LOG_E(TAG, "failed to associate IOCP with errno %d", ::GetLastError());
-        ::closesocket(accept_socket);
-        return;
-    }
-#endif
+    return io_context->accept_socket;
 }
 
 }

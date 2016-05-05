@@ -13,18 +13,14 @@ class AsyncStream : public AsyncEventHandler
 {
 protected:
     socket_t _fd = INVALID_SOCKET_VALUE;
-    Proactor *_proactor = NULL;
 
 public:
-    virtual void open(socket_t fd, Proactor *proactor);
+    virtual void open(socket_t fd);
 
     virtual socket_t get_socket() const override
     {
         return _fd;
     }
-
-    void launch_read();
-    void launch_write();
 };
 
 }
