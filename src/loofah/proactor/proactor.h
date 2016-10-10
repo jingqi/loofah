@@ -5,8 +5,8 @@
 #include <nut/platform/platform.h>
 
 #if NUT_PLATFORM_OS_WINDOWS
-#    include <winsock2.h>
-#    include <windows.h>
+#   include <winsock2.h>
+#   include <windows.h>
 #endif
 
 #include "async_event_handler.h"
@@ -18,8 +18,6 @@ class Proactor
 {
 #if NUT_PLATFORM_OS_WINDOWS
     HANDLE _iocp = INVALID_HANDLE_VALUE;
-#elif NUT_PLATFORM_OS_MAC
-    int _kq = 0;
 #endif
 
 public:

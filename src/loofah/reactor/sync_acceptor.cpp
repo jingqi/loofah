@@ -20,9 +20,9 @@
 namespace loofah
 {
 
-bool SyncAcceptorBase::open(int port, int listen_num)
+bool SyncAcceptorBase::open(const INETAddr& addr, int listen_num)
 {
-    // create socket
+    // Create socket
     _listen_socket = ::socket(AF_INET, SOCK_STREAM, 0);
     if (INVALID_SOCKET_VALUE == _listen_socket)
     {
@@ -30,18 +30,18 @@ bool SyncAcceptorBase::open(int port, int listen_num)
         return false;
     }
 
-    // make port reuseable
+    // Make port reuseable
     if (!make_listen_socket_reuseable(_listen_socket))
 		NUT_LOG_W(TAG, "failed to make listen socket reuseable, socketfd %d", _listen_socket);
 
-    // bind
-    struct sockaddr_in sin;
-    sin.sin_family = AF_INET;
-    sin.sin_addr.s_addr = 0;
-    sin.sin_port = htons(port);
+    // Bind
+    const struct sockaddr_in& sin = addr.get_sockaddr_in();
+    //sin.sin_family = AF_INET;
+    //sin.sin_addr.s_addr = 0;
+    //sin.sin_port = htons(port);
     if (::bind(_listen_socket, (struct sockaddr*)&sin, sizeof(sin)) < 0)
     {
-        NUT_LOG_E(TAG, "failed to call ::bind() with port %d", port);
+        NUT_LOG_E(TAG, "failed to call ::bind() with addr %s", addr.to_string().c_str());
 #if NUT_PLATFORM_OS_WINDOWS
         ::closesocket(_listen_socket);
 #else
@@ -51,10 +51,10 @@ bool SyncAcceptorBase::open(int port, int listen_num)
         return false;
     }
 
-    // listen
+    // Listen
     if (::listen(_listen_socket, listen_num) < 0)
     {
-        NUT_LOG_E(TAG, "failed to call ::listen() with port %d", port);
+        NUT_LOG_E(TAG, "failed to call ::listen() with addr %s", addr.to_string().c_str());
 #if NUT_PLATFORM_OS_WINDOWS
         ::closesocket(_listen_socket);
 #else
@@ -64,7 +64,7 @@ bool SyncAcceptorBase::open(int port, int listen_num)
         return false;
     }
 
-    // make socket non-blocking
+    // Make socket non-blocking
     if (!make_socket_nonblocking(_listen_socket))
 		NUT_LOG_W(TAG, "failed to make listen socket nonblocking, socketfd %d", _listen_socket);
 

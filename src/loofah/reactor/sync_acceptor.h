@@ -7,6 +7,7 @@
 #include <new> // for placement new
 
 #include "sync_event_handler.h"
+#include "../inet_addr.h"
 
 namespace loofah
 {
@@ -20,9 +21,9 @@ protected:
 
 public:
     /**
-     * @param listen_num For windows, you can pass 'SOMAXCONN' to handle max number of sockets
+     * @param listen_num 在 windows 下, 可以使用 'SOMAXCONN' 表示最大允许链接数
      */
-    bool open(int port, int listen_num = 2048);
+    bool open(const INETAddr& addr, int listen_num = 2048);
 
     virtual socket_t get_socket() const override
     {
@@ -36,7 +37,7 @@ class SyncAcceptor : public SyncAcceptorBase
 public:
     virtual void handle_read_ready() override
     {
-        // create new handler
+        // Create new handler
         socket_t fd = handle_accept();
         STREAM *handler = (STREAM*) ::malloc(sizeof(STREAM));
         assert(NULL != handler);

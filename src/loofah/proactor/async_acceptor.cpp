@@ -1,4 +1,4 @@
-
+﻿
 #include <assert.h>
 #include <new>
 
@@ -23,7 +23,7 @@ namespace loofah
 bool AsyncAcceptorBase::open(int port, int listen_num)
 {
 #if NUT_PLATFORM_OS_WINDOWS
-    // create socket
+    // Create socket
     // NOTE 必须使用 ::WSASocket() 创建 socket 并带上 WSA_FLAG_OVERLAPPED 标记
     _listen_socket = ::WSASocket(AF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
     if (INVALID_SOCKET_VALUE == _listen_socket)
@@ -32,7 +32,7 @@ bool AsyncAcceptorBase::open(int port, int listen_num)
         return false;
     }
 
-    // bind
+    // Bind
     struct sockaddr_in sin;
     ::memset(&sin, 0, sizeof(sin));
     sin.sin_family = AF_INET;
@@ -46,7 +46,7 @@ bool AsyncAcceptorBase::open(int port, int listen_num)
         return false;
     }
 
-    // listen
+    // Listen
     if (SOCKET_ERROR == ::listen(_listen_socket, listen_num))
     {
         NUT_LOG_E(TAG, "failed to call ::listen() with port %d", port);
@@ -63,9 +63,10 @@ socket_t AsyncAcceptorBase::handle_accept(struct IOContext *io_context)
 {
     assert(NULL != io_context);
 
-    // get peer address
-    SOCKADDR_IN *remote_addr = NULL, *local_addr = NULL;
-    int remote_len = sizeof(SOCKADDR_IN), local_len = sizeof(SOCKADDR_IN);
+#if NUT_PLATFORM_OS_WINDOWS
+    // Get peer address
+    struct SOCKADDR_IN *remote_addr = NULL, *local_addr = NULL;
+    int remote_len = sizeof(struct SOCKADDR_IN), local_len = sizeof(struct SOCKADDR_IN);
     assert(NULL != func_GetAcceptExSockaddrs);
     func_GetAcceptExSockaddrs(io_context->wsabuf.buf,
                               io_context->wsabuf.len - 2 * (sizeof(struct sockaddr_in) + 16),
@@ -77,6 +78,7 @@ socket_t AsyncAcceptorBase::handle_accept(struct IOContext *io_context)
                               &remote_len);
 
     return io_context->accept_socket;
+#endif
 }
 
 }

@@ -1,9 +1,14 @@
 
+#include <nut/logging/logger.h>
+
 #include <loofah/reactor/reactor.h>
 #include <loofah/reactor/sync_acceptor.h>
 #include <loofah/reactor/sync_stream.h>
 #include <loofah/reactor/sync_connector.h>
 
+#define TAG "test_reactor"
+#define LISTEN_ADDR "localhost"
+#define LISTEN_PORT 2345
 #define BUF_LEN 256
 
 using namespace loofah;
@@ -26,8 +31,9 @@ public:
         ::free(_buf);
     }
 
-    void open(loofah::socket_t fd) override
+    virtual void open(loofah::socket_t fd) override
     {
+        NUT_LOG_D(TAG, "server stream opened");
         SyncStream::open(fd);
 
         reactor.register_handler(this, SyncEventHandler::READ_MASK | SyncEventHandler::WRITE_MASK);
@@ -36,14 +42,19 @@ public:
 
     virtual void handle_read_ready() override
     {
-        _sz = ::read(_fd, &_buf, BUF_LEN - 1);
-        if (_sz > 0)
+        _sz = ::read(_fd, _buf, BUF_LEN - 1);
+        NUT_LOG_D(TAG, "readed %d bytes from client", _sz);
+        if (0 == _sz) // Õý³£½áÊø
+            close();
+        else if (_sz > 0)
             reactor.enable_handler(this, SyncEventHandler::WRITE_MASK);
     }
 
     virtual void handle_write_ready() override
     {
         ::write(_fd, _buf, _sz);
+        NUT_LOG_D(TAG, "wrote %d bytes to client", _sz);
+        _sz = 0;
         reactor.disable_handler(this, SyncEventHandler::WRITE_MASK);
     }
 };
@@ -51,8 +62,10 @@ public:
 void start_reactor_server(void*)
 {
 	SyncAcceptor<ServerStream> acc;
-	acc.open(2345);
+    INETAddr addr(LISTEN_ADDR, LISTEN_PORT);
+	acc.open(addr);
 	reactor.register_handler(&acc, SyncEventHandler::READ_MASK);
+    NUT_LOG_D(TAG, "listening to %s", addr.to_string().c_str());
     while (true)
         reactor.handle_events();
 }
@@ -61,11 +74,13 @@ class ClientStream : public SyncStream
 {
     char *_buf = NULL;
     int _sz = 0;
+    int _count = 0;
 
 public:
     ClientStream()
     {
         _buf = (char*) ::malloc(BUF_LEN);
+        _sz = 3;
     }
 
     ~ClientStream()
@@ -75,15 +90,23 @@ public:
 
     void open(loofah::socket_t fd) override
     {
+        NUT_LOG_E(TAG, "client stream opened");
         SyncStream::open(fd);
 
         reactor.register_handler(this, SyncEventHandler::READ_MASK | SyncEventHandler::WRITE_MASK);
-        reactor.disable_handler(this, SyncEventHandler::WRITE_MASK);
+        //reactor.disable_handler(this, SyncEventHandler::WRITE_MASK);
     }
 
     virtual void handle_read_ready() override
     {
-        _sz = ::read(_fd, &_buf, BUF_LEN - 1);
+        _sz = ::read(_fd, _buf, BUF_LEN - 1);
+        NUT_LOG_D(TAG, "readed %d bytes from server", _sz);
+        if (_count >= 10)
+        {
+            close();
+            return;
+        }
+
         if (_sz > 0)
             reactor.enable_handler(this, SyncEventHandler::WRITE_MASK);
     }
@@ -91,16 +114,21 @@ public:
     virtual void handle_write_ready() override
     {
         ::write(_fd, _buf, _sz);
+        NUT_LOG_D(TAG, "wrote %d bytes to server", _sz);
+        _sz = 0;
+        ++_count;
         reactor.disable_handler(this, SyncEventHandler::WRITE_MASK);
     }
 };
 
 void start_reactor_client(void*)
 {
-    ::sleep(3); // sleep 3 seconds
+    ::sleep(1); // Wait for server to be setupped
 
-    INETAddr addr("localhost", 2345);
+    INETAddr addr(LISTEN_ADDR, LISTEN_PORT);
     SyncConnector con;
-    ClientStream client;
-    con.connect(&client, addr);
+    ClientStream *client = (ClientStream*) ::malloc(sizeof(ClientStream));
+    new (client) ClientStream;
+    NUT_LOG_D(TAG, "will connect to %s", addr.to_string().c_str());
+    con.connect(client, addr);
 }

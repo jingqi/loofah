@@ -29,7 +29,7 @@ bool SyncConnector::connect(SyncStream *stream, const INETAddr& address)
 {
     assert(NULL != stream);
 
-    // new socket
+    // New socket
     int fd = ::socket(PF_INET, SOCK_STREAM, 0);
     if (-1 == fd)
     {
@@ -37,7 +37,7 @@ bool SyncConnector::connect(SyncStream *stream, const INETAddr& address)
         return false;
     }
 
-    // connect
+    // Connect
     const struct sockaddr_in& server_addr = address.get_sockaddr_in();
     const int status = ::connect(fd, (struct sockaddr*)&server_addr, sizeof(server_addr));
     if (-1 == status)
@@ -49,7 +49,7 @@ bool SyncConnector::connect(SyncStream *stream, const INETAddr& address)
         return false;
     }
 
-    // make nonblocking
+    // Make it nonblocking
     if (!make_socket_nonblocking(fd))
 		NUT_LOG_W(TAG, "failed to make socket nonblocking, socketfd %d", fd);
 

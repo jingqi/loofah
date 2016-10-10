@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "sync_event_handler.h"
+#include "../inet_addr.h"
 
 namespace loofah
 {
@@ -22,6 +23,10 @@ public:
     {
         return _fd;
     }
+
+    void close();
+
+    INETAddr get_peer_addr() const;
 };
 
 }
