@@ -41,8 +41,10 @@ INETAddr::INETAddr(const char *addr, int port)
 
 #if NUT_PLATFORM_OS_WINDOWS
     _sock_addr.sin_addr.S_un.S_addr = ::inet_addr(addr);
+    if (INADDR_NONE == _sock_addr.sin_addr.S_un.S_addr)
 #else
-    if (::inet_aton(addr, &_sock_addr.sin_addr) == 0) // 0 means failed
+    if (0 == ::inet_aton(addr, &_sock_addr.sin_addr)) // 0 means failed
+#endif
     {
         // 传入的不是ip字符串，而是主机名，需要查询主机地址
         struct hostent* phostent = ::gethostbyname(addr);
@@ -54,7 +56,6 @@ INETAddr::INETAddr(const char *addr, int port)
 
         _sock_addr.sin_addr.s_addr = *((unsigned long*) phostent->h_addr);
     }
-#endif
 
     // NUT_LOG_D(TAG, "resolved ip: \"%s\" -> \"%s\"", addr, ::inet_ntoa(_sock_addr.sin_addr));
 }

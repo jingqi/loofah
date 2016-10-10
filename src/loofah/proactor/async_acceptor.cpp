@@ -65,8 +65,8 @@ socket_t AsyncAcceptorBase::handle_accept(struct IOContext *io_context)
 
 #if NUT_PLATFORM_OS_WINDOWS
     // Get peer address
-    struct SOCKADDR_IN *remote_addr = NULL, *local_addr = NULL;
-    int remote_len = sizeof(struct SOCKADDR_IN), local_len = sizeof(struct SOCKADDR_IN);
+    struct sockaddr_in *remote_addr = NULL, *local_addr = NULL;
+    int remote_len = sizeof(struct sockaddr_in), local_len = sizeof(struct sockaddr_in);
     assert(NULL != func_GetAcceptExSockaddrs);
     func_GetAcceptExSockaddrs(io_context->wsabuf.buf,
                               io_context->wsabuf.len - 2 * (sizeof(struct sockaddr_in) + 16),

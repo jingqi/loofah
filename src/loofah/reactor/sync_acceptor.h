@@ -1,4 +1,4 @@
-
+ï»¿
 #ifndef ___HEADFILE_42991067_03A8_4F2D_ACB6_10A384BA4ECF_
 #define ___HEADFILE_42991067_03A8_4F2D_ACB6_10A384BA4ECF_
 
@@ -21,7 +21,7 @@ protected:
 
 public:
     /**
-     * @param listen_num ÔÚ windows ÏÂ, ¿ÉÒÔÊ¹ÓÃ 'SOMAXCONN' ±íÊ¾×î´óÔÊĞíÁ´½ÓÊı
+     * @param listen_num åœ¨ windows ä¸‹, å¯ä»¥ä½¿ç”¨ 'SOMAXCONN' è¡¨ç¤ºæœ€å¤§å…è®¸é“¾æ¥æ•°
      */
     bool open(const INETAddr& addr, int listen_num = 2048);
 

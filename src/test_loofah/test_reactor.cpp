@@ -1,4 +1,4 @@
-
+ï»¿
 #include <nut/logging/logger.h>
 
 #include <loofah/reactor/reactor.h>
@@ -44,7 +44,7 @@ public:
     {
         _sz = ::read(_fd, _buf, BUF_LEN - 1);
         NUT_LOG_D(TAG, "readed %d bytes from client", _sz);
-        if (0 == _sz) // Õý³£½áÊø
+        if (0 == _sz) // æ­£å¸¸ç»“æŸ
             close();
         else if (_sz > 0)
             reactor.enable_handler(this, SyncEventHandler::WRITE_MASK);
@@ -61,10 +61,10 @@ public:
 
 void start_reactor_server(void*)
 {
-	SyncAcceptor<ServerStream> acc;
+    SyncAcceptor<ServerStream> acc;
     INETAddr addr(LISTEN_ADDR, LISTEN_PORT);
-	acc.open(addr);
-	reactor.register_handler(&acc, SyncEventHandler::READ_MASK);
+    acc.open(addr);
+    reactor.register_handler(&acc, SyncEventHandler::READ_MASK);
     NUT_LOG_D(TAG, "listening to %s", addr.to_string().c_str());
     while (true)
         reactor.handle_events();
@@ -90,7 +90,7 @@ public:
 
     void open(loofah::socket_t fd) override
     {
-        NUT_LOG_E(TAG, "client stream opened");
+        NUT_LOG_D(TAG, "client stream opened");
         SyncStream::open(fd);
 
         reactor.register_handler(this, SyncEventHandler::READ_MASK | SyncEventHandler::WRITE_MASK);

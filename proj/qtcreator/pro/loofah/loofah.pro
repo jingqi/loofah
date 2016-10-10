@@ -3,7 +3,6 @@ TARGET = loofah
 TEMPLATE = lib
 
 QT -= core gui
-CONFIG += staticlib
 
 # 配置输出目录
 DESTDIR = $$PWD/../..
@@ -57,13 +56,14 @@ SOURCES += $$files($${SRC_ROOT}/*.c*, true)
 # 连接库
 mac {
     LIBS += -lc++
-} else: !unix {
+} else: unix {
+    LIBS += -lrt
+} else {
     LIBS += libpthread -lwininet -lws2_32 -lwsock32
 }
 LIBS += -L$${NUT_OUTDIR} -lnut
 
 # dylib 安装路径
 mac: contains(TEMPLATE, lib): !contains(CONFIG, staticlib) {
-    QMAKE_POST_LINK = install_name_tool -id @loader_path/lib$${TARGET}.dylib \
-        $${DESTDIR}/lib$${TARGET}.dylib$$escape_expand(\n\t)
+    QMAKE_LFLAGS_SONAME = -Wl,-install_name,@rpath/
 }

@@ -1,4 +1,4 @@
-
+﻿
 #include <assert.h>
 #include <string.h>
 
@@ -51,7 +51,7 @@ bool SyncConnector::connect(SyncStream *stream, const INETAddr& address)
 
     // Make it nonblocking
     if (!make_socket_nonblocking(fd))
-		NUT_LOG_W(TAG, "failed to make socket nonblocking, socketfd %d", fd);
+        NUT_LOG_W(TAG, "failed to make socket nonblocking, socketfd %d", fd);
 
     stream->open(fd);
 

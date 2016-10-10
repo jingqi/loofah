@@ -1,4 +1,4 @@
-
+﻿
 #include <nut/platform/platform.h>
 
 #if NUT_PLATFORM_OS_WINDOWS
@@ -32,7 +32,7 @@ bool SyncAcceptorBase::open(const INETAddr& addr, int listen_num)
 
     // Make port reuseable
     if (!make_listen_socket_reuseable(_listen_socket))
-		NUT_LOG_W(TAG, "failed to make listen socket reuseable, socketfd %d", _listen_socket);
+        NUT_LOG_W(TAG, "failed to make listen socket reuseable, socketfd %d", _listen_socket);
 
     // Bind
     const struct sockaddr_in& sin = addr.get_sockaddr_in();
@@ -47,7 +47,7 @@ bool SyncAcceptorBase::open(const INETAddr& addr, int listen_num)
 #else
         ::close(_listen_socket);
 #endif
-		_listen_socket = INVALID_SOCKET_VALUE;
+        _listen_socket = INVALID_SOCKET_VALUE;
         return false;
     }
 
@@ -58,15 +58,15 @@ bool SyncAcceptorBase::open(const INETAddr& addr, int listen_num)
 #if NUT_PLATFORM_OS_WINDOWS
         ::closesocket(_listen_socket);
 #else
-		::close(_listen_socket);
+        ::close(_listen_socket);
 #endif
-		_listen_socket = INVALID_SOCKET_VALUE;
+        _listen_socket = INVALID_SOCKET_VALUE;
         return false;
     }
 
     // Make socket non-blocking
     if (!make_socket_nonblocking(_listen_socket))
-		NUT_LOG_W(TAG, "failed to make listen socket nonblocking, socketfd %d", _listen_socket);
+        NUT_LOG_W(TAG, "failed to make listen socket nonblocking, socketfd %d", _listen_socket);
 
     return true;
 }
@@ -98,13 +98,13 @@ socket_t SyncAcceptorBase::handle_accept()
 #if NUT_PLATFORM_OS_WINDOWS
         ::closesocket(fd);
 #else
-		::close(fd);
+        ::close(fd);
 #endif
         return INVALID_SOCKET_VALUE;
     }
 
     if (!make_socket_nonblocking(fd))
-		NUT_LOG_W(TAG, "failed to make socket nonblocking, socketfd %d", fd);
+        NUT_LOG_W(TAG, "failed to make socket nonblocking, socketfd %d", fd);
 
     return fd;
 }

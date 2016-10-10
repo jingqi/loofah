@@ -1,4 +1,4 @@
-
+ï»¿
 #ifndef ___HEADFILE_B0333459_F9CF_4935_A74F_41D0071CE268_
 #define ___HEADFILE_B0333459_F9CF_4935_A74F_41D0071CE268_
 
@@ -17,7 +17,7 @@ namespace loofah
 {
 
 /**
- * ÍøÂçµØÖ·£¬Ò»°ã°üº¬IPµØÖ·ºÍ¶Ë¿ÚºÅ
+ * ç½‘ç»œåœ°å€ï¼Œä¸€èˆ¬åŒ…å«IPåœ°å€å’Œç«¯å£å·
  */
 class INETAddr
 {
