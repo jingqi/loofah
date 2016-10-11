@@ -2,9 +2,12 @@
 #ifndef ___HEADFILE_8723819F_8E41_4D8B_AB1F_81205AC4CE38_
 #define ___HEADFILE_8723819F_8E41_4D8B_AB1F_81205AC4CE38_
 
+#include "loofah.h"
+
 #include <nut/platform/platform.h>
 
 #if NUT_PLATFORM_OS_WINDOWS
+    // NOTE winsock2.h 必须放在 windows.h 之前
 #   include <winsock2.h>
 #   include <windows.h>
 #   include <mswsock.h>
@@ -23,8 +26,8 @@ extern LPFN_CONNECTEX func_ConnectEx;
 extern LPFN_GETACCEPTEXSOCKADDRS func_GetAcceptExSockaddrs;
 #endif
 
-bool init_network();
-void shutdown_network();
+LOOFAH_API bool init_network();
+LOOFAH_API void shutdown_network();
 
 // 复用监听端口，必须在 bind() 之前调用
 bool make_listen_socket_reuseable(socket_t listen_socket);

@@ -5,8 +5,15 @@
 #include <nut/platform/platform.h>
 
 #if NUT_PLATFORM_OS_WINDOWS
-#     include <winsock2.h>
-#     include <windows.h>
+    // NOTE winsock2.h 必须放在 windows.h 之前
+#   include <winsock2.h>
+#   include <windows.h>
+#endif
+
+#if defined(BUILDING_LOOFAH_DLL)
+#   define LOOFAH_API DLL_EXPORT
+#else
+#   define LOOFAH_API DLL_IMPORT
 #endif
 
 namespace loofah

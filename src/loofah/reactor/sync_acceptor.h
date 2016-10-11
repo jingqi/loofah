@@ -12,7 +12,7 @@
 namespace loofah
 {
 
-class SyncAcceptorBase : public SyncEventHandler
+class LOOFAH_API SyncAcceptorBase : public SyncEventHandler
 {
     socket_t _listen_socket = INVALID_SOCKET_VALUE;
 

@@ -1,0 +1,86 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="loofah">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="loofah\proactor">
+      <UniqueIdentifier>{47854134-c562-4104-bae1-cbca77ec69c3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="loofah\reactor">
+      <UniqueIdentifier>{80ec954e-cbc4-4cba-a31d-e2897e5d9484}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\..\src\loofah\inet_addr.cpp">
+      <Filter>loofah</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\loofah\utils.cpp">
+      <Filter>loofah</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\loofah\proactor\async_acceptor.cpp">
+      <Filter>loofah\proactor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\loofah\proactor\async_stream.cpp">
+      <Filter>loofah\proactor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\loofah\proactor\proactor.cpp">
+      <Filter>loofah\proactor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\loofah\reactor\reactor.cpp">
+      <Filter>loofah\reactor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\loofah\reactor\sync_acceptor.cpp">
+      <Filter>loofah\reactor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\loofah\reactor\sync_connector.cpp">
+      <Filter>loofah\reactor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\loofah\reactor\sync_stream.cpp">
+      <Filter>loofah\reactor</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\..\src\loofah\inet_addr.h">
+      <Filter>loofah</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\loofah.h">
+      <Filter>loofah</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\utils.h">
+      <Filter>loofah</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\proactor\async_acceptor.h">
+      <Filter>loofah\proactor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\proactor\async_event_handler.h">
+      <Filter>loofah\proactor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\proactor\async_stream.h">
+      <Filter>loofah\proactor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\proactor\proactor.h">
+      <Filter>loofah\proactor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\reactor\reactor.h">
+      <Filter>loofah\reactor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\reactor\sync_acceptor.h">
+      <Filter>loofah\reactor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\reactor\sync_connector.h">
+      <Filter>loofah\reactor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\reactor\sync_event_handler.h">
+      <Filter>loofah\reactor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\reactor\sync_stream.h">
+      <Filter>loofah\reactor</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

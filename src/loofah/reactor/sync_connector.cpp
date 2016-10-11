@@ -7,10 +7,11 @@
 #if NUT_PLATFORM_OS_WINDOWS
 #   include <winsock2.h>
 #   include <windows.h>
+#   include <io.h> // for ::close()
 #else
-#   include <sys/socket.h> // for socket() and so on
+#   include <sys/socket.h> // for ::socket() and so on
 #   include <netinet/in.h> // for struct sockaddr_in
-#   include <unistd.h> // for close()
+#   include <unistd.h> // for ::close()
 #endif
 
 #include <errno.h>

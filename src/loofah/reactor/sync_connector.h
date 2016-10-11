@@ -8,7 +8,7 @@
 namespace loofah
 {
 
-class SyncConnector
+class LOOFAH_API SyncConnector
 {
 public:
     bool connect(SyncStream *stream, const INETAddr& address);

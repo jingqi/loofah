@@ -10,7 +10,7 @@
 namespace loofah
 {
 
-class Reactor
+class LOOFAH_API Reactor
 {
 #if NUT_PLATFORM_OS_WINDOWS
     // TODO

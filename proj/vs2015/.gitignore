@@ -1,0 +1,16 @@
+*.exe
+*.dll
+*.lib
+*.suo
+*.user
+*.opensdf
+*.opendb
+*.sdf
+
+/Debug
+/Release
+/ipch
+/loofah/Debug
+/loofah/Release
+/test_loofah/Debug
+/test_loofah/Release

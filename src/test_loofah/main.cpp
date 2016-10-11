@@ -5,18 +5,20 @@
 #include <string.h>
 #include <errno.h>
 
-#include <unistd.h>
+// This should appear before "windows.h"
+#include <loofah/loofah.h>
+#include <loofah/utils.h>
 
 #include <nut/platform/platform.h>
 
 #if NUT_PLATFORM_OS_WINDOWS
-#include <windows.h>
+#   include <windows.h>
+#else
+#   include <unistd.h>
 #endif
 
 #include <nut/logging/logger.h>
 #include <nut/threading/thread_pool.h>
-
-#include <loofah/utils.h>
 
 using namespace nut;
 

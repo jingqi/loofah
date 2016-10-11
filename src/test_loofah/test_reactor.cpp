@@ -1,10 +1,17 @@
 ﻿
-#include <nut/logging/logger.h>
-
 #include <loofah/reactor/reactor.h>
 #include <loofah/reactor/sync_acceptor.h>
 #include <loofah/reactor/sync_stream.h>
 #include <loofah/reactor/sync_connector.h>
+
+#include <nut/platform/platform.h>
+
+#if NUT_PLATFORM_OS_WINDOWS
+#   include <windows.h>
+#endif
+
+#include <nut/logging/logger.h>
+
 
 #define TAG "test_reactor"
 #define LISTEN_ADDR "localhost"
@@ -123,7 +130,11 @@ public:
 
 void start_reactor_client(void*)
 {
+#if NUT_PLATFORM_OS_WINDOWS
+    ::Sleep(1000);
+#else
     ::sleep(1); // Wait for server to be setupped
+#endif
 
     INETAddr addr(LISTEN_ADDR, LISTEN_PORT);
     SyncConnector con;

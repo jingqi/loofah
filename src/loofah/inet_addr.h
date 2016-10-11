@@ -4,10 +4,13 @@
 
 #include <string>
 
+#include "loofah.h"
+
 #include <nut/platform/platform.h>
 
 #if NUT_PLATFORM_OS_WINDOWS
-#   include <winsock2.h> // NOTE should include winsock2.h before windows.h
+    // NOTE winsock2.h 必须放在 windows.h 之前
+#   include <winsock2.h>
 #   include <windows.h>
 #else
 #   include <netinet/in.h> // for struct sockaddr_in
@@ -19,7 +22,7 @@ namespace loofah
 /**
  * 网络地址，一般包含IP地址和端口号
  */
-class INETAddr
+class LOOFAH_API INETAddr
 {
     struct sockaddr_in _sock_addr;
 
