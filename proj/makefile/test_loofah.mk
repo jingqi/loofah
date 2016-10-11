@@ -2,12 +2,14 @@
 
 DEBUG ?= 0
 
+TARGET_NAME = test_loofah
+
 CC = g++
 LD = gcc
 AR = ar
 
 # variables
-SRC_ROOT = ../../src/test_loofah
+SRC_ROOT = ../../src/${TARGET_NAME}
 ifeq (${DEBUG}, 1)
 	OUT_DIR = $(CURDIR)/debug
 	NUT_OUT_DIR = $(CURDIR)/../../lib/nut.git/proj/makefile/debug
@@ -15,11 +17,10 @@ else
 	OUT_DIR = $(CURDIR)/release
 	NUT_OUT_DIR = $(CURDIR)/../../lib/nut.git/proj/makefile/release
 endif
-OBJ_ROOT = ${OUT_DIR}/obj/test_loofah
-MAKEFILE = test_loofah.mk
+OBJ_ROOT = ${OUT_DIR}/obj/${TARGET_NAME}
 
 # INC
-INC += -I../../lib/nut.git/src -I${SRC_ROOT} -I${SRC_ROOT}/..
+INC += -I../../lib/nut.git/src -I${SRC_ROOT}/..
 
 # DEF
 DEF +=
@@ -41,11 +42,21 @@ endif
 # LIB
 ifeq (${HOST}, Darwin)
 	LIB += -lc++
+	NUT_PATH = ${NUT_OUT_DIR}/libnut.dylib
+	LIB_DEPS += ${NUT_PATH} ${OUT_DIR}/libloofah.dylib
 else
-	LIB += -lpthread
+	LIB += -lpthread -lstdc++
+	NUT_PATH = ${NUT_OUT_DIR}/libnut.so
+	LIB_DEPS += ${NUT_PATH} ${OUT_DIR}/libloofah.so
 endif
 LIB += -L${NUT_OUT_DIR} -lnut -L${OUT_DIR} -lloofah
-LIB_DEPS += ${NUT_OUT_DIR}/libnut.a ${OUT_DIR}/libloofah.a
+
+# LD_FLAGS
+ifeq (${HOST},Darwin)
+	# 指定 rpath
+	LD_FLAGS += -Wl,-rpath,@executable_path
+	LD_FLAGS += -Wl,-rpath,@executable_path/../Frameworks
+endif
 
 # OBJS, DEPS
 DIRS = $(shell find ${SRC_ROOT} -maxdepth 10 -type d)
@@ -54,7 +65,7 @@ OBJS = $(patsubst ${SRC_ROOT}%.cpp,${OBJ_ROOT}%.o,${CPPS})
 DEPS = ${OBJS:.o=.d}
 
 # TARGET
-TARGET = ${OUT_DIR}/test_loofah
+TARGET = ${OUT_DIR}/${TARGET_NAME}
 
 # mkdirs
 $(shell mkdir -p $(patsubst ${SRC_ROOT}%,${OBJ_ROOT}%,${DIRS}))
@@ -63,19 +74,19 @@ all: others ${TARGET}
 
 others:
 	(cd ../../lib/nut.git/proj/makefile ; make -f nut.mk)
+	cp -f ${NUT_PATH} ${OUT_DIR}/
 	make -f loofah.mk
 
 clean:
 	rm -rf ${OBJS}
 	rm -rf ${DEPS}
 	rm -rf ${TARGET}
-	(cd ../../lib/nut.git/proj/makefile ; make -f nut.mk clean)
-	make -f loofah.mk clean
 
 rebuild: clean all
 
 run: ${TARGET}
-	${TARGET}
+	export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${OUT_DIR} ;\
+	(cd ${OUT_DIR} ; ./${TARGET_NAME})
 
 gdb: ${TARGET}
 	gdb ${TARGET}
@@ -90,15 +101,16 @@ valgrind: ${TARGET}
 	valgrind -v --leak-check=full ${TARGET}
 
 # NOTE: in linux, ${LIB} should be the last parameter
-$(TARGET): ${OBJS} ${LIB_DEPS} ${MAKEFILE}
-	${CC} -o $@ ${OBJS} ${LIB}
+THIS_MAKEFILE = $(abspath $(firstword $(MAKEFILE_LIST)))
+$(TARGET): ${OBJS} ${LIB_DEPS} ${THIS_MAKEFILE}
+	${LD} ${OBJS} ${LIB} ${LD_FLAGS} -o $@
 
-${OBJ_ROOT}/%.o: ${SRC_ROOT}/%.cpp ${MAKEFILE}
+${OBJ_ROOT}/%.o: ${SRC_ROOT}/%.cpp ${THIS_MAKEFILE}
 	${CC} ${INC} ${DEF} ${CC_FLAGS} -c $< -o $@
 
 ## 动态生成依赖关系
 # %.d: %.cpp
-${OBJ_ROOT}/%.d: ${SRC_ROOT}/%.cpp ${MAKEFILE}
+${OBJ_ROOT}/%.d: ${SRC_ROOT}/%.cpp ${THIS_MAKEFILE}
 	@rm -f $@
 	@# 向 *.d.$ 中写入 "xx/xx/*.d xx/xx/*.o:\" 这样一个字符串
 	@echo '$@ $@.o:\' | sed 's/[.]d[.]o/.o/g' > $@.$$

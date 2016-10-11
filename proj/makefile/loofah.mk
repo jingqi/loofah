@@ -2,12 +2,14 @@
 
 DEBUG ?= 0
 
+TARGET_NAME = loofah
+
 CC = g++
 LD = gcc
 AR = ar
 
 # variables
-SRC_ROOT = ../../src/loofah
+SRC_ROOT = ../../src/${TARGET_NAME}
 ifeq (${DEBUG}, 1)
 	OUT_DIR = $(CURDIR)/debug
 	NUT_OUT_DIR = $(CURDIR)/../../lib/nut.git/proj/makefile/debug
@@ -15,14 +17,13 @@ else
 	OUT_DIR = $(CURDIR)/release
 	NUT_OUT_DIR = $(CURDIR)/../../lib/nut.git/proj/makefile/release
 endif
-OBJ_ROOT = ${OUT_DIR}/obj/loofah
-MAKEFILE = loofah.mk
+OBJ_ROOT = ${OUT_DIR}/obj/${TARGET_NAME}
 
 # INC
-INC += -I../../lib/nut.git/src -I${SRC_ROOT}
+INC += -I../../lib/nut.git/src -I${SRC_ROOT}/..
 
 # DEF
-DEF +=
+DEF += -DBUILD_LOOFAH_DLL
 
 # CC_FLAGS
 HOST = $(shell uname -s)
@@ -41,11 +42,18 @@ endif
 # LIB
 ifeq (${HOST}, Darwin)
 	LIB += -lc++
+	LIB_DEPS += ${NUT_OUT_DIR}/libnut.dylib
 else
 	LIB += -lpthread
+	LIB_DEPS += ${NUT_OUT_DIR}/libnut.so
 endif
 LIB += -L${NUT_OUT_DIR} -lnut
-LIB_DEPS += ${NUT_OUT_DIR}/libnut.a
+
+# LD_FLAGS
+ifeq (${HOST}, Darwin)
+	# 相当于执行 `install_name_tool -id @rpath/lib${TARGET_NAME}.dylib ${TARGET}`
+	LD_FLAGS += -install_name @rpath/lib${TARGET_NAME}.dylib
+endif
 
 # OBJS, DEPS
 DIRS = $(shell find ${SRC_ROOT} -maxdepth 10 -type d)
@@ -54,12 +62,16 @@ OBJS = $(patsubst ${SRC_ROOT}%.cpp,${OBJ_ROOT}%.o,${CPPS})
 DEPS = ${OBJS:.o=.d}
 
 # TARGET
-TARGET = ${OUT_DIR}/libloofah.a
+ifeq (${HOST}, Darwin)
+	TARGET = ${OUT_DIR}/lib${TARGET_NAME}.dylib
+else
+	TARGET = ${OUT_DIR}/lib${TARGET_NAME}.so
+endif
 
 # mkdirs
 $(shell mkdir -p $(patsubst ${SRC_ROOT}%,${OBJ_ROOT}%,${DIRS}))
 
-.PHONY: all clean rebuild run
+.PHONY: all others clean rebuild run
 
 all: others ${TARGET}
 
@@ -70,23 +82,22 @@ clean:
 	rm -rf ${OBJS}
 	rm -rf ${DEPS}
 	rm -rf ${TARGET}
-	(cd ../../lib/nut.git/proj/makefile ; make -f nut.mk clean)
 
 rebuild: clean all
 
 run: ${TARGET}
 	${TARGET}
 
-${TARGET}: ${OBJS} ${LIB_DEPS} ${MAKEFILE}
-	rm -f $@
-	${AR} cqs $@ ${OBJS}
+THIS_MAKEFILE = $(abspath $(firstword $(MAKEFILE_LIST)))
+${TARGET}: ${OBJS} ${LIB_DEPS} ${THIS_MAKEFILE}
+	${LD} ${OBJS} ${LIB} ${LD_FLAGS} -shared -o $@
 
-${OBJ_ROOT}/%.o: ${SRC_ROOT}/%.cpp ${MAKEFILE}
+${OBJ_ROOT}/%.o: ${SRC_ROOT}/%.cpp ${THIS_MAKEFILE}
 	${CC} ${INC} ${DEF} ${CC_FLAGS} -c $< -o $@
 
 ## 动态生成依赖关系
 # %.d: %.cpp
-${OBJ_ROOT}/%.d: ${SRC_ROOT}/%.cpp ${MAKEFILE}
+${OBJ_ROOT}/%.d: ${SRC_ROOT}/%.cpp ${THIS_MAKEFILE}
 	@rm -f $@
 	@# 向 *.d.$ 中写入 "xx/xx/*.d xx/xx/*.o:\" 这样一个字符串
 	@echo '$@ $@.o:\' | sed 's/[.]d[.]o/.o/g' > $@.$$

@@ -1,8 +1,6 @@
 #!/user/bin/env make
 
 all:
-	(cd ../../lib/nut.git/proj/makefile ; make -f nut.mk)
-	make -f loofah.mk
 	make -f test_loofah.mk
 
 clean:
@@ -17,6 +15,9 @@ run: all
 
 cgdb: all
 	make -f test_loofah.mk cgdb
+
+lldb: all
+	make -f test_loofah.mk lldb
 
 valgrind: all
 	make -f test_loofah.mk valgrind
