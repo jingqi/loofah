@@ -26,7 +26,7 @@ INETAddr::INETAddr(int port)
 {
     ::memset(&_sock_addr, 0, sizeof(_sock_addr));
     _sock_addr.sin_family = AF_INET;
-    _sock_addr.sin_addr.s_addr = 0;
+    _sock_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     _sock_addr.sin_port = htons(port);
 }
 
@@ -36,7 +36,7 @@ INETAddr::INETAddr(const char *addr, int port)
 
     ::memset(&_sock_addr, 0, sizeof(_sock_addr));
     _sock_addr.sin_family = AF_INET;
-    _sock_addr.sin_addr.s_addr = 0;
+    _sock_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     _sock_addr.sin_port = htons(port);
 
 #if NUT_PLATFORM_OS_WINDOWS

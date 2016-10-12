@@ -1,4 +1,4 @@
-
+﻿
 #ifndef ___HEADFILE_037D5BEB_C395_4C0A_A957_F6A95AA9F1D8_
 #define ___HEADFILE_037D5BEB_C395_4C0A_A957_F6A95AA9F1D8_
 
@@ -6,24 +6,25 @@
 #include <new>
 
 #include "async_event_handler.h"
+#include "../base/inet_addr.h"
 
 namespace loofah
 {
 
 class Proactor;
 
-class AsyncAcceptorBase : public AsyncEventHandler
+class LOOFAH_API AsyncAcceptorBase : public AsyncEventHandler
 {
     socket_t _listen_socket = INVALID_SOCKET_VALUE;
 
 protected:
-    socket_t handle_accept(struct IOContext *io_context);
+    socket_t handle_accept(IOContext *io_context);
 
 public:
     /**
-     * @param listen_num For windows, you can pass 'SOMAXCONN' to handle max number of sockets
+     * @param listen_num 在 windows 下, 可以使用 'SOMAXCONN' 表示最大允许链接数
      */
-    bool open(int port, int listen_num = 2048);
+    bool open(const INETAddr& addr, int listen_num = 2048);
 
     virtual socket_t get_socket() const override
     {
@@ -35,14 +36,14 @@ template <typename CHANNEL>
 class AsyncAcceptor : public AsyncAcceptorBase
 {
 public:
-    virtual void handle_accept_completed(struct IOContext *io_context) override
+    virtual void handle_accept_completed(IOContext *io_context) override
     {
 #if NUT_PLATFORM_OS_WINDOWS
-        handle_accept(io_context);
-
-        // create handler
-        socket_t fd = io_context->accept_socket;
+        // Accept
+        const socket_t fd = handle_accept(io_context);
         assert(INVALID_SOCKET_VALUE != fd);
+
+        // Create new handler
         CHANNEL *handler = (CHANNEL*) ::malloc(sizeof(CHANNEL));
         assert(NULL != handler);
         new (handler) CHANNEL;

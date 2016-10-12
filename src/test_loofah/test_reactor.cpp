@@ -20,6 +20,10 @@
 
 using namespace loofah;
 
+
+namespace
+{
+
 Reactor reactor;
 
 class ServerChannel : public SyncChannel
@@ -41,7 +45,7 @@ public:
     virtual void open(socket_t fd) override
     {
         SyncChannel::open(fd);
-        NUT_LOG_D(TAG, "server stream opened");
+        NUT_LOG_D(TAG, "server channel opened");
 
         reactor.register_handler(this, SyncEventHandler::READ_MASK | SyncEventHandler::WRITE_MASK);
         reactor.disable_handler(this, SyncEventHandler::WRITE_MASK);
@@ -49,8 +53,7 @@ public:
 
     virtual void handle_read_ready() override
     {
-        const socket_t fd = get_socket();
-        _sz = ::read(fd, _buf, BUF_LEN - 1);
+        _sz = _sock_stream.read(_buf, BUF_LEN - 1);
         NUT_LOG_D(TAG, "readed %d bytes from client", _sz);
         if (0 == _sz) // 正常结束
             _sock_stream.close();
@@ -60,24 +63,12 @@ public:
 
     virtual void handle_write_ready() override
     {
-        const socket_t fd = get_socket();
-        ::write(fd, _buf, _sz);
+        _sock_stream.write(_buf, _sz);
         NUT_LOG_D(TAG, "wrote %d bytes to client", _sz);
         _sz = 0;
         reactor.disable_handler(this, SyncEventHandler::WRITE_MASK);
     }
 };
-
-void start_reactor_server(void*)
-{
-    SyncAcceptor<ServerChannel> acc;
-    INETAddr addr(LISTEN_ADDR, LISTEN_PORT);
-    acc.open(addr);
-    reactor.register_handler(&acc, SyncEventHandler::READ_MASK);
-    NUT_LOG_D(TAG, "listening to %s", addr.to_string().c_str());
-    while (true)
-        reactor.handle_events();
-}
 
 class ClientChannel : public SyncChannel
 {
@@ -100,7 +91,7 @@ public:
     virtual void open(socket_t fd) override
     {
         SyncChannel::open(fd);
-        NUT_LOG_D(TAG, "client stream opened");
+        NUT_LOG_D(TAG, "client channel opened");
 
         reactor.register_handler(this, SyncEventHandler::READ_MASK | SyncEventHandler::WRITE_MASK);
         //reactor.disable_handler(this, SyncEventHandler::WRITE_MASK);
@@ -108,8 +99,7 @@ public:
 
     virtual void handle_read_ready() override
     {
-        const socket_t fd = get_socket();
-        _sz = ::read(fd, _buf, BUF_LEN - 1);
+        _sz = _sock_stream.read(_buf, BUF_LEN - 1);
         NUT_LOG_D(TAG, "readed %d bytes from server", _sz);
         if (_count >= 10)
         {
@@ -123,14 +113,26 @@ public:
 
     virtual void handle_write_ready() override
     {
-        const socket_t fd = get_socket();
-        ::write(fd, _buf, _sz);
+        _sock_stream.write(_buf, _sz);
         NUT_LOG_D(TAG, "wrote %d bytes to server", _sz);
         _sz = 0;
         ++_count;
         reactor.disable_handler(this, SyncEventHandler::WRITE_MASK);
     }
 };
+
+}
+
+void start_reactor_server(void*)
+{
+    SyncAcceptor<ServerChannel> acc;
+    INETAddr addr(LISTEN_ADDR, LISTEN_PORT);
+    acc.open(addr);
+    reactor.register_handler(&acc, SyncEventHandler::READ_MASK);
+    NUT_LOG_D(TAG, "listening to %s", addr.to_string().c_str());
+    while (true)
+        reactor.handle_events();
+}
 
 void start_reactor_client(void*)
 {

@@ -22,7 +22,7 @@ public:
         _sock_stream.open(fd);
     }
 
-    virtual socket_t get_socket() const
+    virtual socket_t get_socket() const override
     {
         return _sock_stream.get_socket();
     }

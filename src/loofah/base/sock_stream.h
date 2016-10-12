@@ -19,8 +19,22 @@ public:
         return _socket_fd;
     }
 
-    virtual void open(socket_t fd);
+    void open(socket_t fd);
     void close();
+
+    /**
+     * 读(阻塞)
+     * 
+     * @return >0 读成功
+     *         =0 已经关闭
+     *         <0 出错
+     */
+    int read(void *buf, unsigned max_len);
+
+    /**
+     * 写(阻塞)
+     */
+    int write(const void *buf, unsigned max_len);
 
     INETAddr get_peer_addr() const;
 };

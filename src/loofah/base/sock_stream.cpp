@@ -4,6 +4,11 @@
 #include <nut/platform/platform.h>
 #include <nut/logging/logger.h>
 
+#if NUT_PLATFORM_OS_WINDOWS
+#   include <io.h> // for ::read() and ::write()
+#else
+#   include <unistd.h> // for ::read() and ::write()
+#endif
 
 #define TAG "sock_stream"
 
@@ -24,6 +29,18 @@ void SockStream::close()
     ::close(_socket_fd);
 #endif
     _socket_fd = INVALID_SOCKET_VALUE;
+}
+
+int SockStream::read(void *buf, unsigned max_len)
+{
+    assert(NULL != buf || 0 == max_len);
+    return ::read(_socket_fd, buf, max_len);
+}
+
+int SockStream::write(const void *buf, unsigned max_len)
+{
+    assert(NULL != buf || 0 == max_len);
+    return ::write(_socket_fd, buf, max_len);
 }
 
 INETAddr SockStream::get_peer_addr() const

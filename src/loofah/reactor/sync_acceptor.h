@@ -37,8 +37,11 @@ class SyncAcceptor : public SyncAcceptorBase
 public:
     virtual void handle_read_ready() override
     {
-        // Create new handler
+        // Accept
         socket_t fd = handle_accept();
+        assert(INVALID_SOCKET_VALUE != fd);
+
+        // Create new handler
         CHANNEL *handler = (CHANNEL*) ::malloc(sizeof(CHANNEL));
         assert(NULL != handler);
         new (handler) CHANNEL;

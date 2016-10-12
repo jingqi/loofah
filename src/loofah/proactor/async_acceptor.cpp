@@ -20,11 +20,12 @@
 namespace loofah
 {
 
-bool AsyncAcceptorBase::open(int port, int listen_num)
+bool AsyncAcceptorBase::open(const INETAddr& addr, int listen_num)
 {
 #if NUT_PLATFORM_OS_WINDOWS
     // Create socket
-    // NOTE 必须使用 ::WSASocket() 创建 socket 并带上 WSA_FLAG_OVERLAPPED 标记
+    // NOTE 必须使用 ::WSASocket() 创建 socket 并带上 WSA_FLAG_OVERLAPPED 标记，
+    //      以便使用完成端口
     _listen_socket = ::WSASocket(AF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
     if (INVALID_SOCKET_VALUE == _listen_socket)
     {
@@ -33,14 +34,13 @@ bool AsyncAcceptorBase::open(int port, int listen_num)
     }
 
     // Bind
-    struct sockaddr_in sin;
-    ::memset(&sin, 0, sizeof(sin));
-    sin.sin_family = AF_INET;
-    sin.sin_addr.s_addr = htonl(INADDR_ANY);
-    sin.sin_port = htons(port);
-    if (SOCKET_ERROR == ::bind(_listen_socket, (struct sockaddr*)&sin, sizeof(sin)))
+    const struct sockaddr_in& sin = addr.get_sockaddr_in();
+    // sin.sin_family = AF_INET;
+    // sin.sin_addr.s_addr = htonl(INADDR_ANY);
+    // sin.sin_port = htons(port);
+    if (SOCKET_ERROR == ::bind(_listen_socket, (const struct sockaddr*)&sin, sizeof(sin)))
     {
-        NUT_LOG_E(TAG, "failed to call ::bind() with port %d", port);
+        NUT_LOG_E(TAG, "failed to call ::bind() with addr %s", addr.to_string().c_str());
         ::closesocket(_listen_socket);
         _listen_socket = INVALID_SOCKET_VALUE;
         return false;
@@ -49,7 +49,7 @@ bool AsyncAcceptorBase::open(int port, int listen_num)
     // Listen
     if (SOCKET_ERROR == ::listen(_listen_socket, listen_num))
     {
-        NUT_LOG_E(TAG, "failed to call ::listen() with port %d", port);
+        NUT_LOG_E(TAG, "failed to call ::listen() with addr %s", addr.to_string().c_str());
         ::closesocket(_listen_socket);
         _listen_socket = INVALID_SOCKET_VALUE;
         return false;
@@ -62,7 +62,7 @@ bool AsyncAcceptorBase::open(int port, int listen_num)
 #endif
 }
 
-socket_t AsyncAcceptorBase::handle_accept(struct IOContext *io_context)
+socket_t AsyncAcceptorBase::handle_accept(IOContext *io_context)
 {
     assert(NULL != io_context);
 
