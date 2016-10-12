@@ -7,7 +7,7 @@
 namespace loofah
 {
 
-class SyncEventHandler
+class ReactHandler
 {
     // 用于记录注册状态，参见 Reactor 的实现
     int _registered_events = 0;
@@ -21,7 +21,7 @@ public:
         EXCEPT_MASK = 1 << 2,
     };
 
-    virtual ~SyncEventHandler() {}
+    virtual ~ReactHandler() {}
 
     virtual socket_t get_socket() const = 0;
 

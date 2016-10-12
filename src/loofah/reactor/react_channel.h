@@ -12,7 +12,7 @@
 #   include <unistd.h> // for ::close()
 #endif
 
-#include "sync_event_handler.h"
+#include "react_handler.h"
 #include "../base/inet_addr.h"
 #include "../base/channel.h"
 #include "../base/sock_stream.h"
@@ -20,7 +20,7 @@
 namespace loofah
 {
 
-class LOOFAH_API SyncChannel : public Channel, public SyncEventHandler
+class LOOFAH_API ReactChannel : public Channel, public ReactHandler
 {
 protected:
     SockStream _sock_stream;

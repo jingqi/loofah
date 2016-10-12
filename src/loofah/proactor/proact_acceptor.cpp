@@ -11,16 +11,15 @@
 
 #include <nut/logging/logger.h>
 
-#include "async_acceptor.h"
-#include "proactor.h"
+#include "proact_acceptor.h"
 #include "../base/utils.h"
 
-#define TAG "loofah.async_acceptor"
+#define TAG "loofah.proact_acceptor"
 
 namespace loofah
 {
 
-bool AsyncAcceptorBase::open(const INETAddr& addr, int listen_num)
+bool ProactAcceptorBase::open(const INETAddr& addr, int listen_num)
 {
 #if NUT_PLATFORM_OS_WINDOWS
     // Create socket
@@ -62,7 +61,7 @@ bool AsyncAcceptorBase::open(const INETAddr& addr, int listen_num)
 #endif
 }
 
-socket_t AsyncAcceptorBase::handle_accept(IOContext *io_context)
+socket_t ProactAcceptorBase::handle_accept(IOContext *io_context)
 {
     assert(NULL != io_context);
 

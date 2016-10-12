@@ -16,8 +16,6 @@
 namespace loofah
 {
 
-class AsyncEventHandler;
-
 #if NUT_PLATFORM_OS_WINDOWS
 typedef struct _IOContext
 {
@@ -53,7 +51,7 @@ typedef struct _IOContext
     {
         clear();
     }
-    
+
     void clear()
     {
         if (NULL != wsabuf.buf)
@@ -62,9 +60,18 @@ typedef struct _IOContext
         wsabuf.len = 0;
     }
 } IOContext;
+#else
+typedef struct _IOContext
+{
+    struct WSABuf
+    {
+        char *buf;
+        int len;
+    } wsabuf;
+} IOContext;
 #endif
 
-class AsyncEventHandler
+class ProactHandler
 {
 public:
     enum EventType
@@ -75,7 +82,7 @@ public:
         EXCEPT_MASK = 1 << 3,
     };
 
-    virtual ~AsyncEventHandler() {}
+    virtual ~ProactHandler() {}
 
     virtual socket_t get_socket() const = 0;
 

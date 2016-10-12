@@ -17,18 +17,15 @@
 #   include <unistd.h>
 #endif
 
+#include <nut/rc/rc_new.h>
 #include <nut/logging/logger.h>
-#include <nut/threading/thread_pool.h>
 
 using namespace nut;
 
 #define TAG "main"
 
-void start_reactor_server(void*);
-void start_reactor_client(void*);
-
-void start_proactor_server(void*);
-void start_proactor_client(void*);
+void test_reactor();
+void test_proactor();
 
 static void setup_std_logger()
 {
@@ -57,17 +54,11 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    rc_ptr<ThreadPool> tp = rc_new<ThreadPool>(3);
 #if NUT_PLATFORM_OS_WINDOWS
-    tp->add_task(&start_proactor_server);
-    tp->add_task(&start_proactor_client);
+    test_proactor();
 #else
-    tp->add_task(&start_reactor_server);
-    tp->add_task(&start_reactor_client);
+    test_reactor();
 #endif
-
-    tp->start();
-    tp->join();
 
     loofah::shutdown_network();
 

@@ -5,7 +5,8 @@
 
 #include <nut/platform/platform.h>
 
-#include "sync_event_handler.h"
+#include "react_handler.h"
+
 
 namespace loofah
 {
@@ -24,13 +25,13 @@ public:
     Reactor();
     ~Reactor();
 
-    void register_handler(SyncEventHandler *handler, int mask);
-    void unregister_handler(SyncEventHandler *handler);
+    void register_handler(ReactHandler *handler, int mask);
+    void unregister_handler(ReactHandler *handler);
 
-    void enable_handler(SyncEventHandler *handler, int mask);
-    void disable_handler(SyncEventHandler *handler, int mask);
+    void enable_handler(ReactHandler *handler, int mask);
+    void disable_handler(ReactHandler *handler, int mask);
 
-    void handle_events(int timeout_ms=1000);
+    void handle_events(int timeout_ms = 1000);
 };
 
 }

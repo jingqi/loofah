@@ -43,7 +43,7 @@ Reactor::~Reactor()
 #endif
 }
 
-void Reactor::register_handler(SyncEventHandler *handler, int mask)
+void Reactor::register_handler(ReactHandler *handler, int mask)
 {
     assert(NULL != handler && 0 == handler->_registered_events);
     const socket_t fd = handler->get_socket();
@@ -51,9 +51,9 @@ void Reactor::register_handler(SyncEventHandler *handler, int mask)
 #if NUT_PLATFORM_OS_MAC
     struct kevent ev[2];
     int n = 0;
-    if (0 != (mask & SyncEventHandler::READ_MASK))
+    if (0 != (mask & ReactHandler::READ_MASK))
         EV_SET(ev + n++, fd, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, (void*) handler);
-    if (0 != (mask & SyncEventHandler::WRITE_MASK))
+    if (0 != (mask & ReactHandler::WRITE_MASK))
         EV_SET(ev + n++, fd, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, (void*) handler);
     if (0 != ::kevent(_kq, ev, n, NULL, 0, NULL))
     {
@@ -64,9 +64,9 @@ void Reactor::register_handler(SyncEventHandler *handler, int mask)
     struct epoll_event epv;
     ::memset(&epv, 0, sizeof(epv));
     epv.data.ptr = (void*) handler;
-    if (0 != (mask & SyncEventHandler::READ_MASK))
+    if (0 != (mask & ReactHandler::READ_MASK))
         epv.events |= EPOLLIN;
-    if (0 != (mask & SyncEventHandler::WRITE_MASK))
+    if (0 != (mask & ReactHandler::WRITE_MASK))
         epv.events |= EPOLLOUT;
     if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, fd, &epv))
     {
@@ -78,7 +78,7 @@ void Reactor::register_handler(SyncEventHandler *handler, int mask)
     handler->_registered_events = mask;
 }
 
-void Reactor::unregister_handler(SyncEventHandler *handler)
+void Reactor::unregister_handler(ReactHandler *handler)
 {
     assert(NULL != handler);
     const socket_t fd = handler->get_socket();
@@ -106,7 +106,7 @@ void Reactor::unregister_handler(SyncEventHandler *handler)
     handler->_registered_events = 0;
 }
 
-void Reactor::enable_handler(SyncEventHandler *handler, int mask)
+void Reactor::enable_handler(ReactHandler *handler, int mask)
 {
     assert(NULL != handler);
     const socket_t fd = handler->get_socket();
@@ -114,16 +114,16 @@ void Reactor::enable_handler(SyncEventHandler *handler, int mask)
 #if NUT_PLATFORM_OS_MAC
     struct kevent ev[2];
     int n = 0;
-    if (0 != (mask & SyncEventHandler::READ_MASK))
+    if (0 != (mask & ReactHandler::READ_MASK))
     {
-        if (0 != (handler->_registered_events & SyncEventHandler::READ_MASK))
+        if (0 != (handler->_registered_events & ReactHandler::READ_MASK))
             EV_SET(ev + n++, fd, EVFILT_READ, EV_ENABLE, 0, 0, (void*) handler);
         else
             EV_SET(ev + n++, fd, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, (void*) handler);
     }
-    if (0 != (mask & SyncEventHandler::WRITE_MASK))
+    if (0 != (mask & ReactHandler::WRITE_MASK))
     {
-        if (0 != (handler->_registered_events & SyncEventHandler::WRITE_MASK))
+        if (0 != (handler->_registered_events & ReactHandler::WRITE_MASK))
             EV_SET(ev + n++, fd, EVFILT_WRITE, EV_ENABLE, 0, 0, (void*) handler);
         else
             EV_SET(ev + n++, fd, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, (void*) handler);
@@ -137,9 +137,9 @@ void Reactor::enable_handler(SyncEventHandler *handler, int mask)
     struct epoll_event epv;
     ::memset(&epv, 0, sizeof(epv));
     epv.data.ptr = (void*) handler;
-    if (0 != (mask & SyncEventHandler::READ_MASK) || 0 != (handler->_registered_events & SyncEventHandler::READ_MASK))
+    if (0 != (mask & ReactHandler::READ_MASK) || 0 != (handler->_registered_events & ReactHandler::READ_MASK))
         epv.events |= EPOLLIN;
-    if (0 != (mask & SyncEventHandler::WRITE_MASK) || 0 != (handler->_registered_events & SyncEventHandler::WRITE_MASK))
+    if (0 != (mask & ReactHandler::WRITE_MASK) || 0 != (handler->_registered_events & ReactHandler::WRITE_MASK))
         epv.events |= EPOLLOUT;
     if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_MOD, fd, &epv))
     {
@@ -151,7 +151,7 @@ void Reactor::enable_handler(SyncEventHandler *handler, int mask)
     handler->_registered_events |= mask;
 }
 
-void Reactor::disable_handler(SyncEventHandler *handler, int mask)
+void Reactor::disable_handler(ReactHandler *handler, int mask)
 {
     assert(NULL != handler);
     const socket_t fd = handler->get_socket();
@@ -159,9 +159,9 @@ void Reactor::disable_handler(SyncEventHandler *handler, int mask)
 #if NUT_PLATFORM_OS_MAC
     struct kevent ev[2];
     int n = 0;
-    if (0 != (mask & SyncEventHandler::READ_MASK))
+    if (0 != (mask & ReactHandler::READ_MASK))
         EV_SET(ev + n++, fd, EVFILT_READ, EV_DISABLE, 0, 0, (void*) handler);
-    if (0 != (mask & SyncEventHandler::WRITE_MASK))
+    if (0 != (mask & ReactHandler::WRITE_MASK))
         EV_SET(ev + n++, fd, EVFILT_WRITE, EV_DISABLE, 0, 0, (void*) handler);
     if (0 != ::kevent(_kq, ev, n, NULL, 0, NULL))
     {
@@ -172,9 +172,9 @@ void Reactor::disable_handler(SyncEventHandler *handler, int mask)
     struct epoll_event epv;
     ::memset(&epv, 0, sizeof(epv));
     epv.data.ptr = (void*) handler;
-    if (0 == (mask & SyncEventHandler::READ_MASK) && 0 != (handler->_registered_events & SyncEventHandler::READ_MASK))
+    if (0 == (mask & ReactHandler::READ_MASK) && 0 != (handler->_registered_events & ReactHandler::READ_MASK))
         epv.events |= EPOLLIN;
-    if (0 == (mask & SyncEventHandler::WRITE_MASK) && 0 != (handler->_registered_events & SyncEventHandler::WRITE_MASK))
+    if (0 == (mask & ReactHandler::WRITE_MASK) && 0 != (handler->_registered_events & ReactHandler::WRITE_MASK))
         epv.events |= EPOLLOUT;
     if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_MOD, fd, &epv))
     {
@@ -196,7 +196,7 @@ void Reactor::handle_events(int timeout_ms)
     int n = ::kevent(_kq, NULL, 0, active_evs, max_events, &timeout);
     for (int i = 0; i < n; ++i)
     {
-        SyncEventHandler *handler = (SyncEventHandler*) active_evs[i].udata;
+        ReactHandler *handler = (ReactHandler*) active_evs[i].udata;
         assert(NULL != handler);
 
         int events = active_evs[i].filter;
@@ -219,7 +219,7 @@ void Reactor::handle_events(int timeout_ms)
     int n = ::epoll_wait(_epoll_fd, events, MAX_EPOLL_EVENTS, timeout_ms);
     for (int i = 0; i < n; ++i)
     {
-        SyncEventHandler *handler = (SyncEventHandler*) events[i].data.ptr;
+        ReactHandler *handler = (ReactHandler*) events[i].data.ptr;
         assert(NULL != handler);
 
         if (0 != (events[i].events & EPOLLIN))

@@ -35,7 +35,7 @@ Proactor::~Proactor()
 #endif
 }
 
-void Proactor::register_handler(AsyncEventHandler *handler)
+void Proactor::register_handler(ProactHandler *handler)
 {
     assert(NULL != handler);
     socket_t fd = handler->get_socket();
@@ -51,7 +51,7 @@ void Proactor::register_handler(AsyncEventHandler *handler)
 #endif
 }
 
-void Proactor::launch_accept(AsyncEventHandler *handler)
+void Proactor::launch_accept(ProactHandler *handler)
 {
     assert(NULL != handler);
     socket_t listen_socket = handler->get_socket();
@@ -69,7 +69,7 @@ void Proactor::launch_accept(AsyncEventHandler *handler)
     // Call ::AcceptEx()
     IOContext *io_context = (IOContext*) ::malloc(sizeof(IOContext));
     assert(NULL != io_context);
-    new (io_context) IOContext(AsyncEventHandler::ACCEPT_MASK,
+    new (io_context) IOContext(ProactHandler::ACCEPT_MASK,
                                2 * (sizeof(struct sockaddr_in) + 16),
                                accept_socket);
     DWORD bytes = 0;
@@ -96,7 +96,7 @@ void Proactor::launch_accept(AsyncEventHandler *handler)
 #endif
 }
 
-void Proactor::launch_read(AsyncEventHandler *handler, int buf_len)
+void Proactor::launch_read(ProactHandler *handler, int buf_len)
 {
     assert(NULL != handler);
     socket_t fd = handler->get_socket();
@@ -104,7 +104,7 @@ void Proactor::launch_read(AsyncEventHandler *handler, int buf_len)
 #if NUT_PLATFORM_OS_WINDOWS
     IOContext *io_context = (IOContext*) ::malloc(sizeof(IOContext));
     assert(NULL != io_context);
-    new (io_context) IOContext(AsyncEventHandler::READ_MASK, buf_len);
+    new (io_context) IOContext(ProactHandler::READ_MASK, buf_len);
     DWORD bytes = 0, flags = 0;
     const int rs = ::WSARecv(fd,
                              &io_context->wsabuf,
@@ -125,7 +125,7 @@ void Proactor::launch_read(AsyncEventHandler *handler, int buf_len)
 #endif
 }
 
-void Proactor::launch_write(AsyncEventHandler *handler, const void *buf, int buf_len)
+void Proactor::launch_write(ProactHandler *handler, const void *buf, int buf_len)
 {
     assert(NULL != buf && buf_len > 0);
     socket_t fd = handler->get_socket();
@@ -133,7 +133,7 @@ void Proactor::launch_write(AsyncEventHandler *handler, const void *buf, int buf
 #if NUT_PLATFORM_OS_WINDOWS
     IOContext *io_context = (IOContext*) ::malloc(sizeof(IOContext));
     assert(NULL != io_context);
-    new (io_context) IOContext(AsyncEventHandler::WRITE_MASK, buf_len);
+    new (io_context) IOContext(ProactHandler::WRITE_MASK, buf_len);
     ::memcpy(io_context->wsabuf.buf, buf, buf_len); // TODO optimize this
     DWORD bytes = 0;
     const int rs = ::WSASend(fd,
@@ -175,7 +175,7 @@ void Proactor::handle_events(int timeout_ms)
         return;
     }
 
-    AsyncEventHandler *handler = (AsyncEventHandler*) key;
+    ProactHandler *handler = (ProactHandler*) key;
     assert(NULL != handler);
 
     assert(NULL != io_overlapped);
@@ -184,15 +184,15 @@ void Proactor::handle_events(int timeout_ms)
 
     switch (io_context->event_type)
     {
-    case AsyncEventHandler::ACCEPT_MASK:
+    case ProactHandler::ACCEPT_MASK:
         handler->handle_accept_completed(io_context);
         break;
 
-    case AsyncEventHandler::READ_MASK:
+    case ProactHandler::READ_MASK:
         handler->handle_read_completed(bytes_transfered, io_context);
         break;
 
-    case AsyncEventHandler::WRITE_MASK:
+    case ProactHandler::WRITE_MASK:
         handler->handle_write_completed(bytes_transfered, io_context);
         break;
 

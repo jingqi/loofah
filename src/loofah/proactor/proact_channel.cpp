@@ -2,7 +2,7 @@
 #include <assert.h>
 #include <new>
 
-#include "async_channel.h"
+#include "proact_channel.h"
 
 namespace loofah
 {

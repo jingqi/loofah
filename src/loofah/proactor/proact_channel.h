@@ -2,16 +2,14 @@
 #ifndef ___HEADFILE_9B5119C9_43AA_4CDE_A44F_60BF923E0400_
 #define ___HEADFILE_9B5119C9_43AA_4CDE_A44F_60BF923E0400_
 
-#include "async_event_handler.h"
+#include "proact_handler.h"
 #include "../base/channel.h"
 #include "../base/sock_stream.h"
 
 namespace loofah
 {
 
-class Proactor;
-
-class LOOFAH_API AsyncChannel : public Channel, public AsyncEventHandler
+class LOOFAH_API ProactChannel : public Channel, public ProactHandler
 {
 protected:
     SockStream _sock_stream;

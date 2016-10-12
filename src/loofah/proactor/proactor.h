@@ -9,7 +9,7 @@
 #   include <windows.h>
 #endif
 
-#include "async_event_handler.h"
+#include "proact_handler.h"
 
 namespace loofah
 {
@@ -31,11 +31,11 @@ public:
     }
 #endif
 
-    void register_handler(AsyncEventHandler *handler);
+    void register_handler(ProactHandler *handler);
 
-    void launch_accept(AsyncEventHandler *handler);
-    void launch_read(AsyncEventHandler *handler, int buf_len);
-    void launch_write(AsyncEventHandler *handler, const void *buf, int buf_len);
+    void launch_accept(ProactHandler *handler);
+    void launch_read(ProactHandler *handler, int buf_len);
+    void launch_write(ProactHandler *handler, const void *buf, int buf_len);
 
     /**
      * @param timeout_ms 超时毫秒数，在 Windows 下可传入 INFINITE 表示无穷等待

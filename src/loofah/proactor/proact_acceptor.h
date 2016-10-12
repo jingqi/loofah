@@ -1,23 +1,22 @@
 ﻿
-#ifndef ___HEADFILE_42991067_03A8_4F2D_ACB6_10A384BA4ECF_
-#define ___HEADFILE_42991067_03A8_4F2D_ACB6_10A384BA4ECF_
+#ifndef ___HEADFILE_037D5BEB_C395_4C0A_A957_F6A95AA9F1D8_
+#define ___HEADFILE_037D5BEB_C395_4C0A_A957_F6A95AA9F1D8_
 
 #include <assert.h>
-#include <stdlib.h>
-#include <new> // for placement new
+#include <new>
 
-#include "sync_event_handler.h"
+#include "proact_handler.h"
 #include "../base/inet_addr.h"
 
 namespace loofah
 {
 
-class LOOFAH_API SyncAcceptorBase : public SyncEventHandler
+class LOOFAH_API ProactAcceptorBase : public ProactHandler
 {
     socket_t _listen_socket = INVALID_SOCKET_VALUE;
 
 protected:
-    socket_t handle_accept();
+    socket_t handle_accept(IOContext *io_context);
 
 public:
     /**
@@ -32,13 +31,14 @@ public:
 };
 
 template <typename CHANNEL>
-class SyncAcceptor : public SyncAcceptorBase
+class ProactAcceptor : public ProactAcceptorBase
 {
 public:
-    virtual void handle_read_ready() override
+    virtual void handle_accept_completed(IOContext *io_context) override
     {
+#if NUT_PLATFORM_OS_WINDOWS
         // Accept
-        socket_t fd = handle_accept();
+        const socket_t fd = handle_accept(io_context);
         assert(INVALID_SOCKET_VALUE != fd);
 
         // Create new handler
@@ -46,6 +46,7 @@ public:
         assert(NULL != handler);
         new (handler) CHANNEL;
         handler->open(fd);
+#endif
     }
 };
 

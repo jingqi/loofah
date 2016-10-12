@@ -2,9 +2,9 @@
 #include <nut/platform/platform.h>
 #include <nut/logging/logger.h>
 
-#include "sync_channel.h"
+#include "react_channel.h"
 
-#define TAG "sync_channel"
+#define TAG "react_channel"
 
 namespace loofah
 {

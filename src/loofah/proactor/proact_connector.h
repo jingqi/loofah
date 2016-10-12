@@ -7,7 +7,7 @@
 namespace loofah
 {
 
-typedef Connector AsyncConnector;
+typedef Connector ProactConnector;
 
 }
 

@@ -1,24 +1,23 @@
 ﻿
-#ifndef ___HEADFILE_037D5BEB_C395_4C0A_A957_F6A95AA9F1D8_
-#define ___HEADFILE_037D5BEB_C395_4C0A_A957_F6A95AA9F1D8_
+#ifndef ___HEADFILE_42991067_03A8_4F2D_ACB6_10A384BA4ECF_
+#define ___HEADFILE_42991067_03A8_4F2D_ACB6_10A384BA4ECF_
 
 #include <assert.h>
-#include <new>
+#include <stdlib.h>
+#include <new> // for placement new
 
-#include "async_event_handler.h"
+#include "react_handler.h"
 #include "../base/inet_addr.h"
 
 namespace loofah
 {
 
-class Proactor;
-
-class LOOFAH_API AsyncAcceptorBase : public AsyncEventHandler
+class LOOFAH_API ReactAcceptorBase : public ReactHandler
 {
     socket_t _listen_socket = INVALID_SOCKET_VALUE;
 
 protected:
-    socket_t handle_accept(IOContext *io_context);
+    socket_t handle_accept();
 
 public:
     /**
@@ -33,14 +32,13 @@ public:
 };
 
 template <typename CHANNEL>
-class AsyncAcceptor : public AsyncAcceptorBase
+class ReactAcceptor : public ReactAcceptorBase
 {
 public:
-    virtual void handle_accept_completed(IOContext *io_context) override
+    virtual void handle_read_ready() override
     {
-#if NUT_PLATFORM_OS_WINDOWS
         // Accept
-        const socket_t fd = handle_accept(io_context);
+        socket_t fd = handle_accept();
         assert(INVALID_SOCKET_VALUE != fd);
 
         // Create new handler
@@ -48,7 +46,6 @@ public:
         assert(NULL != handler);
         new (handler) CHANNEL;
         handler->open(fd);
-#endif
     }
 };
 

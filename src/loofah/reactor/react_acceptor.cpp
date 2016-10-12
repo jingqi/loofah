@@ -12,15 +12,15 @@
 
 #include <nut/logging/logger.h>
 
-#include "sync_acceptor.h"
+#include "react_acceptor.h"
 #include "../base/utils.h"
 
-#define TAG "loofah.sync_acceptor"
+#define TAG "loofah.react_acceptor"
 
 namespace loofah
 {
 
-bool SyncAcceptorBase::open(const INETAddr& addr, int listen_num)
+bool ReactAcceptorBase::open(const INETAddr& addr, int listen_num)
 {
     // Create socket
     _listen_socket = ::socket(AF_INET, SOCK_STREAM, 0);
@@ -71,7 +71,7 @@ bool SyncAcceptorBase::open(const INETAddr& addr, int listen_num)
     return true;
 }
 
-socket_t SyncAcceptorBase::handle_accept()
+socket_t ReactAcceptorBase::handle_accept()
 {
     struct sockaddr_in remote_addr;
 #if NUT_PLATFORM_OS_WINDOWS
