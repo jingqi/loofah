@@ -7,7 +7,7 @@
 
 // This should appear before "windows.h"
 #include <loofah/loofah.h>
-#include <loofah/utils.h>
+#include <loofah/base/utils.h>
 
 #include <nut/platform/platform.h>
 
@@ -26,6 +26,9 @@ using namespace nut;
 
 void start_reactor_server(void*);
 void start_reactor_client(void*);
+
+void start_proactor_server(void*);
+void start_proactor_client(void*);
 
 static void setup_std_logger()
 {
@@ -55,10 +58,18 @@ int main(int argc, char **argv)
     }
 
     rc_ptr<ThreadPool> tp = rc_new<ThreadPool>(3);
+#if NUT_PLATFORM_OS_WINDOWS
+    tp->add_task(&start_proactor_server);
+    tp->add_task(&start_proactor_client);
+#else
     tp->add_task(&start_reactor_server);
     tp->add_task(&start_reactor_client);
+#endif
+
     tp->start();
     tp->join();
+
+    loofah::shutdown_network();
 
     return 0;
 }

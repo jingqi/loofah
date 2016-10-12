@@ -7,7 +7,7 @@
 namespace loofah
 {
 
-typedef Connector SyncConnector;
+typedef Connector AsyncConnector;
 
 }
 

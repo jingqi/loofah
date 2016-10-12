@@ -13,7 +13,7 @@
 #include <nut/logging/logger.h>
 
 #include "sync_acceptor.h"
-#include "../utils.h"
+#include "../base/utils.h"
 
 #define TAG "loofah.sync_acceptor"
 
@@ -36,9 +36,9 @@ bool SyncAcceptorBase::open(const INETAddr& addr, int listen_num)
 
     // Bind
     const struct sockaddr_in& sin = addr.get_sockaddr_in();
-    //sin.sin_family = AF_INET;
-    //sin.sin_addr.s_addr = 0;
-    //sin.sin_port = htons(port);
+    // sin.sin_family = AF_INET;
+    // sin.sin_addr.s_addr = 0;
+    // sin.sin_port = htons(port);
     if (::bind(_listen_socket, (struct sockaddr*)&sin, sizeof(sin)) < 0)
     {
         NUT_LOG_E(TAG, "failed to call ::bind() with addr %s", addr.to_string().c_str());

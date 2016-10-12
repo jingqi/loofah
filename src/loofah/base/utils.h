@@ -2,8 +2,6 @@
 #ifndef ___HEADFILE_8723819F_8E41_4D8B_AB1F_81205AC4CE38_
 #define ___HEADFILE_8723819F_8E41_4D8B_AB1F_81205AC4CE38_
 
-#include "loofah.h"
-
 #include <nut/platform/platform.h>
 
 #if NUT_PLATFORM_OS_WINDOWS
@@ -13,7 +11,8 @@
 #   include <mswsock.h>
 #endif
 
-#include "loofah.h"
+#include "../loofah.h"
+
 
 namespace loofah
 {

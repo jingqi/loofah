@@ -13,7 +13,7 @@
 
 #include "async_acceptor.h"
 #include "proactor.h"
-#include "../utils.h"
+#include "../base/utils.h"
 
 #define TAG "loofah.async_acceptor"
 
@@ -56,6 +56,9 @@ bool AsyncAcceptorBase::open(int port, int listen_num)
     }
 
     return true;
+#else
+    assert(false);
+    return false;
 #endif
 }
 
@@ -78,6 +81,9 @@ socket_t AsyncAcceptorBase::handle_accept(struct IOContext *io_context)
                               &remote_len);
 
     return io_context->accept_socket;
+#else
+    assert(false);
+    return INVALID_SOCKET_VALUE;
 #endif
 }
 

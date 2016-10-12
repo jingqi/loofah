@@ -14,7 +14,7 @@
 namespace loofah
 {
 
-class Proactor
+class LOOFAH_API Proactor
 {
 #if NUT_PLATFORM_OS_WINDOWS
     HANDLE _iocp = INVALID_HANDLE_VALUE;

@@ -134,29 +134,34 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\src\loofah\inet_addr.cpp" />
+    <ClCompile Include="..\..\..\src\loofah\base\connector.cpp" />
+    <ClCompile Include="..\..\..\src\loofah\base\inet_addr.cpp" />
+    <ClCompile Include="..\..\..\src\loofah\base\sock_stream.cpp" />
+    <ClCompile Include="..\..\..\src\loofah\base\utils.cpp" />
     <ClCompile Include="..\..\..\src\loofah\proactor\async_acceptor.cpp" />
-    <ClCompile Include="..\..\..\src\loofah\proactor\async_stream.cpp" />
+    <ClCompile Include="..\..\..\src\loofah\proactor\async_channel.cpp" />
     <ClCompile Include="..\..\..\src\loofah\proactor\proactor.cpp" />
     <ClCompile Include="..\..\..\src\loofah\reactor\reactor.cpp" />
     <ClCompile Include="..\..\..\src\loofah\reactor\sync_acceptor.cpp" />
-    <ClCompile Include="..\..\..\src\loofah\reactor\sync_connector.cpp" />
-    <ClCompile Include="..\..\..\src\loofah\reactor\sync_stream.cpp" />
-    <ClCompile Include="..\..\..\src\loofah\utils.cpp" />
+    <ClCompile Include="..\..\..\src\loofah\reactor\sync_channel.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\..\src\loofah\inet_addr.h" />
+    <ClInclude Include="..\..\..\src\loofah\base\channel.h" />
+    <ClInclude Include="..\..\..\src\loofah\base\connector.h" />
+    <ClInclude Include="..\..\..\src\loofah\base\inet_addr.h" />
+    <ClInclude Include="..\..\..\src\loofah\base\sock_stream.h" />
+    <ClInclude Include="..\..\..\src\loofah\base\utils.h" />
     <ClInclude Include="..\..\..\src\loofah\loofah.h" />
     <ClInclude Include="..\..\..\src\loofah\proactor\async_acceptor.h" />
+    <ClInclude Include="..\..\..\src\loofah\proactor\async_channel.h" />
+    <ClInclude Include="..\..\..\src\loofah\proactor\async_connector.h" />
     <ClInclude Include="..\..\..\src\loofah\proactor\async_event_handler.h" />
-    <ClInclude Include="..\..\..\src\loofah\proactor\async_stream.h" />
     <ClInclude Include="..\..\..\src\loofah\proactor\proactor.h" />
     <ClInclude Include="..\..\..\src\loofah\reactor\reactor.h" />
     <ClInclude Include="..\..\..\src\loofah\reactor\sync_acceptor.h" />
+    <ClInclude Include="..\..\..\src\loofah\reactor\sync_channel.h" />
     <ClInclude Include="..\..\..\src\loofah\reactor\sync_connector.h" />
     <ClInclude Include="..\..\..\src\loofah\reactor\sync_event_handler.h" />
-    <ClInclude Include="..\..\..\src\loofah\reactor\sync_stream.h" />
-    <ClInclude Include="..\..\..\src\loofah\utils.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

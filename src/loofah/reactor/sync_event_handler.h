@@ -16,9 +16,9 @@ class SyncEventHandler
 public:
     enum EventType
     {
-        READ_MASK = 0x01,
-        WRITE_MASK = 0x02,
-        EXCEPT_MASK = 0x04,
+        READ_MASK = 1,
+        WRITE_MASK = 1 << 1,
+        EXCEPT_MASK = 1 << 2,
     };
 
     virtual ~SyncEventHandler() {}

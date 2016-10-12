@@ -7,7 +7,7 @@
 #include <nut/logging/logger.h>
 
 #include "proactor.h"
-#include "../utils.h"
+#include "../base/utils.h"
 
 #define TAG "loofah.proactor"
 

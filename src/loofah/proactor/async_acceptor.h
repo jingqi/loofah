@@ -31,7 +31,7 @@ public:
     }
 };
 
-template <typename STREAM>
+template <typename CHANNEL>
 class AsyncAcceptor : public AsyncAcceptorBase
 {
 public:
@@ -43,9 +43,9 @@ public:
         // create handler
         socket_t fd = io_context->accept_socket;
         assert(INVALID_SOCKET_VALUE != fd);
-        STREAM *handler = (STREAM*) ::malloc(sizeof(STREAM));
+        CHANNEL *handler = (CHANNEL*) ::malloc(sizeof(CHANNEL));
         assert(NULL != handler);
-        new (handler) STREAM;
+        new (handler) CHANNEL;
         handler->open(fd);
 #endif
     }

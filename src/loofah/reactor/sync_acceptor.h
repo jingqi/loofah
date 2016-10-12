@@ -7,7 +7,7 @@
 #include <new> // for placement new
 
 #include "sync_event_handler.h"
-#include "../inet_addr.h"
+#include "../base/inet_addr.h"
 
 namespace loofah
 {
@@ -31,7 +31,7 @@ public:
     }
 };
 
-template <typename STREAM>
+template <typename CHANNEL>
 class SyncAcceptor : public SyncAcceptorBase
 {
 public:
@@ -39,9 +39,9 @@ public:
     {
         // Create new handler
         socket_t fd = handle_accept();
-        STREAM *handler = (STREAM*) ::malloc(sizeof(STREAM));
+        CHANNEL *handler = (CHANNEL*) ::malloc(sizeof(CHANNEL));
         assert(NULL != handler);
-        new (handler) STREAM;
+        new (handler) CHANNEL;
         handler->open(fd);
     }
 };
