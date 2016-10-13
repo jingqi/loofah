@@ -100,15 +100,11 @@ bool ProactAcceptorBase::open(const INETAddr& addr, int listen_num)
 #endif
 }
 
-#if NUT_PLATFORM_OS_LINUX
+#if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
 socket_t ProactAcceptorBase::handle_accept(socket_t listener_sock_fd)
 {
     struct sockaddr_in remote_addr;
-#if NUT_PLATFORM_OS_WINDOWS
-    int rsz = sizeof(remote_addr);
-#else
     socklen_t rsz = sizeof(remote_addr);
-#endif
     socket_t fd = ::accept(listener_sock_fd, (struct sockaddr*)&remote_addr, &rsz);
     if (INVALID_SOCKET_VALUE == fd)
     {
@@ -117,19 +113,11 @@ socket_t ProactAcceptorBase::handle_accept(socket_t listener_sock_fd)
     }
 
     struct sockaddr_in peer;
-#if NUT_PLATFORM_OS_WINDOWS
-    int plen = sizeof(peer);
-#else
     socklen_t plen = sizeof(peer);
-#endif
     if (::getpeername(fd, (struct sockaddr*)&peer, &plen) < 0)
     {
         NUT_LOG_W(TAG, "failed to call ::getpeername(), socketfd %d", fd);
-#if NUT_PLATFORM_OS_WINDOWS
-        ::closesocket(fd);
-#else
         ::close(fd);
-#endif
         return INVALID_SOCKET_VALUE;
     }
 

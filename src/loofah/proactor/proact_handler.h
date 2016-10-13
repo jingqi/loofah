@@ -14,7 +14,7 @@ namespace loofah
 
 class ProactHandler
 {
-#if NUT_PLATFORM_OS_LINUX
+#if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
     int _registered_events = 0;
     int _request_accept = 0;
     std::queue<void*> _read_queue, _write_queue;

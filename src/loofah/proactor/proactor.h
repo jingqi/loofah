@@ -18,8 +18,15 @@ class LOOFAH_API Proactor
 {
 #if NUT_PLATFORM_OS_WINDOWS
     HANDLE _iocp = INVALID_HANDLE_VALUE;
+#elif NUT_PLATFORM_OS_MAC
+    int _kq = -1;
 #elif NUT_PLATFORM_OS_LINUX
     int _epoll_fd = -1;
+#endif
+
+#if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
+    void enable_handler(ProactHandler *handler, int mask);
+    void disable_handler(ProactHandler *handler, int mask);
 #endif
 
 public:

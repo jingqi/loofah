@@ -26,7 +26,7 @@ public:
         return _listen_socket;
     }
 
-#if NUT_PLATFORM_OS_LINUX
+#if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
     static socket_t handle_accept(socket_t listener_sock_fd);
 #endif
 };

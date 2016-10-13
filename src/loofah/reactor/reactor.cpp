@@ -3,13 +3,13 @@
 
 #include <nut/platform/platform.h>
 
-#if NUT_PLATFORM_OS_LINUX
-#   include <sys/epoll.h>
-#   include <unistd.h> // for ::close()
-#elif NUT_PLATFORM_OS_MAC
+#if NUT_PLATFORM_OS_MAC
 #   include <sys/types.h>
 #   include <sys/event.h>
 #   include <sys/time.h>
+#   include <unistd.h> // for ::close()
+#elif NUT_PLATFORM_OS_LINUX
+#   include <sys/epoll.h>
 #   include <unistd.h> // for ::close()
 #endif
 
@@ -19,8 +19,10 @@
 
 #include "reactor.h"
 
+
 #define TAG "loofah.reactor"
-#define MAX_EPOLL_EVENTS 1024
+#define MAX_EPOLL_EVENTS 32
+#define MAX_KQUEUE_EVENTS 32
 
 namespace loofah
 {
@@ -29,6 +31,12 @@ Reactor::Reactor()
 {
 #if NUT_PLATFORM_OS_MAC
     _kq = ::kqueue();
+    if (-1 == _kq)
+    {
+        NUT_LOG_E(TAG, "failed to call ::kqueue() with errno %d: %s", errno, 
+                  ::strerror(errno));
+        return;
+    }
 #elif NUT_PLATFORM_OS_LINUX
     _epoll_fd = ::epoll_create(MAX_EPOLL_EVENTS);
     if (-1 == _epoll_fd)
@@ -135,7 +143,8 @@ void Reactor::enable_handler(ReactHandler *handler, int mask)
     }
     if (0 != ::kevent(_kq, ev, n, NULL, 0, NULL))
     {
-        NUT_LOG_E(TAG, "failed to call ::kevent()");
+        NUT_LOG_E(TAG, "failed to call ::kevent() with errno %d: %s", errno,
+                  ::strerror(errno));
         return;
     }
 #elif NUT_PLATFORM_OS_LINUX
@@ -170,7 +179,8 @@ void Reactor::disable_handler(ReactHandler *handler, int mask)
         EV_SET(ev + n++, fd, EVFILT_WRITE, EV_DISABLE, 0, 0, (void*) handler);
     if (0 != ::kevent(_kq, ev, n, NULL, 0, NULL))
     {
-        NUT_LOG_E(TAG, "failed to call ::kevent()");
+        NUT_LOG_E(TAG, "failed to call ::kevent() with errno %d: %s", errno,
+                  ::strerror(errno));
         return;
     }
 #elif NUT_PLATFORM_OS_LINUX
@@ -197,10 +207,9 @@ void Reactor::handle_events(int timeout_ms)
     struct timespec timeout;
     timeout.tv_sec = timeout_ms / 1000;
     timeout.tv_nsec = (timeout_ms % 1000) * 1000 * 1000;
-    const int max_events = 20;
-    struct kevent active_evs[max_events];
+    struct kevent active_evs[MAX_KQUEUE_EVENTS];
 
-    int n = ::kevent(_kq, NULL, 0, active_evs, max_events, &timeout);
+    int n = ::kevent(_kq, NULL, 0, active_evs, MAX_KQUEUE_EVENTS, &timeout);
     for (int i = 0; i < n; ++i)
     {
         ReactHandler *handler = (ReactHandler*) active_evs[i].udata;
