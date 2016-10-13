@@ -5,6 +5,8 @@
 
 #include <nut/platform/platform.h>
 
+#include <map>
+
 #include "react_handler.h"
 
 
@@ -14,12 +16,15 @@ namespace loofah
 class LOOFAH_API Reactor
 {
 #if NUT_PLATFORM_OS_WINDOWS
-    // TODO
+    FD_SET _read_set, _write_set, _except_set;
+    std::map<socket_t, ReactHandler*> _socket_to_handler;
 #elif NUT_PLATFORM_OS_MAC
     int _kq = -1;
 #elif NUT_PLATFORM_OS_LINUX
     int _epoll_fd = -1;
 #endif
+
+    bool _closed = false;
 
 public:
     Reactor();
@@ -31,7 +36,11 @@ public:
     void enable_handler(ReactHandler *handler, int mask);
     void disable_handler(ReactHandler *handler, int mask);
 
-    void handle_events(int timeout_ms = 1000);
+    /**
+     * @return <0 出错
+     */
+    int handle_events(int timeout_ms = 1000);
+    void close();
 };
 
 }

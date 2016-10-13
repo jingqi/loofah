@@ -30,92 +30,91 @@ Proactor proactor;
 
 class ServerChannel : public ProactChannel
 {
-    char *_buf = NULL;
-    int _sz = 0;
+    int _counter = 0;
+    int _tmp = 0;
 
 public:
-    ServerChannel()
-    {
-        _buf = (char*) ::malloc(BUF_LEN);
-    }
-
-    ~ServerChannel()
-    {
-        ::free(_buf);
-    }
-
     virtual void open(socket_t fd) override
     {
         ProactChannel::open(fd);
         NUT_LOG_D(TAG, "server channel opened");
 
         proactor.register_handler(this);
-        proactor.launch_read(this, _buf, BUF_LEN);
+        proactor.launch_read(this, &_tmp, sizeof(_tmp));
     }
 
     virtual void handle_read_completed(void *buf, int cb) override
     {
-        NUT_LOG_D(TAG, "readed %d bytes from client", cb);
-        assert(cb < BUF_LEN);
-        _sz = cb;
+        NUT_LOG_D(TAG, "received %d bytes from client: %d", cb, _tmp);
+        if (0 == cb) // 正常结束
+        {
+            _sock_stream.close();
+            proactor.close();
+            thread_pool->interrupt();
+            return;
+        }
 
-        if (_sz > 0)
-            proactor.launch_write(this, _buf, _sz);
+        assert(cb == sizeof(_tmp));
+        assert(_tmp == _counter);
+        ++_counter;
+
+        proactor.launch_write(this, &_counter, sizeof(_counter));
     }
 
     virtual void handle_write_completed(void *buf, int cb) override
     {
-        NUT_LOG_D(TAG, "wrote %d bytes to client", cb);
+        NUT_LOG_D(TAG, "send %d bytes to client: %d", cb, _counter);
+        assert(cb == sizeof(_counter));
+        ++_counter;
 
-        proactor.launch_read(this, _buf, BUF_LEN);
+        proactor.launch_read(this, &_tmp, sizeof(_tmp));
     }
 };
 
 class ClientChannel : public ProactChannel
 {
-    char *_buf = NULL;
-    int _sz = 0;
-    int _count = 0;
+    int _counter = 0;
+    int _tmp = 0;
 
 public:
-    ClientChannel()
-    {
-        _buf = (char*) ::malloc(BUF_LEN);
-        _sz = 4;
-    }
-
-    ~ClientChannel()
-    {
-        ::free(_buf);
-    }
-
     virtual void open(socket_t fd) override
     {
         ProactChannel::open(fd);
         NUT_LOG_D(TAG, "client channel opened");
 
         proactor.register_handler(this);
-        proactor.launch_write(this, _buf, _sz);
+        proactor.launch_write(this, &_counter, sizeof(_counter));
     }
 
     virtual void handle_read_completed(void *buf, int cb) override
     {
-        NUT_LOG_D(TAG, "readed %d bytes from server", cb);
-        assert(cb < BUF_LEN);
-        _sz = cb;
-
-        if (_count < 10 && _sz > 0)
-            proactor.launch_write(this, _buf, _sz);
-        else
+        NUT_LOG_D(TAG, "received %d bytes from server: %d", cb, _tmp);
+        if (0 == cb) // 正常结束
+        {
             _sock_stream.close();
+            return;
+        }
+
+        assert(cb == sizeof(_tmp));
+        assert(_tmp == _counter);
+        ++_counter;
+
+        if (_counter > 20)
+        {
+            _sock_stream.close();
+            return;
+        }
+
+        proactor.launch_write(this, &_counter, sizeof(_counter));
     }
 
     virtual void handle_write_completed(void *buf, int cb) override
     {
-        NUT_LOG_D(TAG, "wrote %d bytes to server", cb);
-        ++_count;
+        NUT_LOG_D(TAG, "send %d bytes to server: %d", cb, _counter);
+        assert(cb == sizeof(_counter));
+        ++_counter;
 
-        proactor.launch_read(this, _buf, BUF_LEN);
+        proactor.launch_read(this, &_tmp, sizeof(_tmp));
     }
 };
 
@@ -128,7 +127,10 @@ void start_proactor_server(void*)
     proactor.launch_accept(&acc);
     NUT_LOG_D(TAG, "listening to %s", addr.to_string().c_str());
     while (true)
-        proactor.handle_events();
+    {
+        if (proactor.handle_events() < 0)
+            break;
+    }
 }
 
 void start_proactor_client(void*)

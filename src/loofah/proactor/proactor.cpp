@@ -94,7 +94,7 @@ typedef struct _IORequest
 {
     // 事件类型
     int event_type = 0;
-    
+
     void *buf = NULL;
     int buf_len = 0;
 
@@ -114,7 +114,7 @@ Proactor::Proactor()
     _kq = ::kqueue();
     if (-1 == _kq)
     {
-        NUT_LOG_E(TAG, "failed to call ::kqueue() with errno %d: %s", errno, 
+        NUT_LOG_E(TAG, "failed to call ::kqueue() with errno %d: %s", errno,
                   ::strerror(errno));
         return;
     }
@@ -130,15 +130,26 @@ Proactor::Proactor()
 
 Proactor::~Proactor()
 {
+    close();
+}
+
+void Proactor::close()
+{
 #if NUT_PLATFORM_OS_WINDOWS
     if (NULL != _iocp)
         ::CloseHandle(_iocp);
     _iocp = NULL;
 #elif NUT_PLATFORM_OS_MAC
-    ::close(_kq);
+    if (-1 != _kq)
+        ::close(_kq);
+    _kq = -1;
 #elif NUT_PLATFORM_OS_LINUX
-    ::close(_epoll_fd);
+    if (-1 != _epoll_fd)
+        ::close(_epoll_fd);
+    _epoll_fd = -1;
 #endif
+
+    _closed = true;
 }
 
 void Proactor::register_handler(ProactHandler *handler)
@@ -160,7 +171,7 @@ void Proactor::register_handler(ProactHandler *handler)
     EV_SET(ev + 1, fd, EVFILT_WRITE, EV_ADD | EV_DISABLE, 0, 0, (void*) handler);
     if (0 != ::kevent(_kq, ev, 2, NULL, 0, NULL))
     {
-        NUT_LOG_E(TAG, "failed to call ::kevent() with errno %d: %s", errno, 
+        NUT_LOG_E(TAG, "failed to call ::kevent() with errno %d: %s", errno,
                   ::strerror(errno));
         return;
     }
@@ -228,7 +239,7 @@ void Proactor::launch_accept(ProactHandler *handler)
         EV_SET(&ev, listener_socket, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, (void*) handler);
         if (0 != ::kevent(_kq, &ev, 1, NULL, 0, NULL))
         {
-            NUT_LOG_E(TAG, "failed to call ::kevent() with errno %d: %s", errno, 
+            NUT_LOG_E(TAG, "failed to call ::kevent() with errno %d: %s", errno,
                       ::strerror(errno));
             return;
         }
@@ -433,8 +444,11 @@ void Proactor::launch_write(ProactHandler *handler, void *buf, int buf_len)
 #endif
 }
 
-void Proactor::handle_events(int timeout_ms)
+int Proactor::handle_events(int timeout_ms)
 {
+    if (_closed)
+        return -1;
+
 #if NUT_PLATFORM_OS_WINDOWS
     DWORD bytes_transfered = 0;
     void *key = NULL;
@@ -444,13 +458,12 @@ void Proactor::handle_events(int timeout_ms)
     if (FALSE == rs)
     {
         const DWORD errcode = ::GetLastError();
-        // NOTE WAIT_TIMEOUT 表示等待超时
-        if (WAIT_TIMEOUT != errcode)
-        {
-            NUT_LOG_W(TAG, "failed to call ::GetQueuedCompletionStatus() with "
-                      "errno %d", errcode);
-        }
-        return;
+        if (WAIT_TIMEOUT == errcode)
+            return 0; // WAIT_TIMEOUT 表示等待超时
+
+        NUT_LOG_W(TAG, "failed to call ::GetQueuedCompletionStatus() with errno %d",
+                  errcode);
+        return -1;
     }
 
     ProactHandler *handler = (ProactHandler*) key;
@@ -493,9 +506,13 @@ void Proactor::handle_events(int timeout_ms)
 
     default:
         NUT_LOG_E(TAG, "unknown event type %d", io_request->event_type);
+        io_request->~IORequest();
+        ::free(io_request);
+        return -1;
     }
     io_request->~IORequest();
     ::free(io_request);
+    return 0;
 #elif NUT_PLATFORM_OS_MAC
     struct timespec timeout;
     timeout.tv_sec = timeout_ms / 1000;
@@ -558,9 +575,10 @@ void Proactor::handle_events(int timeout_ms)
         else
         {
             NUT_LOG_E(TAG, "unknown kevent type %d", events);
-            return;
+            return -1;
         }
     }
+    return 0;
 #elif NUT_PLATFORM_OS_LINUX
     struct epoll_event events[MAX_EPOLL_EVENTS];
     const int n = ::epoll_wait(_epoll_fd, events, MAX_EPOLL_EVENTS, timeout_ms);
@@ -616,6 +634,7 @@ void Proactor::handle_events(int timeout_ms)
             ::free(io_request);
         }
     }
+    return 0;
 #endif
 }
 

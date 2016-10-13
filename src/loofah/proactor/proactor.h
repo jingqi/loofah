@@ -24,6 +24,8 @@ class LOOFAH_API Proactor
     int _epoll_fd = -1;
 #endif
 
+    bool _closed = false;
+
 #if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
     void enable_handler(ProactHandler *handler, int mask);
     void disable_handler(ProactHandler *handler, int mask);
@@ -41,8 +43,11 @@ public:
 
     /**
      * @param timeout_ms 超时毫秒数，在 Windows 下可传入 INFINITE 表示无穷等待
+     * @return <0 出错
      */
-    void handle_events(int timeout_ms = 1000);
+    int handle_events(int timeout_ms = 1000);
+
+    void close();
 };
 
 }

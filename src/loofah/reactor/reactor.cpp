@@ -29,11 +29,15 @@ namespace loofah
 
 Reactor::Reactor()
 {
-#if NUT_PLATFORM_OS_MAC
+#if NUT_PLATFORM_OS_WINDOWS
+    FD_ZERO(&_read_set);
+    FD_ZERO(&_write_set);
+    FD_ZERO(&_except_set);
+#elif NUT_PLATFORM_OS_MAC
     _kq = ::kqueue();
     if (-1 == _kq)
     {
-        NUT_LOG_E(TAG, "failed to call ::kqueue() with errno %d: %s", errno, 
+        NUT_LOG_E(TAG, "failed to call ::kqueue() with errno %d: %s", errno,
                   ::strerror(errno));
         return;
     }
@@ -49,11 +53,27 @@ Reactor::Reactor()
 
 Reactor::~Reactor()
 {
-#if NUT_PLATFORM_OS_MAC
-    ::close(_kq);
+    close();
+}
+
+void Reactor::close()
+{
+#if NUT_PLATFORM_OS_WINDOWS
+    FD_ZERO(&_read_set);
+    FD_ZERO(&_write_set);
+    FD_ZERO(&_except_set);
+    _socket_to_handler.clear();
+#elif NUT_PLATFORM_OS_MAC
+    if (-1 != _kq)
+        ::close(_kq);
+    _kq = -1;
 #elif NUT_PLATFORM_OS_LINUX
-    ::close(_epoll_fd);
+    if (-1 != _epoll_fd)
+        ::close(_epoll_fd);
+    _epoll_fd = -1;
 #endif
+
+    _closed = true;
 }
 
 void Reactor::register_handler(ReactHandler *handler, int mask)
@@ -61,7 +81,13 @@ void Reactor::register_handler(ReactHandler *handler, int mask)
     assert(NULL != handler && 0 == handler->_registered_events);
     const socket_t fd = handler->get_socket();
 
-#if NUT_PLATFORM_OS_MAC
+#if NUT_PLATFORM_OS_WINDOWS
+    if (0 != (mask & ReactHandler::READ_MASK))
+        FD_SET(fd, _read_set);
+    if (0 != (mask & ReactHandler::WRITE_MASK))
+        FD_SET(fd, _write_set);
+    _socket_to_handler.insert(std::pair<socket_t,RectHandler*>(fd, handler));
+#elif NUT_PLATFORM_OS_MAC
     struct kevent ev[2];
     int n = 0;
     if (0 != (mask & ReactHandler::READ_MASK))
@@ -73,6 +99,7 @@ void Reactor::register_handler(ReactHandler *handler, int mask)
         NUT_LOG_E(TAG, "failed to call ::kevent()");
         return;
     }
+    handler->_registered_events = mask;
 #elif NUT_PLATFORM_OS_LINUX
     struct epoll_event epv;
     ::memset(&epv, 0, sizeof(epv));
@@ -86,9 +113,8 @@ void Reactor::register_handler(ReactHandler *handler, int mask)
         NUT_LOG_E(TAG, "failed to call ::epoll_ctl()");
         return;
     }
-#endif
-
     handler->_registered_events = mask;
+#endif
 }
 
 void Reactor::unregister_handler(ReactHandler *handler)
@@ -96,7 +122,15 @@ void Reactor::unregister_handler(ReactHandler *handler)
     assert(NULL != handler);
     const socket_t fd = handler->get_socket();
 
-#if NUT_PLATFORM_OS_MAC
+#if NUT_PLATFORM_OS_WINDOWS
+    if (FD_ISSET(fd, _read_set))
+        FD_CLR(fd, _read_set);
+    if (FD_ISSET(fd, _write_set))
+        FD_CLR(fd, _write_set);
+    if (FD_ISSET(fd, _except_set))
+        FD_CLR(fd, _except_set);
+    _socket_to_handler.erase(fd);
+#elif NUT_PLATFORM_OS_MAC
     struct kevent ev[2];
     EV_SET(ev + 0, fd, EVFILT_READ, EV_DELETE, 0, 0, (void*) handler);
     EV_SET(ev + 1, fd, EVFILT_WRITE, EV_DELETE, 0, 0, (void*) handler);
@@ -105,6 +139,7 @@ void Reactor::unregister_handler(ReactHandler *handler)
         NUT_LOG_E(TAG, "failed to call ::kevent()");
         return;
     }
+    handler->_registered_events = 0;
 #elif NUT_PLATFORM_OS_LINUX
     struct epoll_event epv;
     ::memset(&epv, 0, sizeof(epv));
@@ -114,9 +149,8 @@ void Reactor::unregister_handler(ReactHandler *handler)
         NUT_LOG_E(TAG, "failed to call ::epoll_ctl()");
         return;
     }
-#endif
-
     handler->_registered_events = 0;
+#endif
 }
 
 void Reactor::enable_handler(ReactHandler *handler, int mask)
@@ -124,7 +158,13 @@ void Reactor::enable_handler(ReactHandler *handler, int mask)
     assert(NULL != handler);
     const socket_t fd = handler->get_socket();
 
-#if NUT_PLATFORM_OS_MAC
+#if NUT_PLATFORM_OS_WINDOWS
+    if (0 != (mask & ReactHandler::READ_MASK) && !FD_ISSET(fd, _read_set))
+        FD_SET(fd, _read_set);
+    if (0 != (mask & ReactHandler::WRITE_MASK) && !FD_ISSET(fd, _write_set))
+        FD_SET(fd, _write_set);
+    _socket_to_handler.insert(std::pair<socket_t,RectHandler*>(fd, handler));
+#elif NUT_PLATFORM_OS_MAC
     struct kevent ev[2];
     int n = 0;
     if (0 != (mask & ReactHandler::READ_MASK))
@@ -147,6 +187,7 @@ void Reactor::enable_handler(ReactHandler *handler, int mask)
                   ::strerror(errno));
         return;
     }
+    handler->_registered_events |= mask;
 #elif NUT_PLATFORM_OS_LINUX
     struct epoll_event epv;
     ::memset(&epv, 0, sizeof(epv));
@@ -160,9 +201,8 @@ void Reactor::enable_handler(ReactHandler *handler, int mask)
         NUT_LOG_E(TAG, "failed to call ::epoll_ctl()");
         return;
     }
-#endif
-
     handler->_registered_events |= mask;
+#endif
 }
 
 void Reactor::disable_handler(ReactHandler *handler, int mask)
@@ -170,7 +210,12 @@ void Reactor::disable_handler(ReactHandler *handler, int mask)
     assert(NULL != handler);
     const socket_t fd = handler->get_socket();
 
-#if NUT_PLATFORM_OS_MAC
+#if NUT_PLATFORM_OS_WINDOWS
+    if (0 != (mask & ReactHandler::READ_MASK) && FD_ISSET(fd, _read_set))
+        FD_CLR(fd, _read_set);
+    if (0 != (mask & ReactHandler::WRITE_MASK) && FD_ISSET(fd, _write_set))
+        FD_CLR(fd, _write_set);
+#elif NUT_PLATFORM_OS_MAC
     struct kevent ev[2];
     int n = 0;
     if (0 != (mask & ReactHandler::READ_MASK))
@@ -183,6 +228,7 @@ void Reactor::disable_handler(ReactHandler *handler, int mask)
                   ::strerror(errno));
         return;
     }
+    handler->_registered_events &= ~mask;
 #elif NUT_PLATFORM_OS_LINUX
     struct epoll_event epv;
     ::memset(&epv, 0, sizeof(epv));
@@ -196,14 +242,52 @@ void Reactor::disable_handler(ReactHandler *handler, int mask)
         NUT_LOG_E(TAG, "failed to call ::epoll_ctl()");
         return;
     }
-#endif
-
     handler->_registered_events &= ~mask;
+#endif
 }
 
-void Reactor::handle_events(int timeout_ms)
+int Reactor::handle_events(int timeout_ms)
 {
-#if NUT_PLATFORM_OS_MAC
+    if (_closed)
+        return -1;
+
+#if NUT_PLATFORM_OS_WINDOWS
+    struct timeval timeout, *ptimeout = NULL; // NULL 表示无限等待
+    if (timeout_ms >= 0)
+    {
+        timeout.tv_sec = timeout_ms / 1000;
+        timeout.tv_usec = (timeout_ms % 1000) * 1000;
+        ptimeout = &timeout;
+    }
+    FD_SET read_set = _read_set, write_set = _write_set, except_set = _except_set;
+    const int rs = ::select(0, &read_set, &write_set, &except_set, ptimeout);
+    if (SOCKET_ERROR == rs)
+    {
+        NUT_LOG_E(TAG, "failed to call ::select()");
+        return;
+    }
+    for (int i = 0; i < _read_set.fd_count; ++i)
+    {
+        socket_t fd = _read_set.fd_array[i];
+        std::map<socket_t, ReactHandler*>::const_iterator iter = _socket_to_handler.find(fd);
+        if (iter == _socket_to_handler.end())
+            continue;
+        ReactHandler *handler = iter.second;
+        assert(NULL != handler);
+        handler->handle_read_ready();
+    }
+    for (int i = 0; i < _write_set.fd_count; ++i)
+    {
+        socket_t fd = _write_set.fd_array[i];
+        std::map<socket_t, ReactHandler*>::const_iterator iter = _socket_to_handler.find(fd);
+        if (iter == _socket_to_handler.end())
+            continue;
+        ReactHandler *handler = iter.second;
+        assert(NULL != handler);
+        handler->handle_write_ready();
+    }
+    return 0;
+#elif NUT_PLATFORM_OS_MAC
     struct timespec timeout;
     timeout.tv_sec = timeout_ms / 1000;
     timeout.tv_nsec = (timeout_ms % 1000) * 1000 * 1000;
@@ -227,9 +311,10 @@ void Reactor::handle_events(int timeout_ms)
         else
         {
             NUT_LOG_E(TAG, "unknown kevent type %d", events);
-            return;
+            return -1;
         }
     }
+    return 0;
 #elif NUT_PLATFORM_OS_LINUX
     struct epoll_event events[MAX_EPOLL_EVENTS];
     const int n = ::epoll_wait(_epoll_fd, events, MAX_EPOLL_EVENTS, timeout_ms);
@@ -243,6 +328,7 @@ void Reactor::handle_events(int timeout_ms)
         if (0 != (events[i].events & EPOLLOUT))
             handler->handle_write_ready();
     }
+    return 0;
 #endif
 }
 

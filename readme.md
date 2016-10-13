@@ -8,7 +8,7 @@ Loofah
 
 | 平台 | 实现 |
 |-|-|
-| Windows  | - |
+| Windows  | select |
 | MacOS | kqueue |
 | Linux | epoll |
 
@@ -16,6 +16,6 @@ Loofah
 
 | 平台 | 实现 |
 |-|-|
-| Windows | CompletionPort |
-| MacOS | - |
+| Windows | iocp |
+| MacOS | kqueue(模拟) |
 | Linux | epoll(模拟) |
