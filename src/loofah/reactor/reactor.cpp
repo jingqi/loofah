@@ -31,6 +31,11 @@ Reactor::Reactor()
     _kq = ::kqueue();
 #elif NUT_PLATFORM_OS_LINUX
     _epoll_fd = ::epoll_create(MAX_EPOLL_EVENTS);
+    if (-1 == _epoll_fd)
+    {
+        NUT_LOG_E(TAG, "failed to call ::epoll_create()");
+        return;
+    }
 #endif
 }
 
@@ -182,6 +187,8 @@ void Reactor::disable_handler(ReactHandler *handler, int mask)
         return;
     }
 #endif
+
+    handler->_registered_events &= ~mask;
 }
 
 void Reactor::handle_events(int timeout_ms)
@@ -216,7 +223,7 @@ void Reactor::handle_events(int timeout_ms)
     }
 #elif NUT_PLATFORM_OS_LINUX
     struct epoll_event events[MAX_EPOLL_EVENTS];
-    int n = ::epoll_wait(_epoll_fd, events, MAX_EPOLL_EVENTS, timeout_ms);
+    const int n = ::epoll_wait(_epoll_fd, events, MAX_EPOLL_EVENTS, timeout_ms);
     for (int i = 0; i < n; ++i)
     {
         ReactHandler *handler = (ReactHandler*) events[i].data.ptr;

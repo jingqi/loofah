@@ -18,24 +18,19 @@ class LOOFAH_API Proactor
 {
 #if NUT_PLATFORM_OS_WINDOWS
     HANDLE _iocp = INVALID_HANDLE_VALUE;
+#elif NUT_PLATFORM_OS_LINUX
+    int _epoll_fd = -1;
 #endif
 
 public:
     Proactor();
     ~Proactor();
 
-#if NUT_PLATFORM_OS_WINDOWS
-    HANDLE get_iocp()
-    {
-        return _iocp;
-    }
-#endif
-
     void register_handler(ProactHandler *handler);
 
     void launch_accept(ProactHandler *handler);
-    void launch_read(ProactHandler *handler, int buf_len);
-    void launch_write(ProactHandler *handler, const void *buf, int buf_len);
+    void launch_read(ProactHandler *handler, void *buf, int buf_len);
+    void launch_write(ProactHandler *handler, void *buf, int buf_len);
 
     /**
      * @param timeout_ms 超时毫秒数，在 Windows 下可传入 INFINITE 表示无穷等待

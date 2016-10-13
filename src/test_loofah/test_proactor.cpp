@@ -50,25 +50,24 @@ public:
         NUT_LOG_D(TAG, "server channel opened");
 
         proactor.register_handler(this);
-        proactor.launch_read(this, BUF_LEN);
+        proactor.launch_read(this, _buf, BUF_LEN);
     }
 
-    virtual void handle_read_completed(int cb, IOContext *ioc) override
+    virtual void handle_read_completed(void *buf, int cb) override
     {
         NUT_LOG_D(TAG, "readed %d bytes from client", cb);
         assert(cb < BUF_LEN);
-        ::memcpy(_buf, ioc->wsabuf.buf, cb);
         _sz = cb;
 
         if (_sz > 0)
             proactor.launch_write(this, _buf, _sz);
     }
 
-    virtual void handle_write_completed(int cb, IOContext *ioc) override
+    virtual void handle_write_completed(void *buf, int cb) override
     {
         NUT_LOG_D(TAG, "wrote %d bytes to client", cb);
 
-        proactor.launch_read(this, BUF_LEN);
+        proactor.launch_read(this, _buf, BUF_LEN);
     }
 };
 
@@ -99,11 +98,10 @@ public:
         proactor.launch_write(this, _buf, _sz);
     }
 
-    virtual void handle_read_completed(int cb, IOContext *ioc) override
+    virtual void handle_read_completed(void *buf, int cb) override
     {
         NUT_LOG_D(TAG, "readed %d bytes from server", cb);
         assert(cb < BUF_LEN);
-        ::memcpy(_buf, ioc->wsabuf.buf, cb);
         _sz = cb;
 
         if (_count < 10 && _sz > 0)
@@ -112,12 +110,12 @@ public:
             _sock_stream.close();
     }
 
-    virtual void handle_write_completed(int cb, IOContext *ioc) override
+    virtual void handle_write_completed(void *buf, int cb) override
     {
         NUT_LOG_D(TAG, "wrote %d bytes to server", cb);
         ++_count;
 
-        proactor.launch_read(this, BUF_LEN);
+        proactor.launch_read(this, _buf, BUF_LEN);
     }
 };
 

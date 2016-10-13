@@ -18,4 +18,4 @@ Loofah
 |-|-|
 | Windows | CompletionPort |
 | MacOS | - |
-| Linux | - |
+| Linux | epoll(模拟) |

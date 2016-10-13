@@ -7,6 +7,8 @@
 #if NUT_PLATFORM_OS_WINDOWS
 #   include <winsock2.h>
 #   include <windows.h>
+#else
+#   include <unistd.h> // for ::close()
 #endif
 
 #include <nut/logging/logger.h>
@@ -56,34 +58,86 @@ bool ProactAcceptorBase::open(const INETAddr& addr, int listen_num)
 
     return true;
 #else
-    assert(false);
-    return false;
+    // Create socket
+    _listen_socket = ::socket(AF_INET, SOCK_STREAM, 0);
+    if (INVALID_SOCKET_VALUE == _listen_socket)
+    {
+        NUT_LOG_E(TAG, "failed to call ::socket()");
+        return false;
+    }
+
+    // Make port reuseable
+    if (!make_listen_socket_reuseable(_listen_socket))
+        NUT_LOG_W(TAG, "failed to make listen socket reuseable, socketfd %d", _listen_socket);
+
+    // Bind
+    const struct sockaddr_in& sin = addr.get_sockaddr_in();
+    // sin.sin_family = AF_INET;
+    // sin.sin_addr.s_addr = htonl(INADDR_ANY);
+    // sin.sin_port = htons(port);
+    if (::bind(_listen_socket, (const struct sockaddr*)&sin, sizeof(sin)) < 0)
+    {
+        NUT_LOG_E(TAG, "failed to call ::bind() with addr %s", addr.to_string().c_str());
+        ::close(_listen_socket);
+        _listen_socket = INVALID_SOCKET_VALUE;
+        return false;
+    }
+
+    // Listen
+    if (::listen(_listen_socket, listen_num) < 0)
+    {
+        NUT_LOG_E(TAG, "failed to call ::listen() with addr %s", addr.to_string().c_str());
+        ::close(_listen_socket);
+        _listen_socket = INVALID_SOCKET_VALUE;
+        return false;
+    }
+
+    // Make socket non-blocking
+    if (!make_socket_nonblocking(_listen_socket))
+        NUT_LOG_W(TAG, "failed to make listen socket nonblocking, socketfd %d", _listen_socket);
+
+    return true;
 #endif
 }
 
-socket_t ProactAcceptorBase::handle_accept(IOContext *io_context)
+#if NUT_PLATFORM_OS_LINUX
+socket_t ProactAcceptorBase::handle_accept(socket_t listener_sock_fd)
 {
-    assert(NULL != io_context);
-
+    struct sockaddr_in remote_addr;
 #if NUT_PLATFORM_OS_WINDOWS
-    // Get peer address
-    struct sockaddr_in *remote_addr = NULL, *local_addr = NULL;
-    int remote_len = sizeof(struct sockaddr_in), local_len = sizeof(struct sockaddr_in);
-    assert(NULL != func_GetAcceptExSockaddrs);
-    func_GetAcceptExSockaddrs(io_context->wsabuf.buf,
-                              io_context->wsabuf.len - 2 * (sizeof(struct sockaddr_in) + 16),
-                              sizeof(struct sockaddr_in) + 16,
-                              sizeof(struct sockaddr_in) + 16,
-                              (LPSOCKADDR*)&local_addr,
-                              &local_len,
-                              (LPSOCKADDR*)&remote_addr,
-                              &remote_len);
-
-    return io_context->accept_socket;
+    int rsz = sizeof(remote_addr);
 #else
-    assert(false);
-    return INVALID_SOCKET_VALUE;
+    socklen_t rsz = sizeof(remote_addr);
 #endif
+    socket_t fd = ::accept(listener_sock_fd, (struct sockaddr*)&remote_addr, &rsz);
+    if (INVALID_SOCKET_VALUE == fd)
+    {
+        NUT_LOG_E(TAG, "failed to call ::accept()");
+        return INVALID_SOCKET_VALUE;
+    }
+
+    struct sockaddr_in peer;
+#if NUT_PLATFORM_OS_WINDOWS
+    int plen = sizeof(peer);
+#else
+    socklen_t plen = sizeof(peer);
+#endif
+    if (::getpeername(fd, (struct sockaddr*)&peer, &plen) < 0)
+    {
+        NUT_LOG_W(TAG, "failed to call ::getpeername(), socketfd %d", fd);
+#if NUT_PLATFORM_OS_WINDOWS
+        ::closesocket(fd);
+#else
+        ::close(fd);
+#endif
+        return INVALID_SOCKET_VALUE;
+    }
+
+    if (!make_socket_nonblocking(fd))
+        NUT_LOG_W(TAG, "failed to make socket nonblocking, socketfd %d", fd);
+
+    return fd;
 }
+#endif
 
 }

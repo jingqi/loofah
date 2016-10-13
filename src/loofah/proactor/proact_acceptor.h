@@ -15,9 +15,6 @@ class LOOFAH_API ProactAcceptorBase : public ProactHandler
 {
     socket_t _listen_socket = INVALID_SOCKET_VALUE;
 
-protected:
-    socket_t handle_accept(IOContext *io_context);
-
 public:
     /**
      * @param listen_num 在 windows 下, 可以使用 'SOMAXCONN' 表示最大允许链接数
@@ -28,17 +25,18 @@ public:
     {
         return _listen_socket;
     }
+
+#if NUT_PLATFORM_OS_LINUX
+    static socket_t handle_accept(socket_t listener_sock_fd);
+#endif
 };
 
 template <typename CHANNEL>
 class ProactAcceptor : public ProactAcceptorBase
 {
 public:
-    virtual void handle_accept_completed(IOContext *io_context) override
+    virtual void handle_accept_completed(socket_t fd) override
     {
-#if NUT_PLATFORM_OS_WINDOWS
-        // Accept
-        const socket_t fd = handle_accept(io_context);
         assert(INVALID_SOCKET_VALUE != fd);
 
         // Create new handler
@@ -46,7 +44,6 @@ public:
         assert(NULL != handler);
         new (handler) CHANNEL;
         handler->open(fd);
-#endif
     }
 };
 
