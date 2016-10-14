@@ -17,6 +17,7 @@
 
 #include "connector.h"
 #include "../base/utils.h"
+#include "../base/sock_base.h"
 
 
 #define TAG "loofah.connector"
@@ -49,7 +50,7 @@ bool Connector::connect(Channel *channel, const INETAddr& address)
     }
 
     // Make it nonblocking
-    if (!make_socket_nonblocking(fd))
+    if (!SockBase::make_nonblocking(fd))
         NUT_LOG_W(TAG, "failed to make socket nonblocking, socketfd %d", fd);
 
     channel->open(fd);

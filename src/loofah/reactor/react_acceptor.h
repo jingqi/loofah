@@ -14,10 +14,7 @@ namespace loofah
 
 class LOOFAH_API ReactAcceptorBase : public ReactHandler
 {
-    socket_t _listen_socket = INVALID_SOCKET_VALUE;
-
-protected:
-    socket_t handle_accept();
+    socket_t _listener_socket = INVALID_SOCKET_VALUE;
 
 public:
     /**
@@ -27,8 +24,10 @@ public:
 
     virtual socket_t get_socket() const override
     {
-        return _listen_socket;
+        return _listener_socket;
     }
+
+    static socket_t handle_accept(socket_t listener_socket);
 };
 
 template <typename CHANNEL>
@@ -38,7 +37,7 @@ public:
     virtual void handle_read_ready() override
     {
         // Accept
-        socket_t fd = handle_accept();
+        socket_t fd = handle_accept(get_socket());
         assert(INVALID_SOCKET_VALUE != fd);
 
         // Create new handler

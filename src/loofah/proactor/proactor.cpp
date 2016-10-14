@@ -28,7 +28,7 @@
 #include <nut/threading/sync/guard.h>
 
 #include "proactor.h"
-#include "proact_acceptor.h"
+#include "../reactor/react_acceptor.h"
 #include "../base/utils.h"
 
 
@@ -536,7 +536,7 @@ int Proactor::handle_events(int timeout_ms)
                 if (handler->_request_accept <= 0)
                     disable_handler(handler, ProactHandler::READ_MASK);
 
-                socket_t accepted = ProactAcceptorBase::handle_accept(fd);
+                socket_t accepted = ReactAcceptorBase::handle_accept(fd);
                 handler->handle_accept_completed(accepted);
             }
             else
@@ -597,7 +597,7 @@ int Proactor::handle_events(int timeout_ms)
                 if (handler->_request_accept <= 0)
                     disable_handler(handler, ProactHandler::READ_MASK);
 
-                socket_t accepted = ProactAcceptorBase::handle_accept(fd);
+                socket_t accepted = ReactAcceptorBase::handle_accept(fd);
                 handler->handle_accept_completed(accepted);
             }
             else

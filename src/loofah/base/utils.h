@@ -28,12 +28,6 @@ extern LPFN_GETACCEPTEXSOCKADDRS func_GetAcceptExSockaddrs;
 LOOFAH_API bool init_network();
 LOOFAH_API void shutdown_network();
 
-// 复用监听端口，必须在 bind() 之前调用
-bool make_listen_socket_reuseable(socket_t listen_socket);
-
-// 设置非阻塞
-bool make_socket_nonblocking(socket_t socket_fd, bool nonblocking=true);
-
 }
 
 #endif

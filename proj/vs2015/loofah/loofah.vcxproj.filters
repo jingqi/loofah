@@ -50,6 +50,9 @@
     <ClCompile Include="..\..\..\src\loofah\reactor\react_channel.cpp">
       <Filter>loofah\reactor</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\src\loofah\base\sock_base.cpp">
+      <Filter>loofah\base</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\src\loofah\loofah.h">
@@ -99,6 +102,9 @@
     </ClInclude>
     <ClInclude Include="..\..\..\src\loofah\reactor\react_handler.h">
       <Filter>loofah\reactor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\base\sock_base.h">
+      <Filter>loofah\base</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -13,7 +13,7 @@ namespace loofah
 
 class LOOFAH_API ProactAcceptorBase : public ProactHandler
 {
-    socket_t _listen_socket = INVALID_SOCKET_VALUE;
+    socket_t _listener_socket = INVALID_SOCKET_VALUE;
 
 public:
     /**
@@ -23,12 +23,8 @@ public:
 
     virtual socket_t get_socket() const override
     {
-        return _listen_socket;
+        return _listener_socket;
     }
-
-#if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
-    static socket_t handle_accept(socket_t listener_sock_fd);
-#endif
 };
 
 template <typename CHANNEL>

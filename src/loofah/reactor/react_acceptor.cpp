@@ -14,6 +14,7 @@
 
 #include "react_acceptor.h"
 #include "../base/utils.h"
+#include "../base/sock_base.h"
 
 #define TAG "loofah.react_acceptor"
 
@@ -23,55 +24,55 @@ namespace loofah
 bool ReactAcceptorBase::open(const INETAddr& addr, int listen_num)
 {
     // Create socket
-    _listen_socket = ::socket(AF_INET, SOCK_STREAM, 0);
-    if (INVALID_SOCKET_VALUE == _listen_socket)
+    _listener_socket = ::socket(AF_INET, SOCK_STREAM, 0);
+    if (INVALID_SOCKET_VALUE == _listener_socket)
     {
         NUT_LOG_E(TAG, "failed to call ::socket()");
         return false;
     }
 
     // Make port reuseable
-    if (!make_listen_socket_reuseable(_listen_socket))
-        NUT_LOG_W(TAG, "failed to make listen socket reuseable, socketfd %d", _listen_socket);
+    if (!SockBase::make_listen_addr_reuseable(_listener_socket))
+        NUT_LOG_W(TAG, "failed to make listen socket reuseable, socketfd %d", _listener_socket);
 
     // Bind
     const struct sockaddr_in& sin = addr.get_sockaddr_in();
     // sin.sin_family = AF_INET;
     // sin.sin_addr.s_addr = htonl(INADDR_ANY);
     // sin.sin_port = htons(port);
-    if (::bind(_listen_socket, (const struct sockaddr*)&sin, sizeof(sin)) < 0)
+    if (::bind(_listener_socket, (const struct sockaddr*)&sin, sizeof(sin)) < 0)
     {
         NUT_LOG_E(TAG, "failed to call ::bind() with addr %s", addr.to_string().c_str());
 #if NUT_PLATFORM_OS_WINDOWS
-        ::closesocket(_listen_socket);
+        ::closesocket(_listener_socket);
 #else
-        ::close(_listen_socket);
+        ::close(_listener_socket);
 #endif
-        _listen_socket = INVALID_SOCKET_VALUE;
+        _listener_socket = INVALID_SOCKET_VALUE;
         return false;
     }
 
     // Listen
-    if (::listen(_listen_socket, listen_num) < 0)
+    if (::listen(_listener_socket, listen_num) < 0)
     {
         NUT_LOG_E(TAG, "failed to call ::listen() with addr %s", addr.to_string().c_str());
 #if NUT_PLATFORM_OS_WINDOWS
-        ::closesocket(_listen_socket);
+        ::closesocket(_listener_socket);
 #else
-        ::close(_listen_socket);
+        ::close(_listener_socket);
 #endif
-        _listen_socket = INVALID_SOCKET_VALUE;
+        _listener_socket = INVALID_SOCKET_VALUE;
         return false;
     }
 
     // Make socket non-blocking
-    if (!make_socket_nonblocking(_listen_socket))
-        NUT_LOG_W(TAG, "failed to make listen socket nonblocking, socketfd %d", _listen_socket);
+    if (!SockBase::make_nonblocking(_listener_socket))
+        NUT_LOG_W(TAG, "failed to make listen socket nonblocking, socketfd %d", _listener_socket);
 
     return true;
 }
 
-socket_t ReactAcceptorBase::handle_accept()
+socket_t ReactAcceptorBase::handle_accept(socket_t listener_socket)
 {
     struct sockaddr_in remote_addr;
 #if NUT_PLATFORM_OS_WINDOWS
@@ -79,7 +80,7 @@ socket_t ReactAcceptorBase::handle_accept()
 #else
     socklen_t rsz = sizeof(remote_addr);
 #endif
-    socket_t fd = ::accept(_listen_socket, (struct sockaddr*)&remote_addr, &rsz);
+    socket_t fd = ::accept(listener_socket, (struct sockaddr*)&remote_addr, &rsz);
     if (INVALID_SOCKET_VALUE == fd)
     {
         NUT_LOG_E(TAG, "failed to call ::accept()");
@@ -103,7 +104,7 @@ socket_t ReactAcceptorBase::handle_accept()
         return INVALID_SOCKET_VALUE;
     }
 
-    if (!make_socket_nonblocking(fd))
+    if (!SockBase::make_nonblocking(fd))
         NUT_LOG_W(TAG, "failed to make socket nonblocking, socketfd %d", fd);
 
     return fd;
