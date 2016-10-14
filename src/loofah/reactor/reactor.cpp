@@ -116,6 +116,8 @@ void Reactor::register_handler(ReactHandler *handler, int mask)
         epv.events |= EPOLLIN;
     if (0 != (mask & ReactHandler::WRITE_MASK))
         epv.events |= EPOLLOUT;
+    if (_edge_triggered)
+        epv.events |= EPOLLET;
     if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, fd, &epv))
     {
         NUT_LOG_E(TAG, "failed to call ::epoll_ctl()");
@@ -206,6 +208,8 @@ void Reactor::enable_handler(ReactHandler *handler, int mask)
         epv.events |= EPOLLIN;
     if (0 != (mask & ReactHandler::WRITE_MASK) || 0 != (handler->_registered_events & ReactHandler::WRITE_MASK))
         epv.events |= EPOLLOUT;
+    if (_edge_triggered)
+        epv.events |= EPOLLET;
     if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_MOD, fd, &epv))
     {
         NUT_LOG_E(TAG, "failed to call ::epoll_ctl()");
@@ -248,6 +252,8 @@ void Reactor::disable_handler(ReactHandler *handler, int mask)
         epv.events |= EPOLLIN;
     if (0 == (mask & ReactHandler::WRITE_MASK) && 0 != (handler->_registered_events & ReactHandler::WRITE_MASK))
         epv.events |= EPOLLOUT;
+    if (_edge_triggered)
+        epv.events |= EPOLLET;
     if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_MOD, fd, &epv))
     {
         NUT_LOG_E(TAG, "failed to call ::epoll_ctl()");
@@ -281,7 +287,7 @@ int Reactor::handle_events(int timeout_ms)
         NUT_LOG_E(TAG, "failed to call ::select() with errorno %d", ::WSAGetLastError());
         return -1;
     }
-    for (int i = 0; i < read_set.fd_count; ++i)
+    for (unsigned i = 0; i < read_set.fd_count; ++i)
     {
         socket_t fd = read_set.fd_array[i];
         std::map<socket_t, ReactHandler*>::const_iterator iter = _socket_to_handler.find(fd);
@@ -291,7 +297,7 @@ int Reactor::handle_events(int timeout_ms)
         assert(NULL != handler);
         handler->handle_read_ready();
     }
-    for (int i = 0; i < write_set.fd_count; ++i)
+    for (unsigned i = 0; i < write_set.fd_count; ++i)
     {
         socket_t fd = write_set.fd_array[i];
         std::map<socket_t, ReactHandler*>::const_iterator iter = _socket_to_handler.find(fd);

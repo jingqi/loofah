@@ -36,15 +36,20 @@ class ReactAcceptor : public ReactAcceptorBase
 public:
     virtual void handle_read_ready() override
     {
-        // Accept
-        socket_t fd = handle_accept(get_socket());
-        assert(INVALID_SOCKET_VALUE != fd);
+        // NOTE 在 edge-trigger 模式下，需要一次接收干净
+        while (true)
+        {
+            // Accept
+            socket_t fd = handle_accept(get_socket());
+            if (INVALID_SOCKET_VALUE == fd)
+                break;
 
-        // Create new handler
-        CHANNEL *handler = (CHANNEL*) ::malloc(sizeof(CHANNEL));
-        assert(NULL != handler);
-        new (handler) CHANNEL;
-        handler->open(fd);
+            // Create new handler
+            CHANNEL *handler = (CHANNEL*) ::malloc(sizeof(CHANNEL));
+            assert(NULL != handler);
+            new (handler) CHANNEL;
+            handler->open(fd);
+        }
     }
 };
 

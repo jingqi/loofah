@@ -50,6 +50,7 @@ public:
         if (0 == rs) // 正常结束
         {
             _sock_stream.close();
+            reactor.unregister_handler(this);
             reactor.close();
             return;
         }
@@ -92,6 +93,7 @@ public:
         NUT_LOG_D(TAG, "received %d bytes from server: %d", rs, seq);
         if (0 == rs) // 正常结束
         {
+            reactor.unregister_handler(this);
             _sock_stream.close();
             return;
         }
@@ -102,6 +104,7 @@ public:
 
         if (_counter > 20)
         {
+            reactor.unregister_handler(this);
             _sock_stream.close();
             return;
         }

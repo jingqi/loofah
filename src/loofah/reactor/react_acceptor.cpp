@@ -8,6 +8,7 @@
 #   include <sys/socket.h> // for socket() and so on
 #   include <netinet/in.h> // for sockaddr_in
 #   include <unistd.h> // for close()
+#   include <errno.h>
 #endif
 
 #include <nut/logging/logger.h>
@@ -83,23 +84,18 @@ socket_t ReactAcceptorBase::handle_accept(socket_t listener_socket)
     socket_t fd = ::accept(listener_socket, (struct sockaddr*)&remote_addr, &rsz);
     if (INVALID_SOCKET_VALUE == fd)
     {
-        NUT_LOG_E(TAG, "failed to call ::accept()");
-        return INVALID_SOCKET_VALUE;
-    }
-
-    struct sockaddr_in peer;
 #if NUT_PLATFORM_OS_WINDOWS
-    int plen = sizeof(peer);
+        const int errcode = ::WSAGetLastError();
+        // NOTE 错误码 WSAEWOULDBLOCK 表示已经没有资源了，等待下次异步通知，是正常的
+        if (WSAEWOULDBLOCK != errcode)
+            NUT_LOG_E(TAG, "failed to call ::accept() with errno %d", errcode);
 #else
-    socklen_t plen = sizeof(peer);
-#endif
-    if (::getpeername(fd, (struct sockaddr*)&peer, &plen) < 0)
-    {
-        NUT_LOG_W(TAG, "failed to call ::getpeername(), socketfd %d", fd);
-#if NUT_PLATFORM_OS_WINDOWS
-        ::closesocket(fd);
-#else
-        ::close(fd);
+        // NOTE 错误码 EAGAIN 表示已经没有资源了，等待下次异步通知，是正常的
+        if (EAGAIN != errno)
+        {
+            NUT_LOG_E(TAG, "failed to call ::accept() with errno %d: %s", errno,
+                      ::strerror(errno));
+        }
 #endif
         return INVALID_SOCKET_VALUE;
     }

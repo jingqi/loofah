@@ -536,8 +536,13 @@ int Proactor::handle_events(int timeout_ms)
                 if (handler->_request_accept <= 0)
                     disable_handler(handler, ProactHandler::READ_MASK);
 
-                socket_t accepted = ReactAcceptorBase::handle_accept(fd);
-                handler->handle_accept_completed(accepted);
+                while (true)
+                {
+                    socket_t accepted = ReactAcceptorBase::handle_accept(fd);
+                    if (INVALID_SOCKET_VALUE == accepted)
+                        break;
+                    handler->handle_accept_completed(accepted);
+                }
             }
             else
             {
@@ -597,8 +602,13 @@ int Proactor::handle_events(int timeout_ms)
                 if (handler->_request_accept <= 0)
                     disable_handler(handler, ProactHandler::READ_MASK);
 
-                socket_t accepted = ReactAcceptorBase::handle_accept(fd);
-                handler->handle_accept_completed(accepted);
+                while (true)
+                {
+                    socket_t accepted = ReactAcceptorBase::handle_accept(fd);
+                    if (INVALID_SOCKET_VALUE == accepted)
+                        break;
+                    handler->handle_accept_completed(accepted);
+                }
             }
             else
             {

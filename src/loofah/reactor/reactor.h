@@ -26,6 +26,7 @@ class LOOFAH_API Reactor
     int _kq = -1;
 #elif NUT_PLATFORM_OS_LINUX
     int _epoll_fd = -1;
+    bool _edge_triggered = false; // level-triggered or edge-triggered
 #endif
 
     bool _closed = false;

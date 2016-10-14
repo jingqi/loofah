@@ -54,7 +54,7 @@ INETAddr SockStream::get_peer_addr() const
 #endif
     if (::getpeername(_socket_fd, (struct sockaddr*)&peer, &plen) < 0)
     {
-        NUT_LOG_E(TAG, "failed to call ::getpeername()");
+        NUT_LOG_E(TAG, "failed to call ::getpeername(), socketfd %d", _socket_fd);
         return ret;
     }
     return ret;
