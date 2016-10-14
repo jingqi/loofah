@@ -3,9 +3,12 @@
 #ifndef ___HEADFILE_29BEE4A7_4FDA_4FAB_ABC2_3FC8E8A22FD4_
 #define ___HEADFILE_29BEE4A7_4FDA_4FAB_ABC2_3FC8E8A22FD4_
 
-#include <nut/platform/platform.h>
+#include "../loofah.h"
 
 #include <map>
+
+#include <nut/platform/platform.h>
+#include <nut/threading/sync/mutex.h>
 
 #include "react_handler.h"
 
@@ -16,6 +19,7 @@ namespace loofah
 class LOOFAH_API Reactor
 {
 #if NUT_PLATFORM_OS_WINDOWS
+    nut::Mutex _mutex;
     FD_SET _read_set, _write_set, _except_set;
     std::map<socket_t, ReactHandler*> _socket_to_handler;
 #elif NUT_PLATFORM_OS_MAC

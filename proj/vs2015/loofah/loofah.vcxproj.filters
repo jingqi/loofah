@@ -20,22 +20,10 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\src\loofah\proactor\async_acceptor.cpp">
-      <Filter>loofah\proactor</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\src\loofah\proactor\async_channel.cpp">
-      <Filter>loofah\proactor</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\..\src\loofah\proactor\proactor.cpp">
       <Filter>loofah\proactor</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\src\loofah\reactor\reactor.cpp">
-      <Filter>loofah\reactor</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\src\loofah\reactor\sync_acceptor.cpp">
-      <Filter>loofah\reactor</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\src\loofah\reactor\sync_channel.cpp">
       <Filter>loofah\reactor</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\src\loofah\base\connector.cpp">
@@ -50,39 +38,27 @@
     <ClCompile Include="..\..\..\src\loofah\base\utils.cpp">
       <Filter>loofah\base</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\src\loofah\proactor\proact_acceptor.cpp">
+      <Filter>loofah\proactor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\loofah\proactor\proact_channel.cpp">
+      <Filter>loofah\proactor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\loofah\reactor\react_acceptor.cpp">
+      <Filter>loofah\reactor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\loofah\reactor\react_channel.cpp">
+      <Filter>loofah\reactor</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\src\loofah\loofah.h">
       <Filter>loofah</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\src\loofah\proactor\async_acceptor.h">
-      <Filter>loofah\proactor</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\src\loofah\proactor\async_channel.h">
-      <Filter>loofah\proactor</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\src\loofah\proactor\async_connector.h">
-      <Filter>loofah\proactor</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\src\loofah\proactor\async_event_handler.h">
-      <Filter>loofah\proactor</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\src\loofah\proactor\proactor.h">
       <Filter>loofah\proactor</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\src\loofah\reactor\reactor.h">
-      <Filter>loofah\reactor</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\src\loofah\reactor\sync_acceptor.h">
-      <Filter>loofah\reactor</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\src\loofah\reactor\sync_channel.h">
-      <Filter>loofah\reactor</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\src\loofah\reactor\sync_connector.h">
-      <Filter>loofah\reactor</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\src\loofah\reactor\sync_event_handler.h">
       <Filter>loofah\reactor</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\src\loofah\base\channel.h">
@@ -99,6 +75,30 @@
     </ClInclude>
     <ClInclude Include="..\..\..\src\loofah\base\utils.h">
       <Filter>loofah\base</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\proactor\proact_acceptor.h">
+      <Filter>loofah\proactor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\proactor\proact_channel.h">
+      <Filter>loofah\proactor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\proactor\proact_connector.h">
+      <Filter>loofah\proactor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\proactor\proact_handler.h">
+      <Filter>loofah\proactor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\reactor\react_acceptor.h">
+      <Filter>loofah\reactor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\reactor\react_channel.h">
+      <Filter>loofah\reactor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\reactor\react_connector.h">
+      <Filter>loofah\reactor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\reactor\react_handler.h">
+      <Filter>loofah\reactor</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

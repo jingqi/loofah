@@ -36,7 +36,7 @@ public:
     virtual void open(socket_t fd) override
     {
         ReactChannel::open(fd);
-        NUT_LOG_D(TAG, "server channel opened");
+        NUT_LOG_D(TAG, "server channel opened, fd %d", _sock_stream.get_socket());
 
         reactor.register_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
         reactor.disable_handler(this, ReactHandler::WRITE_MASK);
@@ -51,7 +51,6 @@ public:
         {
             _sock_stream.close();
             reactor.close();
-            thread_pool->interrupt();
             return;
         }
 
@@ -80,7 +79,7 @@ public:
     virtual void open(socket_t fd) override
     {
         ReactChannel::open(fd);
-        NUT_LOG_D(TAG, "client channel opened");
+        NUT_LOG_D(TAG, "client channel opened, fd %d", _sock_stream.get_socket());
 
         reactor.register_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
         //reactor.disable_handler(this, ReactHandler::WRITE_MASK);
@@ -125,12 +124,14 @@ void start_reactor_server(void*)
     INETAddr addr(LISTEN_ADDR, LISTEN_PORT);
     acc.open(addr);
     reactor.register_handler(&acc, ReactHandler::READ_MASK);
-    NUT_LOG_D(TAG, "listening to %s", addr.to_string().c_str());
+    NUT_LOG_D(TAG, "listening to %s, fd %d", addr.to_string().c_str(), acc.get_socket());
     while (true)
     {
         if (reactor.handle_events() < 0)
             break;
     }
+    reactor.close();
+    thread_pool->interrupt();
 }
 
 void start_reactor_client(void*)

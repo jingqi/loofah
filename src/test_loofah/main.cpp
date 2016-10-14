@@ -54,10 +54,7 @@ int main(int argc, char **argv)
         return -1;
     }
 
-#if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
     test_reactor();
-#endif
-
     test_proactor();
 
     loofah::shutdown_network();

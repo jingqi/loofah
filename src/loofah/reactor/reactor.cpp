@@ -3,7 +3,10 @@
 
 #include <nut/platform/platform.h>
 
-#if NUT_PLATFORM_OS_MAC
+#if NUT_PLATFORM_OS_WINDOWS
+#   include <winsock2.h>
+#   include <windows.h>
+#elif NUT_PLATFORM_OS_MAC
 #   include <sys/types.h>
 #   include <sys/event.h>
 #   include <sys/time.h>
@@ -16,6 +19,7 @@
 #include <string.h>
 
 #include <nut/logging/logger.h>
+#include <nut/threading/sync/guard.h>
 
 #include "reactor.h"
 
@@ -59,6 +63,7 @@ Reactor::~Reactor()
 void Reactor::close()
 {
 #if NUT_PLATFORM_OS_WINDOWS
+    nut::Guard<nut::Mutex> g(&_mutex);
     FD_ZERO(&_read_set);
     FD_ZERO(&_write_set);
     FD_ZERO(&_except_set);
@@ -78,16 +83,18 @@ void Reactor::close()
 
 void Reactor::register_handler(ReactHandler *handler, int mask)
 {
-    assert(NULL != handler && 0 == handler->_registered_events);
+    assert(NULL != handler);
     const socket_t fd = handler->get_socket();
 
 #if NUT_PLATFORM_OS_WINDOWS
+    nut::Guard<nut::Mutex> g(&_mutex);
     if (0 != (mask & ReactHandler::READ_MASK))
-        FD_SET(fd, _read_set);
+        FD_SET(fd, &_read_set);
     if (0 != (mask & ReactHandler::WRITE_MASK))
-        FD_SET(fd, _write_set);
-    _socket_to_handler.insert(std::pair<socket_t,RectHandler*>(fd, handler));
+        FD_SET(fd, &_write_set);
+    _socket_to_handler.insert(std::pair<socket_t,ReactHandler*>(fd, handler));
 #elif NUT_PLATFORM_OS_MAC
+    assert(0 == handler->_registered_events);
     struct kevent ev[2];
     int n = 0;
     if (0 != (mask & ReactHandler::READ_MASK))
@@ -101,6 +108,7 @@ void Reactor::register_handler(ReactHandler *handler, int mask)
     }
     handler->_registered_events = mask;
 #elif NUT_PLATFORM_OS_LINUX
+    assert(0 == handler->_registered_events);
     struct epoll_event epv;
     ::memset(&epv, 0, sizeof(epv));
     epv.data.ptr = (void*) handler;
@@ -123,12 +131,13 @@ void Reactor::unregister_handler(ReactHandler *handler)
     const socket_t fd = handler->get_socket();
 
 #if NUT_PLATFORM_OS_WINDOWS
-    if (FD_ISSET(fd, _read_set))
-        FD_CLR(fd, _read_set);
-    if (FD_ISSET(fd, _write_set))
-        FD_CLR(fd, _write_set);
-    if (FD_ISSET(fd, _except_set))
-        FD_CLR(fd, _except_set);
+    nut::Guard<nut::Mutex> g(&_mutex);
+    if (FD_ISSET(fd, &_read_set))
+        FD_CLR(fd, &_read_set);
+    if (FD_ISSET(fd, &_write_set))
+        FD_CLR(fd, &_write_set);
+    if (FD_ISSET(fd, &_except_set))
+        FD_CLR(fd, &_except_set);
     _socket_to_handler.erase(fd);
 #elif NUT_PLATFORM_OS_MAC
     struct kevent ev[2];
@@ -159,11 +168,12 @@ void Reactor::enable_handler(ReactHandler *handler, int mask)
     const socket_t fd = handler->get_socket();
 
 #if NUT_PLATFORM_OS_WINDOWS
-    if (0 != (mask & ReactHandler::READ_MASK) && !FD_ISSET(fd, _read_set))
-        FD_SET(fd, _read_set);
-    if (0 != (mask & ReactHandler::WRITE_MASK) && !FD_ISSET(fd, _write_set))
-        FD_SET(fd, _write_set);
-    _socket_to_handler.insert(std::pair<socket_t,RectHandler*>(fd, handler));
+    nut::Guard<nut::Mutex> g(&_mutex);
+    if (0 != (mask & ReactHandler::READ_MASK) && !FD_ISSET(fd, &_read_set))
+        FD_SET(fd, &_read_set);
+    if (0 != (mask & ReactHandler::WRITE_MASK) && !FD_ISSET(fd, &_write_set))
+        FD_SET(fd, &_write_set);
+    _socket_to_handler.insert(std::pair<socket_t,ReactHandler*>(fd, handler));
 #elif NUT_PLATFORM_OS_MAC
     struct kevent ev[2];
     int n = 0;
@@ -211,10 +221,11 @@ void Reactor::disable_handler(ReactHandler *handler, int mask)
     const socket_t fd = handler->get_socket();
 
 #if NUT_PLATFORM_OS_WINDOWS
-    if (0 != (mask & ReactHandler::READ_MASK) && FD_ISSET(fd, _read_set))
-        FD_CLR(fd, _read_set);
-    if (0 != (mask & ReactHandler::WRITE_MASK) && FD_ISSET(fd, _write_set))
-        FD_CLR(fd, _write_set);
+    nut::Guard<nut::Mutex> g(&_mutex);
+    if (0 != (mask & ReactHandler::READ_MASK) && FD_ISSET(fd, &_read_set))
+        FD_CLR(fd, &_read_set);
+    if (0 != (mask & ReactHandler::WRITE_MASK) && FD_ISSET(fd, &_write_set))
+        FD_CLR(fd, &_write_set);
 #elif NUT_PLATFORM_OS_MAC
     struct kevent ev[2];
     int n = 0;
@@ -259,30 +270,34 @@ int Reactor::handle_events(int timeout_ms)
         timeout.tv_usec = (timeout_ms % 1000) * 1000;
         ptimeout = &timeout;
     }
+
+    _mutex.lock();
     FD_SET read_set = _read_set, write_set = _write_set, except_set = _except_set;
+    _mutex.unlock();
+
     const int rs = ::select(0, &read_set, &write_set, &except_set, ptimeout);
     if (SOCKET_ERROR == rs)
     {
-        NUT_LOG_E(TAG, "failed to call ::select()");
-        return;
+        NUT_LOG_E(TAG, "failed to call ::select() with errorno %d", ::WSAGetLastError());
+        return -1;
     }
-    for (int i = 0; i < _read_set.fd_count; ++i)
+    for (int i = 0; i < read_set.fd_count; ++i)
     {
-        socket_t fd = _read_set.fd_array[i];
+        socket_t fd = read_set.fd_array[i];
         std::map<socket_t, ReactHandler*>::const_iterator iter = _socket_to_handler.find(fd);
         if (iter == _socket_to_handler.end())
             continue;
-        ReactHandler *handler = iter.second;
+        ReactHandler *handler = iter->second;
         assert(NULL != handler);
         handler->handle_read_ready();
     }
-    for (int i = 0; i < _write_set.fd_count; ++i)
+    for (int i = 0; i < write_set.fd_count; ++i)
     {
-        socket_t fd = _write_set.fd_array[i];
+        socket_t fd = write_set.fd_array[i];
         std::map<socket_t, ReactHandler*>::const_iterator iter = _socket_to_handler.find(fd);
         if (iter == _socket_to_handler.end())
             continue;
-        ReactHandler *handler = iter.second;
+        ReactHandler *handler = iter->second;
         assert(NULL != handler);
         handler->handle_write_ready();
     }

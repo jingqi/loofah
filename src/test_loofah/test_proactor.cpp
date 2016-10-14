@@ -50,7 +50,6 @@ public:
         {
             _sock_stream.close();
             proactor.close();
-            thread_pool->interrupt();
             return;
         }
 
@@ -131,6 +130,8 @@ void start_proactor_server(void*)
         if (proactor.handle_events() < 0)
             break;
     }
+    proactor.close();
+    thread_pool->interrupt();
 }
 
 void start_proactor_client(void*)

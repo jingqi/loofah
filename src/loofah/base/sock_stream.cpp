@@ -34,13 +34,13 @@ void SockStream::close()
 int SockStream::read(void *buf, unsigned max_len)
 {
     assert(NULL != buf || 0 == max_len);
-    return ::read(_socket_fd, buf, max_len);
+    return ::recv(_socket_fd, (char*) buf, max_len, 0);
 }
 
 int SockStream::write(const void *buf, unsigned max_len)
 {
     assert(NULL != buf || 0 == max_len);
-    return ::write(_socket_fd, buf, max_len);
+    return ::send(_socket_fd, (const char*) buf, max_len, 0);
 }
 
 INETAddr SockStream::get_peer_addr() const
