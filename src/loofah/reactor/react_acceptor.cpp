@@ -5,10 +5,11 @@
 #   include <winsock2.h>
 #   include <windows.h>
 #else
-#   include <sys/socket.h> // for socket() and so on
+#   include <sys/socket.h> // for ::socket() and so on
 #   include <netinet/in.h> // for sockaddr_in
-#   include <unistd.h> // for close()
+#   include <unistd.h> // for ::close()
 #   include <errno.h>
+#   include <string.h> // for ::strerror()
 #endif
 
 #include <nut/logging/logger.h>
