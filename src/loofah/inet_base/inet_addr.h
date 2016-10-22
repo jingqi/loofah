@@ -16,6 +16,8 @@
 #   include <netinet/in.h> // for struct sockaddr_in
 #endif
 
+#include <algorithm> // for std::max()
+
 
 namespace loofah
 {
@@ -68,8 +70,7 @@ public:
 
     size_t get_max_sockaddr_size() const
     {
-        return sizeof(struct sockaddr_in) > sizeof(struct sockaddr_in6) ?
-            sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6);
+        return std::max(sizeof(_sock_addr), sizeof(_sock_addr6));
     }
 
     size_t get_sockaddr_size() const

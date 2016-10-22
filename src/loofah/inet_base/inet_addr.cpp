@@ -186,8 +186,7 @@ bool InetAddr::operator==(const InetAddr& addr) const
 
 std::string InetAddr::get_ip() const
 {
-    const int buflen = (INET_ADDRSTRLEN > INET6_ADDRSTRLEN ? INET_ADDRSTRLEN :
-                        INET6_ADDRSTRLEN) + 1;
+    const int buflen = std::max(INET_ADDRSTRLEN, INET6_ADDRSTRLEN) + 1;
     char buf[buflen];
     const int domain = is_ipv6() ? AF_INET6 : AF_INET;
     ::inet_ntop(domain, cast_to_sockaddr(), buf, buflen);
