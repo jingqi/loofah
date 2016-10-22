@@ -55,6 +55,8 @@ namespace loofah
 
 InetAddr::InetAddr(int port, bool loopback, bool ipv6)
 {
+    assert(((void*) _sock_addr) == ((void*) _sock_addr6));
+
     if (ipv6)
     {
         ::memset(&_sock_addr6, 0, sizeof(_sock_addr6));
@@ -80,6 +82,7 @@ InetAddr::InetAddr(int port, bool loopback, bool ipv6)
 InetAddr::InetAddr(const char *addr, int port, bool ipv6)
 {
     assert(NULL != addr);
+    assert(((void*) _sock_addr) == ((void*) _sock_addr6));
 
     if (ipv6)
     {
@@ -146,12 +149,23 @@ InetAddr::InetAddr(const char *addr, int port, bool ipv6)
 
 InetAddr::InetAddr(const struct sockaddr_in& sock_addr)
 {
+    assert(((void*) _sock_addr) == ((void*) _sock_addr6));
     ::memcpy(&_sock_addr, &sock_addr, sizeof(sock_addr));
 }
 
 InetAddr::InetAddr(const struct sockaddr_in6& sock_addr)
 {
+    assert(((void*) _sock_addr) == ((void*) _sock_addr6));
     ::memcpy(&_sock_addr6, &sock_addr, sizeof(sock_addr));
+}
+
+InetAddr::InetAddr(const struct sockaddr* sock_addr)
+{
+    assert(NULL != sock_addr);
+    if (AF_INET == sock_addr->sa_family)
+        ::memcpy(&_sock_addr, sock_addr, sizeof(_sock_addr));
+    else
+        ::memcpy(&_sock_addr6, sock_addr, sizeof(_sock_addr6));
 }
 
 bool InetAddr::operator==(const InetAddr& addr) const
@@ -170,12 +184,26 @@ bool InetAddr::operator==(const InetAddr& addr) const
     return false;
 }
 
+std::string InetAddr::get_ip() const
+{
+    const int buflen = (INET_ADDRSTRLEN > INET6_ADDRSTRLEN ? INET_ADDRSTRLEN :
+                        INET6_ADDRSTRLEN) + 1;
+    char buf[buflen];
+    const int domain = is_ipv6() ? AF_INET6 : AF_INET;
+    ::inet_ntop(domain, cast_to_sockaddr(), buf, buflen);
+    return buf;
+}
+
+int InetAddr::get_port() const
+{
+    return is_ipv6() ? be16toh(_sock_addr6.sin6_port) : ntohs(_sock_addr.sin_port);
+}
+
 std::string InetAddr::to_string() const
 {
-    std::string s;
-    s += ::inet_ntoa(_sock_addr.sin_addr);
+    std::string s = get_ip();
     s.push_back(':');
-    s += nut::ulong_to_str(ntohs(_sock_addr.sin_port));
+    s += nut::ulong_to_str(get_port());
     return s;
 }
 

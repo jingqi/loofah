@@ -142,13 +142,12 @@ int SockBase::write(socket_t socket_fd, const void *buf, unsigned max_len)
 InetAddr SockBase::get_local_addr(socket_t socket_fd)
 {
     InetAddr ret;
-    struct sockaddr_in& peer = ret.get_sockaddr_in();
 #if NUT_PLATFORM_OS_WINDOWS
-    int plen = sizeof(peer);
+    int plen = ret.get_max_sockaddr_size();
 #else
-    socklen_t plen = sizeof(peer);
+    socklen_t plen = ret.get_max_sockaddr_size();
 #endif
-    if (::getsockname(socket_fd, (struct sockaddr*)&peer, &plen) < 0)
+    if (::getsockname(socket_fd, ret.cast_to_sockaddr(), &plen) < 0)
     {
         NUT_LOG_E(TAG, "failed to call ::getsockname(), socketfd %d", socket_fd);
         return ret;
@@ -159,13 +158,12 @@ InetAddr SockBase::get_local_addr(socket_t socket_fd)
 InetAddr SockBase::get_peer_addr(socket_t socket_fd)
 {
     InetAddr ret;
-    struct sockaddr_in& peer = ret.get_sockaddr_in();
 #if NUT_PLATFORM_OS_WINDOWS
-    int plen = sizeof(peer);
+    int plen = ret.get_max_sockaddr_size();
 #else
-    socklen_t plen = sizeof(peer);
+    socklen_t plen = ret.get_max_sockaddr_size();
 #endif
-    if (::getpeername(socket_fd, (struct sockaddr*)&peer, &plen) < 0)
+    if (::getpeername(socket_fd, ret.cast_to_sockaddr(), &plen) < 0)
     {
         NUT_LOG_E(TAG, "failed to call ::getpeername(), socketfd %d", socket_fd);
         return ret;

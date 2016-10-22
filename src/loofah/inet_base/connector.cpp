@@ -30,7 +30,8 @@ bool Connector::connect(Channel *channel, const InetAddr& address)
     assert(NULL != channel);
 
     // New socket
-    socket_t fd = ::socket(PF_INET, SOCK_STREAM, 0);
+    const int domain = address.is_ipv6() ? PF_INET6 : PF_INET;
+    socket_t fd = ::socket(domain, SOCK_STREAM, 0);
     if (-1 == fd)
     {
         NUT_LOG_E(TAG, "failed to call ::socket()");
@@ -38,14 +39,13 @@ bool Connector::connect(Channel *channel, const InetAddr& address)
     }
 
     // Connect
-    const struct sockaddr_in& server_addr = address.get_sockaddr_in();
-    const int status = ::connect(fd, (struct sockaddr*)&server_addr, sizeof(server_addr));
+    const int status = ::connect(fd, address.cast_to_sockaddr(), address.get_sockaddr_size());
     if (-1 == status)
     {
         NUT_LOG_E(TAG, "failed to call ::connect(), socketfd %d, errno %d", fd, errno);
         int save_errno = errno;
         ::close(fd);
-        errno = save_errno; // the close() may be error
+        errno = save_errno; // The ::close() may generate new errno
         return false;
     }
 

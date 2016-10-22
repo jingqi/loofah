@@ -41,6 +41,9 @@ public:
     // IPv6 address
     InetAddr(const struct sockaddr_in6& sock_addr);
 
+    // IPv4 or IPv6
+    InetAddr(const struct sockaddr* sock_addr);
+
     bool operator==(const InetAddr& addr) const;
 
     bool operator!=(const InetAddr& addr) const
@@ -48,26 +51,34 @@ public:
         return !(*this == addr);
     }
 
-    const struct sockaddr_in& get_sockaddr_in() const
+    bool is_ipv6() const
     {
-        return _sock_addr;
+        return AF_INET6 == _sock_addr6.sin6_family;
     }
 
-    const struct sockaddr_in6& get_sockaddr_in6() const
+    struct sockaddr* cast_to_sockaddr()
     {
-        return _sock_addr6;
+        return (struct sockaddr*) &_sock_addr;
     }
 
-    struct sockaddr_in& get_sockaddr_in()
+    const struct sockaddr* cast_to_sockaddr() const
     {
-        return _sock_addr;
+        return (const struct sockaddr*) &_sock_addr;
     }
 
-    struct sockaddr_in6& get_sockaddr_in6()
+    size_t get_max_sockaddr_size() const
     {
-        return _sock_addr6;
+        return sizeof(struct sockaddr_in) > sizeof(struct sockaddr_in6) ?
+            sizeof(struct sockaddr_in) : sizeof(struct sockaddr_in6);
     }
 
+    size_t get_sockaddr_size() const
+    {
+        return (AF_INET == _sock_addr.sin_family ? sizeof(_sock_addr) : sizeof(_sock_addr6));
+    }
+
+    std::string get_ip() const;
+    int get_port() const;
     std::string to_string() const;
 };
 

@@ -26,7 +26,8 @@ namespace loofah
 bool ReactAcceptorBase::open(const InetAddr& addr, int listen_num)
 {
     // Create socket
-    _listener_socket = ::socket(AF_INET, SOCK_STREAM, 0);
+    const int domain = addr.is_ipv6() ? AF_INET6 : AF_INET;
+    _listener_socket = ::socket(domain, SOCK_STREAM, 0);
     if (INVALID_SOCKET_VALUE == _listener_socket)
     {
         NUT_LOG_E(TAG, "failed to call ::socket()");
@@ -40,18 +41,10 @@ bool ReactAcceptorBase::open(const InetAddr& addr, int listen_num)
         NUT_LOG_W(TAG, "failed to make listen socket port reuseable, socketfd %d", _listener_socket);
 
     // Bind
-    const struct sockaddr_in& sin = addr.get_sockaddr_in();
-    // sin.sin_family = AF_INET;
-    // sin.sin_addr.s_addr = htonl(INADDR_ANY);
-    // sin.sin_port = htons(port);
-    if (::bind(_listener_socket, (const struct sockaddr*)&sin, sizeof(sin)) < 0)
+    if (::bind(_listener_socket, addr.cast_to_sockaddr(), addr.get_sockaddr_size()) < 0)
     {
         NUT_LOG_E(TAG, "failed to call ::bind() with addr %s", addr.to_string().c_str());
-#if NUT_PLATFORM_OS_WINDOWS
-        ::closesocket(_listener_socket);
-#else
-        ::close(_listener_socket);
-#endif
+        SockBase::shutdown(_listener_socket);
         _listener_socket = INVALID_SOCKET_VALUE;
         return false;
     }
@@ -60,11 +53,7 @@ bool ReactAcceptorBase::open(const InetAddr& addr, int listen_num)
     if (::listen(_listener_socket, listen_num) < 0)
     {
         NUT_LOG_E(TAG, "failed to call ::listen() with addr %s", addr.to_string().c_str());
-#if NUT_PLATFORM_OS_WINDOWS
-        ::closesocket(_listener_socket);
-#else
-        ::close(_listener_socket);
-#endif
+        SockBase::shutdown(_listener_socket);
         _listener_socket = INVALID_SOCKET_VALUE;
         return false;
     }
@@ -78,13 +67,13 @@ bool ReactAcceptorBase::open(const InetAddr& addr, int listen_num)
 
 socket_t ReactAcceptorBase::handle_accept(socket_t listener_socket)
 {
-    struct sockaddr_in remote_addr;
+    InetAddr peer_addr;
 #if NUT_PLATFORM_OS_WINDOWS
-    int rsz = sizeof(remote_addr);
+    int rsz = peer_addr.get_max_sockaddr_size();
 #else
-    socklen_t rsz = sizeof(remote_addr);
+    socklen_t rsz = peer_addr.get_max_sockaddr_size();
 #endif
-    socket_t fd = ::accept(listener_socket, (struct sockaddr*)&remote_addr, &rsz);
+    socket_t fd = ::accept(listener_socket, peer_addr.cast_to_sockaddr(), &rsz);
     if (INVALID_SOCKET_VALUE == fd)
     {
 #if NUT_PLATFORM_OS_WINDOWS
