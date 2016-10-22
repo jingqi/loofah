@@ -29,7 +29,7 @@
 
 #include "proactor.h"
 #include "../reactor/react_acceptor.h"
-#include "../base/utils.h"
+#include "../inet_base/utils.h"
 
 
 #define TAG "loofah.proactor"

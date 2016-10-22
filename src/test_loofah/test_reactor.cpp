@@ -49,7 +49,7 @@ public:
         NUT_LOG_D(TAG, "received %d bytes from client: %d", rs, seq);
         if (0 == rs) // 正常结束
         {
-            _sock_stream.close();
+            _sock_stream.shutdown();
             reactor.unregister_handler(this);
             reactor.close();
             return;
@@ -94,7 +94,7 @@ public:
         if (0 == rs) // 正常结束
         {
             reactor.unregister_handler(this);
-            _sock_stream.close();
+            _sock_stream.shutdown();
             return;
         }
 
@@ -105,7 +105,7 @@ public:
         if (_counter > 20)
         {
             reactor.unregister_handler(this);
-            _sock_stream.close();
+            _sock_stream.shutdown();
             return;
         }
         reactor.enable_handler(this, ReactHandler::WRITE_MASK);
@@ -124,7 +124,7 @@ public:
 void start_reactor_server(void*)
 {
     ReactAcceptor<ServerChannel> acc;
-    INETAddr addr(LISTEN_ADDR, LISTEN_PORT);
+    InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
     acc.open(addr);
     reactor.register_handler(&acc, ReactHandler::READ_MASK);
     NUT_LOG_D(TAG, "listening to %s, fd %d", addr.to_string().c_str(), acc.get_socket());
@@ -145,7 +145,7 @@ void start_reactor_client(void*)
     ::sleep(1); // Wait for server to be setupped
 #endif
 
-    INETAddr addr(LISTEN_ADDR, LISTEN_PORT);
+    InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
     ReactConnector con;
     ClientChannel *client = (ClientChannel*) ::malloc(sizeof(ClientChannel));
     new (client) ClientChannel;

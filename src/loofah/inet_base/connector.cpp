@@ -16,8 +16,8 @@
 #include <nut/logging/logger.h>
 
 #include "connector.h"
-#include "../base/utils.h"
-#include "../base/sock_base.h"
+#include "../inet_base/utils.h"
+#include "../inet_base/sock_base.h"
 
 
 #define TAG "loofah.connector"
@@ -25,7 +25,7 @@
 namespace loofah
 {
 
-bool Connector::connect(Channel *channel, const INETAddr& address)
+bool Connector::connect(Channel *channel, const InetAddr& address)
 {
     assert(NULL != channel);
 
@@ -50,7 +50,7 @@ bool Connector::connect(Channel *channel, const INETAddr& address)
     }
 
     // Make it nonblocking
-    if (!SockBase::make_nonblocking(fd))
+    if (!SockBase::set_nonblocking(fd))
         NUT_LOG_W(TAG, "failed to make socket nonblocking, socketfd %d", fd);
 
     channel->open(fd);

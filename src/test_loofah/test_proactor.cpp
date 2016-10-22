@@ -48,7 +48,7 @@ public:
         NUT_LOG_D(TAG, "received %d bytes from client: %d", cb, _tmp);
         if (0 == cb) // 正常结束
         {
-            _sock_stream.close();
+            _sock_stream.shutdown();
             proactor.close();
             return;
         }
@@ -90,7 +90,7 @@ public:
         NUT_LOG_D(TAG, "received %d bytes from server: %d", cb, _tmp);
         if (0 == cb) // 正常结束
         {
-            _sock_stream.close();
+            _sock_stream.shutdown();
             return;
         }
 
@@ -100,7 +100,7 @@ public:
 
         if (_counter > 20)
         {
-            _sock_stream.close();
+            _sock_stream.shutdown();
             return;
         }
 
@@ -120,7 +120,7 @@ public:
 void start_proactor_server(void*)
 {
     ProactAcceptor<ServerChannel> acc;
-    INETAddr addr(LISTEN_ADDR, LISTEN_PORT);
+    InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
     acc.open(addr);
     proactor.register_handler(&acc);
     proactor.launch_accept(&acc);
@@ -142,7 +142,7 @@ void start_proactor_client(void*)
     ::sleep(1); // Wait for server to be setupped
 #endif
 
-    INETAddr addr(LISTEN_ADDR, LISTEN_PORT);
+    InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
     ProactConnector con;
     ClientChannel *client = (ClientChannel*) ::malloc(sizeof(ClientChannel));
     new (client) ClientChannel;

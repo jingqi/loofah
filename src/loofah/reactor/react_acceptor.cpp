@@ -15,15 +15,15 @@
 #include <nut/logging/logger.h>
 
 #include "react_acceptor.h"
-#include "../base/utils.h"
-#include "../base/sock_base.h"
+#include "../inet_base/utils.h"
+#include "../inet_base/sock_base.h"
 
 #define TAG "loofah.react_acceptor"
 
 namespace loofah
 {
 
-bool ReactAcceptorBase::open(const INETAddr& addr, int listen_num)
+bool ReactAcceptorBase::open(const InetAddr& addr, int listen_num)
 {
     // Create socket
     _listener_socket = ::socket(AF_INET, SOCK_STREAM, 0);
@@ -34,8 +34,10 @@ bool ReactAcceptorBase::open(const INETAddr& addr, int listen_num)
     }
 
     // Make port reuseable
-    if (!SockBase::make_listen_addr_reuseable(_listener_socket))
-        NUT_LOG_W(TAG, "failed to make listen socket reuseable, socketfd %d", _listener_socket);
+    if (!SockBase::set_reuse_addr(_listener_socket))
+        NUT_LOG_W(TAG, "failed to make listen socket addr reuseable, socketfd %d", _listener_socket);
+    if (!SockBase::set_reuse_port(_listener_socket))
+        NUT_LOG_W(TAG, "failed to make listen socket port reuseable, socketfd %d", _listener_socket);
 
     // Bind
     const struct sockaddr_in& sin = addr.get_sockaddr_in();
@@ -68,7 +70,7 @@ bool ReactAcceptorBase::open(const INETAddr& addr, int listen_num)
     }
 
     // Make socket non-blocking
-    if (!SockBase::make_nonblocking(_listener_socket))
+    if (!SockBase::set_nonblocking(_listener_socket))
         NUT_LOG_W(TAG, "failed to make listen socket nonblocking, socketfd %d", _listener_socket);
 
     return true;
@@ -101,7 +103,7 @@ socket_t ReactAcceptorBase::handle_accept(socket_t listener_socket)
         return INVALID_SOCKET_VALUE;
     }
 
-    if (!SockBase::make_nonblocking(fd))
+    if (!SockBase::set_nonblocking(fd))
         NUT_LOG_W(TAG, "failed to make socket nonblocking, socketfd %d", fd);
 
     return fd;

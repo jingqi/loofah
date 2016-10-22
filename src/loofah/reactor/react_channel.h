@@ -13,9 +13,9 @@
 #endif
 
 #include "react_handler.h"
-#include "../base/inet_addr.h"
-#include "../base/channel.h"
-#include "../base/sock_stream.h"
+#include "../inet_base/inet_addr.h"
+#include "../inet_base/channel.h"
+#include "../inet_base/sock_stream.h"
 
 namespace loofah
 {

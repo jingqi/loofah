@@ -7,7 +7,7 @@
 
 // This should appear before "windows.h"
 #include <loofah/loofah.h>
-#include <loofah/base/utils.h>
+#include <loofah/inet_base/utils.h>
 
 #include <nut/platform/platform.h>
 

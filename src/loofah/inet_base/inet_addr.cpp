@@ -22,7 +22,7 @@
 namespace loofah
 {
 
-INETAddr::INETAddr(int port)
+InetAddr::InetAddr(int port)
 {
     ::memset(&_sock_addr, 0, sizeof(_sock_addr));
     _sock_addr.sin_family = AF_INET;
@@ -30,7 +30,7 @@ INETAddr::INETAddr(int port)
     _sock_addr.sin_port = htons(port);
 }
 
-INETAddr::INETAddr(const char *addr, int port)
+InetAddr::InetAddr(const char *addr, int port)
 {
     assert(NULL != addr);
 
@@ -60,12 +60,22 @@ INETAddr::INETAddr(const char *addr, int port)
     // NUT_LOG_D(TAG, "resolved ip: \"%s\" -> \"%s\"", addr, ::inet_ntoa(_sock_addr.sin_addr));
 }
 
-INETAddr::INETAddr(const struct sockaddr_in& sock_addr)
+InetAddr::InetAddr(const struct sockaddr_in& sock_addr)
 {
     ::memcpy(&_sock_addr, &sock_addr, sizeof(sock_addr));
 }
 
-std::string INETAddr::to_string() const
+bool InetAddr::operator==(const InetAddr& addr) const
+{
+    if (AF_INET == _sock_addr.sin_family && AF_INET == addr._sock_addr.sin_family)
+    {
+        return _sock_addr.sin_port == addr._sock_addr.sin_port &&
+            _sock_addr.sin_addr.s_addr == addr._sock_addr.sin_addr.s_addr;
+    }
+    return false;
+}
+
+std::string InetAddr::to_string() const
 {
     std::string s;
     s += ::inet_ntoa(_sock_addr.sin_addr);

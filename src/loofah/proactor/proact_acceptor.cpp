@@ -14,8 +14,8 @@
 #include <nut/logging/logger.h>
 
 #include "proact_acceptor.h"
-#include "../base/utils.h"
-#include "../base/sock_base.h"
+#include "../inet_base/utils.h"
+#include "../inet_base/sock_base.h"
 
 
 #define TAG "loofah.proact_acceptor"
@@ -23,7 +23,7 @@
 namespace loofah
 {
 
-bool ProactAcceptorBase::open(const INETAddr& addr, int listen_num)
+bool ProactAcceptorBase::open(const InetAddr& addr, int listen_num)
 {
     // Create socket
 #if NUT_PLATFORM_OS_WINDOWS
@@ -44,8 +44,10 @@ bool ProactAcceptorBase::open(const INETAddr& addr, int listen_num)
     }
 
     // Make port reuseable
-    if (!SockBase::make_listen_addr_reuseable(_listener_socket))
-        NUT_LOG_W(TAG, "failed to make listen socket reuseable, socketfd %d", _listener_socket);
+    if (!SockBase::set_reuse_addr(_listener_socket))
+        NUT_LOG_W(TAG, "failed to make listen socket addr reuseable, socketfd %d", _listener_socket);
+    if (!SockBase::set_reuse_port(_listener_socket))
+        NUT_LOG_W(TAG, "failed to make listen socket port reuseable, socketfd %d", _listener_socket);
 
     // Bind
     const struct sockaddr_in& sin = addr.get_sockaddr_in();
@@ -86,7 +88,7 @@ bool ProactAcceptorBase::open(const INETAddr& addr, int listen_num)
     }
 
     // Make socket non-blocking
-    if (!SockBase::make_nonblocking(_listener_socket))
+    if (!SockBase::set_nonblocking(_listener_socket))
         NUT_LOG_W(TAG, "failed to make listen socket nonblocking, socketfd %d", _listener_socket);
 
     return true;

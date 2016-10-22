@@ -22,14 +22,21 @@ namespace loofah
 /**
  * 网络地址，一般包含IP地址和端口号
  */
-class LOOFAH_API INETAddr
+class LOOFAH_API InetAddr
 {
     struct sockaddr_in _sock_addr;
 
 public:
-    explicit INETAddr(int port = 0);
-    INETAddr(const char *addr, int port);
-    INETAddr(const struct sockaddr_in& sock_addr);
+    explicit InetAddr(int port = 0);
+    InetAddr(const char *addr, int port);
+    InetAddr(const struct sockaddr_in& sock_addr);
+
+    bool operator==(const InetAddr& addr) const;
+
+    bool operator!=(const InetAddr& addr) const
+    {
+        return !(*this == addr);
+    }
 
     const struct sockaddr_in& get_sockaddr_in() const
     {

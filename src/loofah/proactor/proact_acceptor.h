@@ -6,7 +6,7 @@
 #include <new>
 
 #include "proact_handler.h"
-#include "../base/inet_addr.h"
+#include "../inet_base/inet_addr.h"
 
 namespace loofah
 {
@@ -19,7 +19,7 @@ public:
     /**
      * @param listen_num 在 windows 下, 可以使用 'SOMAXCONN' 表示最大允许链接数
      */
-    bool open(const INETAddr& addr, int listen_num = 2048);
+    bool open(const InetAddr& addr, int listen_num = 2048);
 
     virtual socket_t get_socket() const override
     {
