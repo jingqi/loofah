@@ -16,6 +16,7 @@
 #   include <netinet/in.h> // for struct sockaddr_in
 #endif
 
+
 namespace loofah
 {
 
@@ -24,12 +25,21 @@ namespace loofah
  */
 class LOOFAH_API InetAddr
 {
-    struct sockaddr_in _sock_addr;
+    union
+    {
+        struct sockaddr_in _sock_addr; // for IPv4
+        struct sockaddr_in6 _sock_addr6; // for IPv6
+    };
 
 public:
-    explicit InetAddr(int port = 0);
-    InetAddr(const char *addr, int port);
+    explicit InetAddr(int port = 0, bool loopback = false, bool ipv6 = false);
+    InetAddr(const char *addr, int port, bool ipv6 = false);
+
+    // IPv4 address
     InetAddr(const struct sockaddr_in& sock_addr);
+
+    // IPv6 address
+    InetAddr(const struct sockaddr_in6& sock_addr);
 
     bool operator==(const InetAddr& addr) const;
 
@@ -43,9 +53,19 @@ public:
         return _sock_addr;
     }
 
+    const struct sockaddr_in6& get_sockaddr_in6() const
+    {
+        return _sock_addr6;
+    }
+
     struct sockaddr_in& get_sockaddr_in()
     {
         return _sock_addr;
+    }
+
+    struct sockaddr_in6& get_sockaddr_in6()
+    {
+        return _sock_addr6;
     }
 
     std::string to_string() const;
