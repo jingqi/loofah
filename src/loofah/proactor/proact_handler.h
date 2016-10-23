@@ -19,7 +19,7 @@ class ProactHandler
     int _request_accept = 0;
     std::queue<void*> _read_queue, _write_queue;
     nut::Mutex _mutex;
-    
+
     friend class Proactor;
 #endif
 
@@ -37,9 +37,8 @@ public:
     virtual socket_t get_socket() const = 0;
 
     virtual void handle_accept_completed(socket_t fd) {}
-    virtual void handle_read_completed(void *buf, int cb) {}
-    virtual void handle_write_completed(void *buf, int cb) {}
-    virtual void handle_exception() {}
+    virtual void handle_read_completed(int cb) {}
+    virtual void handle_write_completed(int cb) {}
 };
 
 }

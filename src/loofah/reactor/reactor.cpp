@@ -57,10 +57,10 @@ Reactor::Reactor()
 
 Reactor::~Reactor()
 {
-    close();
+    shutdown();
 }
 
-void Reactor::close()
+void Reactor::shutdown()
 {
 #if NUT_PLATFORM_OS_WINDOWS
     nut::Guard<nut::Mutex> g(&_mutex);

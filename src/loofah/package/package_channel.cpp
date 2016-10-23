@@ -1,5 +1,6 @@
 
 #include <assert.h>
+#include <algorithm> // for std::min()
 
 #include <nut/rc/rc_new.h>
 
@@ -7,6 +8,7 @@
 
 
 #define READ_BUF_LEN 65536
+#define STACK_BUF_COUNT 10
 
 namespace loofah
 {
@@ -24,20 +26,44 @@ PackageChannel::~PackageChannel()
     _read_freg = NULL;
 }
 
+void PackageChannel::launch_read()
+{
+    if (NULL == _read_freg)
+        _read_freg = _readed_buffer.new_fregment(READ_BUF_LEN);
+    void *buf = _read_freg->buffer;
+    _proactor->launch_read(this, &buf, &_read_freg->capacity, 1);
+}
+
+void PackageChannel::launch_write()
+{
+    assert(!_write_queue.empty());
+
+    void *bufs[STACK_BUF_COUNT];
+    size_t lens[STACK_BUF_COUNT];
+    const size_t buf_count = std::min((size_t) STACK_BUF_COUNT, _write_queue.size());
+
+    queue_t::const_iterator iter = _write_queue.begin();
+    for (size_t i = 0; i < buf_count; ++i, ++iter)
+    {
+        Package *pkg = *iter;
+        assert(NULL != pkg);
+        bufs[i] = (void*) pkg->readable_data();
+        lens[i] = pkg->readable_size();
+    }
+
+    _proactor->launch_write(this, bufs, lens, buf_count);
+}
+
 void PackageChannel::open(socket_t fd)
 {
     ProactChannel::open(fd);
 
     _proactor->register_handler(this);
-    if (NULL == _read_freg)
-        _read_freg = _readed_buffer.new_fregment(READ_BUF_LEN);
-    _proactor->launch_read(this, _read_freg->buffer, _read_freg->capacity);
+    launch_read();
 }
 
-void PackageChannel::handle_read_completed(void *buf, int cb)
+void PackageChannel::handle_read_completed(int cb)
 {
-    assert(NULL != buf);
-
     if (0 == cb)
     {
         handle_close();
@@ -45,12 +71,10 @@ void PackageChannel::handle_read_completed(void *buf, int cb)
     }
 
     // Cache to buffer
-    assert(buf == _read_freg->buffer && cb <= _read_freg->capacity);
+    assert(cb <= _read_freg->capacity);
     _read_freg->size = cb;
     _read_freg = _readed_buffer.enqueue_fregment(_read_freg);
-    if (NULL == _read_freg)
-        _read_freg = _readed_buffer.new_fregment(READ_BUF_LEN);
-    _proactor->launch_read(this, _read_freg->buffer, _read_freg->capacity);
+    launch_read();
 
     // Read package
     const size_t readable = _readed_buffer.readable_size();
@@ -64,35 +88,42 @@ void PackageChannel::handle_read_completed(void *buf, int cb)
         return;
 
     nut::rc_ptr<Package> pkg = nut::rc_new<Package>(pkg_len);
-    assert(pkg->writable_size() == pkg_len);
+    assert(pkg->writable_size() >= pkg_len);
     _readed_buffer.skip_read(sizeof(pkg_len));
     _readed_buffer.read(pkg->writable_data(), pkg_len);
     pkg->skip_write(pkg_len);
     handle_read(pkg);
 }
 
-void PackageChannel::handle_write_completed(void *buf, int cb)
+void PackageChannel::handle_write_completed(int cb)
 {
-    assert(NULL != buf && !_write_queue.empty());
-    nut::rc_ptr<Package> pkg = _write_queue.front();
-    assert(buf == pkg->readable_data() && cb <= pkg->readable_size());
-    pkg->skip_read(cb);
-    if (0 == pkg->readable_size())
-        _write_queue.pop();
+    assert(!_write_queue.empty());
+    while (cb > 0)
+    {
+        nut::rc_ptr<Package> pkg = _write_queue.front();
+        const size_t readable = pkg->readable_size();
+        if (cb >= readable)
+        {
+            _write_queue.pop_front();
+            cb -= readable;
+        }
+        else
+        {
+            pkg->skip_read(cb);
+            cb = 0;
+        }
+    }
 
     if (!_write_queue.empty())
-    {
-        pkg = _write_queue.front();
-        _proactor->launch_write(this, (void*) pkg->readable_data(), pkg->readable_size());
-    }
+        launch_write();
 }
 
 void PackageChannel::write(nut::rc_ptr<Package> pkg)
 {
     assert(NULL != pkg);
-    _write_queue.push(pkg);
+    _write_queue.push_back(pkg);
     if (1 == _write_queue.size())
-        _proactor->launch_write(this, (void*) pkg->readable_data(), pkg->readable_size());
+        launch_write();
 }
 
 }

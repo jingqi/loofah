@@ -11,18 +11,29 @@ namespace loofah
 class FregmentBuffer
 {
 public:
-    struct Fregment
+    class Fregment
     {
-        size_t capacity = 0;
+    public:
+        const size_t capacity = 0;
         size_t size = 0;
-        struct Fregment *next = NULL;
+        Fregment *next = NULL;
 
+        // NOTE 这一部分是变长的，应该作为最后一个成员
         uint8_t buffer[1];
+
+    private:
+        Fregment(const Fregment&);
+        Fregment& operator=(const Fregment&);
+
+    public:
+        Fregment(size_t cap)
+            : capacity(cap)
+        {}
     };
 
 private:
-    struct Fregment *_read_fregment = NULL;
-    struct Fregment *_write_fregment = NULL;
+    Fregment *_read_fregment = NULL;
+    Fregment *_write_fregment = NULL;
 
     size_t _read_index = 0;
     size_t _read_available = 0;
@@ -38,20 +49,19 @@ public:
     void clear();
 
     size_t readable_size() const;
-    size_t read(void *buf, size_t size);
-    size_t look_ahead(void *buf, size_t size) const;
-    size_t skip_read(size_t size);
+    size_t read(void *buf, size_t len);
+    size_t look_ahead(void *buf, size_t len) const;
+    size_t skip_read(size_t len);
 
     /**
      * @return 返回指针个数
      */
-    int readable_pointers(const void **bufs, size_t buf_ptr_strike,
-                          size_t *sizes, size_t size_ptr_strike,
-                          size_t ptr_count) const;
+    size_t readable_pointers(const void **buf_ptrs, size_t *len_ptrs,
+                             size_t ptr_count) const;
 
-    void write(const void *buf, size_t size);
+    void write(const void *buf, size_t len);
 
-    Fregment* new_fregment(size_t size);
+    Fregment* new_fregment(size_t capacity);
     void delete_fregment(Fregment *freg);
 
     /**

@@ -43,9 +43,9 @@ public:
     void clear();
 
     size_t readable_size() const;
-    size_t read(void *buf, size_t size);
-    size_t look_ahead(void *buf, size_t size) const;
-    size_t skip_read(size_t size);
+    size_t read(void *buf, size_t len);
+    size_t look_ahead(void *buf, size_t len) const;
+    size_t skip_read(size_t len);
 
     /**
      * 返回可读指针
@@ -54,11 +54,11 @@ public:
      *         1 第一个指针有效
      *         2 第一个、第二个指针有效
      */
-    int readable_pointers(const void **buf1, size_t *size1,
-                          const void **buf2, size_t *size2) const;
+    size_t readable_pointers(const void **buf_ptr1, size_t *len_ptr1,
+                             const void **buf_ptr2, size_t *len_ptr2) const;
 
     size_t writable_size() const;
-    void write(const void *buf, size_t size);
+    void write(const void *buf, size_t len);
 
     /**
      * 返回可写指针
@@ -67,8 +67,8 @@ public:
      *         1 第一个指针有效
      *         2 第一个、第二个指针有效
      */
-    int writable_pointers(void **buf1, size_t *size1,
-                          void **buf2, size_t *size2);
+    size_t writable_pointers(void **buf_ptr1, size_t *len_ptr1,
+                          void **buf_ptr2, size_t *len_ptr2);
 };
 
 }

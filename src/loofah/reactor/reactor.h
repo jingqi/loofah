@@ -45,7 +45,7 @@ public:
      * @return <0 出错
      */
     int handle_events(int timeout_ms = 1000);
-    void close();
+    void shutdown();
 };
 
 }

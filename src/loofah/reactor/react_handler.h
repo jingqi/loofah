@@ -30,8 +30,6 @@ public:
 
     virtual void handle_read_ready() {}
     virtual void handle_write_ready() {}
-    virtual void handle_exception() {}
-    virtual void handle_close() {}
 };
 
 }

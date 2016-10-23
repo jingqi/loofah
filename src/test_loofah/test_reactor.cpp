@@ -51,7 +51,7 @@ public:
         {
             _sock_stream.shutdown();
             reactor.unregister_handler(this);
-            reactor.close();
+            reactor.shutdown();
             return;
         }
 
@@ -133,7 +133,7 @@ void start_reactor_server(void*)
         if (reactor.handle_events() < 0)
             break;
     }
-    reactor.close();
+    reactor.shutdown();
     thread_pool->interrupt();
 }
 

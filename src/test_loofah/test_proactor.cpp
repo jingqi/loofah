@@ -40,16 +40,19 @@ public:
         NUT_LOG_D(TAG, "server channel opened");
 
         proactor.register_handler(this);
-        proactor.launch_read(this, &_tmp, sizeof(_tmp));
+
+        void *buf = &_tmp;
+        size_t len = sizeof(_tmp);
+        proactor.launch_read(this, &buf, &len, 1);
     }
 
-    virtual void handle_read_completed(void *buf, int cb) override
+    virtual void handle_read_completed(int cb) override
     {
         NUT_LOG_D(TAG, "received %d bytes from client: %d", cb, _tmp);
         if (0 == cb) // 正常结束
         {
             _sock_stream.shutdown();
-            proactor.close();
+            proactor.shutdown();
             return;
         }
 
@@ -57,16 +60,20 @@ public:
         assert(_tmp == _counter);
         ++_counter;
 
-        proactor.launch_write(this, &_counter, sizeof(_counter));
+        void *buf = &_counter;
+        size_t len = sizeof(_counter);
+        proactor.launch_write(this, &buf, &len, 1);
     }
 
-    virtual void handle_write_completed(void *buf, int cb) override
+    virtual void handle_write_completed(int cb) override
     {
         NUT_LOG_D(TAG, "send %d bytes to client: %d", cb, _counter);
         assert(cb == sizeof(_counter));
         ++_counter;
 
-        proactor.launch_read(this, &_tmp, sizeof(_tmp));
+        void *buf = &_tmp;
+        size_t len = sizeof(_tmp);
+        proactor.launch_read(this, &buf, &len, 1);
     }
 };
 
@@ -82,10 +89,13 @@ public:
         NUT_LOG_D(TAG, "client channel opened");
 
         proactor.register_handler(this);
-        proactor.launch_write(this, &_counter, sizeof(_counter));
+
+        void *buf = &_counter;
+        size_t len = sizeof(_counter);
+        proactor.launch_write(this, &buf, &len, 1);
     }
 
-    virtual void handle_read_completed(void *buf, int cb) override
+    virtual void handle_read_completed(int cb) override
     {
         NUT_LOG_D(TAG, "received %d bytes from server: %d", cb, _tmp);
         if (0 == cb) // 正常结束
@@ -104,16 +114,20 @@ public:
             return;
         }
 
-        proactor.launch_write(this, &_counter, sizeof(_counter));
+        void *buf = &_counter;
+        size_t len = sizeof(_counter);
+        proactor.launch_write(this, &buf, &len, 1);
     }
 
-    virtual void handle_write_completed(void *buf, int cb) override
+    virtual void handle_write_completed(int cb) override
     {
         NUT_LOG_D(TAG, "send %d bytes to server: %d", cb, _counter);
         assert(cb == sizeof(_counter));
         ++_counter;
 
-        proactor.launch_read(this, &_tmp, sizeof(_tmp));
+        void *buf = &_tmp;
+        size_t len = sizeof(_tmp);
+        proactor.launch_read(this, &buf, &len, 1);
     }
 };
 
@@ -130,7 +144,7 @@ void start_proactor_server(void*)
         if (proactor.handle_events() < 0)
             break;
     }
-    proactor.close();
+    proactor.shutdown();
     thread_pool->interrupt();
 }
 

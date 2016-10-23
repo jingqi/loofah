@@ -55,7 +55,7 @@ namespace loofah
 
 InetAddr::InetAddr(int port, bool loopback, bool ipv6)
 {
-    assert(((void*) _sock_addr) == ((void*) _sock_addr6));
+    assert(((void*) &_sock_addr) == ((void*) &_sock_addr6));
 
     if (ipv6)
     {
@@ -82,7 +82,7 @@ InetAddr::InetAddr(int port, bool loopback, bool ipv6)
 InetAddr::InetAddr(const char *addr, int port, bool ipv6)
 {
     assert(NULL != addr);
-    assert(((void*) _sock_addr) == ((void*) _sock_addr6));
+    assert(((void*) &_sock_addr) == ((void*) &_sock_addr6));
 
     if (ipv6)
     {
@@ -149,13 +149,13 @@ InetAddr::InetAddr(const char *addr, int port, bool ipv6)
 
 InetAddr::InetAddr(const struct sockaddr_in& sock_addr)
 {
-    assert(((void*) _sock_addr) == ((void*) _sock_addr6));
+    assert(((void*) &_sock_addr) == ((void*) &_sock_addr6));
     ::memcpy(&_sock_addr, &sock_addr, sizeof(sock_addr));
 }
 
 InetAddr::InetAddr(const struct sockaddr_in6& sock_addr)
 {
-    assert(((void*) _sock_addr) == ((void*) _sock_addr6));
+    assert(((void*) &_sock_addr) == ((void*) &_sock_addr6));
     ::memcpy(&_sock_addr6, &sock_addr, sizeof(sock_addr));
 }
 

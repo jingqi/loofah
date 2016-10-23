@@ -11,6 +11,7 @@
 #   include <sys/socket.h> // for ::setsockopt() and so on
 #   include <netinet/tcp.h> // for defination of TCP_NODELAY
 #   include <fcntl.h> // for ::fcntl()
+#   include <sys/uio.h> // for ::readv()
 #endif
 
 #include <nut/logging/logger.h>
@@ -19,6 +20,7 @@
 
 
 #define TAG "loofah.sock_base"
+#define STACK_IOV_COUNT 10
 
 namespace loofah
 {
@@ -127,16 +129,68 @@ bool SockBase::shutdown_write(socket_t socket_fd)
 #endif
 }
 
-int SockBase::read(socket_t socket_fd, void *buf, unsigned max_len)
+ssize_t SockBase::read(socket_t socket_fd, void *buf, size_t len)
 {
-    assert(NULL != buf || 0 == max_len);
-    return ::recv(socket_fd, (char*) buf, max_len, 0);
+    assert(NULL != buf);
+    return ::recv(socket_fd, (char*) buf, len, 0);
 }
 
-int SockBase::write(socket_t socket_fd, const void *buf, unsigned max_len)
+ssize_t SockBase::readv(socket_t socket_fd, void* const *buf_ptrs,
+                        const size_t *len_ptrs, size_t buf_count)
 {
-    assert(NULL != buf || 0 == max_len);
-    return ::send(socket_fd, (const char*) buf, max_len, 0);
+    assert(NULL != buf_ptrs && NULL != len_ptrs);
+
+    struct iovec stack_iovs[STACK_IOV_COUNT], *iovs = NULL;
+    if (buf_count > STACK_IOV_COUNT)
+        iovs = (struct iovec*) ::malloc(sizeof(struct iovec) * buf_count);
+    else
+        iovs = stack_iovs;
+
+    for (size_t i = 0; i < buf_count; ++i)
+    {
+        iovs[i].iov_base = (char*) *buf_ptrs;
+        iovs[i].iov_len = *len_ptrs;
+
+        ++buf_ptrs;
+        ++len_ptrs;
+    }
+
+    const ssize_t rs = ::readv(socket_fd, iovs, buf_count);
+    if (buf_count > STACK_IOV_COUNT)
+        ::free(iovs);
+    return rs;
+}
+
+ssize_t SockBase::write(socket_t socket_fd, const void *buf, size_t len)
+{
+    assert(NULL != buf);
+    return ::send(socket_fd, (const char*) buf, len, 0);
+}
+
+ssize_t SockBase::writev(socket_t socket_fd, const void* const *buf_ptrs,
+                         const size_t *len_ptrs, size_t buf_count)
+{
+    assert(NULL != buf_ptrs && NULL != len_ptrs);
+
+    struct iovec stack_iovs[STACK_IOV_COUNT], *iovs = NULL;
+    if (buf_count > STACK_IOV_COUNT)
+        iovs = (struct iovec*) ::malloc(sizeof(struct iovec) * buf_count);
+    else
+        iovs = stack_iovs;
+
+    for (size_t i = 0; i < buf_count; ++i)
+    {
+        iovs[i].iov_base = (char*) *buf_ptrs;
+        iovs[i].iov_len = *len_ptrs;
+
+        ++buf_ptrs;
+        ++len_ptrs;
+    }
+
+    const ssize_t rs = ::writev(socket_fd, iovs, buf_count);
+    if (buf_count > STACK_IOV_COUNT)
+        ::free(iovs);
+    return rs;
 }
 
 InetAddr SockBase::get_local_addr(socket_t socket_fd)

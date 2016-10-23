@@ -81,9 +81,9 @@ size_t FregmentBuffer::readable_size() const
     return _read_available;
 }
 
-size_t FregmentBuffer::read(void *buf, size_t size)
+size_t FregmentBuffer::read(void *buf, size_t len)
 {
-    const size_t can_read = std::min(size, _read_available);
+    const size_t can_read = std::min(len, _read_available);
     size_t readed = 0;
     while (readed < can_read)
     {
@@ -114,9 +114,9 @@ size_t FregmentBuffer::read(void *buf, size_t size)
     return can_read;
 }
 
-size_t FregmentBuffer::look_ahead(void *buf, size_t size) const
+size_t FregmentBuffer::look_ahead(void *buf, size_t len) const
 {
-    const size_t can_read = std::min(size, _read_available);
+    const size_t can_read = std::min(len, _read_available);
     size_t readed = 0;
     Fregment *p = _read_fregment;
     size_t read_index = _read_index;
@@ -139,9 +139,9 @@ size_t FregmentBuffer::look_ahead(void *buf, size_t size) const
     return can_read;
 }
 
-size_t FregmentBuffer::skip_read(size_t size)
+size_t FregmentBuffer::skip_read(size_t len)
 {
-    size_t can_skip = std::min(size, _read_available);
+    size_t can_skip = std::min(len, _read_available);
     size_t skiped = 0;
     while (skiped < can_skip)
     {
@@ -170,60 +170,55 @@ size_t FregmentBuffer::skip_read(size_t size)
     return can_skip;
 }
 
-int FregmentBuffer::readable_pointers(const void **bufs, size_t buf_ptr_strike,
-                                      size_t *sizes, size_t size_ptr_strike,
-                                      size_t ptr_count) const
+size_t FregmentBuffer::readable_pointers(const void **buf_ptrs, size_t *len_ptrs,
+                                         size_t ptr_count) const
 {
-    assert(NULL != bufs && NULL != sizes);
-    if (0 == buf_ptr_strike)
-        buf_ptr_strike = sizeof(const void*);
-    if (0 == size_ptr_strike)
-        size_ptr_strike = sizeof(size_t);
+    assert(NULL != buf_ptrs && NULL != len_ptrs);
 
-    int rs = 0;
+    size_t buf_count = 0;
     Fregment *p = _read_fregment;
     size_t read_index = _read_index;
-    while (NULL != p && rs < (int) ptr_count)
+    while (NULL != p && buf_count < ptr_count)
     {
         assert(p->size >= read_index);
-        *bufs = p->buffer + read_index;
-        *sizes = p->size - read_index;
+        *buf_ptrs = p->buffer + read_index;
+        *len_ptrs = p->size - read_index;
 
-        bufs = (const void**) (reinterpret_cast<long>(bufs) + buf_ptr_strike);
-        sizes = (size_t *) (reinterpret_cast<long>(sizes) + size_ptr_strike);
+        ++buf_ptrs;
+        ++len_ptrs;
+        ++buf_count;
 
         p = p->next;
         read_index = 0;
-        ++rs;
     }
-    return rs;
+    return buf_count;
 }
 
-void FregmentBuffer::write(const void *buf, size_t size)
+void FregmentBuffer::write(const void *buf, size_t len)
 {
     assert(NULL != buf);
 
     if (NULL != _write_fregment &&
-        _write_fregment->capacity - _write_fregment->size >= size)
+        _write_fregment->capacity - _write_fregment->size >= len)
     {
-        ::memcpy(_write_fregment->buffer + _write_fregment->size, buf, size);
-        _write_fregment->size += size;
-        _read_available += size;
+        ::memcpy(_write_fregment->buffer + _write_fregment->size, buf, len);
+        _write_fregment->size += len;
+        _read_available += len;
         return;
     }
 
-    Fregment *freg = new_fregment(size);
-    ::memcpy(freg->buffer, buf, size);
-    freg->size = size;
+    Fregment *freg = new_fregment(len);
+    ::memcpy(freg->buffer, buf, len);
+    freg->size = len;
     enqueue(freg);
 }
 
-FregmentBuffer::Fregment* FregmentBuffer::new_fregment(size_t size)
+FregmentBuffer::Fregment* FregmentBuffer::new_fregment(size_t capacity)
 {
-    assert(size > 0);
-    Fregment* p = (Fregment*) ::malloc(sizeof(Fregment) + size - 1);
+    assert(capacity > 0);
+    Fregment* p = (Fregment*) ::malloc(sizeof(Fregment) + capacity - 1);
     assert(NULL != p);
-    p->capacity = size;
+    new (p) Fregment(capacity);
     p->size = 0;
     p->next = NULL;
     return p;
@@ -232,6 +227,7 @@ FregmentBuffer::Fregment* FregmentBuffer::new_fregment(size_t size)
 void FregmentBuffer::delete_fregment(Fregment *freg)
 {
     assert(NULL != freg);
+    freg->~Fregment();
     ::free(freg);
 }
 

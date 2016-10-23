@@ -28,6 +28,7 @@
 #include <nut/threading/sync/guard.h>
 
 #include "proactor.h"
+#include "io_request.h"
 #include "../reactor/react_acceptor.h"
 #include "../inet_base/utils.h"
 
@@ -38,71 +39,6 @@
 
 namespace loofah
 {
-
-#if NUT_PLATFORM_OS_WINDOWS
-typedef struct _IORequest
-{
-    // NOTE OVERLAPPED 必须放在首位
-    OVERLAPPED overlapped;
-
-    // 事件类型
-    int event_type = 0;
-
-    socket_t accept_socket = INVALID_SOCKET_VALUE;
-
-    WSABUF wsabuf;
-    bool need_free = true;
-
-    _IORequest(int event_type_, int buf_len, socket_t accept_socket_)
-        : event_type(event_type_), accept_socket(accept_socket_), need_free(true)
-    {
-        assert(buf_len > 0);
-
-        ::memset(&overlapped, 0, sizeof(overlapped));
-
-        wsabuf.buf = (char*) ::malloc(buf_len);
-        assert(NULL != wsabuf.buf);
-        wsabuf.len = buf_len;
-    }
-
-    _IORequest(int event_type_, void *buf, int buf_len)
-        : event_type(event_type_), need_free(false)
-    {
-        assert(NULL != buf && buf_len > 0);
-
-        ::memset(&overlapped, 0, sizeof(overlapped));
-
-        wsabuf.buf = (char*) buf;
-        wsabuf.len = buf_len;
-    }
-
-    ~_IORequest()
-    {
-        clear();
-    }
-
-    void clear()
-    {
-        if (need_free && NULL != wsabuf.buf)
-            ::free(wsabuf.buf);
-        wsabuf.buf = NULL;
-        wsabuf.len = 0;
-    }
-} IORequest;
-#else
-typedef struct _IORequest
-{
-    // 事件类型
-    int event_type = 0;
-
-    void *buf = NULL;
-    int buf_len = 0;
-
-    _IORequest(int event_type_, void *buf_, int buf_len_)
-        : event_type(event_type_), buf(buf_), buf_len(buf_len_)
-    {}
-} IORequest;
-#endif
 
 Proactor::Proactor()
 {
@@ -130,10 +66,10 @@ Proactor::Proactor()
 
 Proactor::~Proactor()
 {
-    close();
+    shutdown();
 }
 
-void Proactor::close()
+void Proactor::shutdown()
 {
 #if NUT_PLATFORM_OS_WINDOWS
     if (NULL != _iocp)
@@ -204,17 +140,20 @@ void Proactor::launch_accept(ProactHandler *handler)
     }
 
     // Call ::AcceptEx()
-    IORequest *io_request = (IORequest*) ::malloc(sizeof(IORequest));
+    IORequest *io_request = IORequest::new_request(ProactHandler::ACCEPT_MASK,
+                                                   1, accept_socket);
     assert(NULL != io_request);
-    new (io_request) IORequest(ProactHandler::ACCEPT_MASK,
-                               2 * (sizeof(struct sockaddr_in) + 16),
-                               accept_socket);
+    const size_t buf_len = 2 * (sizeof(struct sockaddr_in) + 16);
+    void *buf = ::malloc(2 * (sizeof(struct sockaddr_in) + 16));
+    assert(NULL != buf);
+    io_request->set_buf(0, buf, buf_len);
+
     DWORD bytes = 0;
     assert(NULL != func_AcceptEx);
     const BOOL rs = func_AcceptEx(listener_socket,
                                   accept_socket,
-                                  io_request->wsabuf.buf,
-                                  io_request->wsabuf.len - 2 * (sizeof(struct sockaddr_in) + 16), // substract address length
+                                  buf,
+                                  buf_len - 2 * (sizeof(struct sockaddr_in) + 16), // substract address length
                                   sizeof(struct sockaddr_in) + 16, // local address length
                                   sizeof(struct sockaddr_in) + 16, // remote address length
                                   &bytes,
@@ -350,19 +289,22 @@ void Proactor::disable_handler(ProactHandler *handler, int mask)
 }
 #endif
 
-void Proactor::launch_read(ProactHandler *handler, void *buf, int buf_len)
+void Proactor::launch_read(ProactHandler *handler, void* const *buf_ptrs,
+                           const size_t *len_ptrs, size_t buf_count)
 {
-    assert(NULL != handler && NULL != buf && buf_len > 0);
+    assert(NULL != handler && NULL != buf_ptrs && NULL != len_ptrs && buf_count > 0);
+
+    IORequest *io_request = IORequest::new_request(ProactHandler::READ_MASK, buf_count);
+    assert(NULL != io_request);
+    io_request->set_bufs(buf_ptrs, len_ptrs);
 
 #if NUT_PLATFORM_OS_WINDOWS
     socket_t fd = handler->get_socket();
-    IORequest *io_request = (IORequest*) ::malloc(sizeof(IORequest));
-    assert(NULL != io_request);
-    new (io_request) IORequest(ProactHandler::READ_MASK, buf, buf_len);
+
     DWORD bytes = 0, flags = 0;
     const int rs = ::WSARecv(fd,
-                             &io_request->wsabuf,
-                             1, // wsabuf 的数量
+                             io_request->wsabufs,
+                             buf_count, // wsabuf 的数量
                              &bytes, // 如果接收操作立即完成，这里会返回函数调用所接收到的字节数
                              &flags, // FIXME 貌似这里设置为 NULL 会导致错误
                              &io_request->overlapped,
@@ -378,18 +320,12 @@ void Proactor::launch_read(ProactHandler *handler, void *buf, int buf_len)
     }
 #elif NUT_PLATFORM_OS_MAC
     nut::Guard<nut::Mutex> g(&handler->_mutex);
-    IORequest *io_request = (IORequest*) ::malloc(sizeof(IORequest));
-    assert(NULL != io_request);
-    new (io_request) IORequest(ProactHandler::READ_MASK, buf, buf_len);
     handler->_read_queue.push(io_request);
 
     if (0 == (handler->_registered_events & ProactHandler::READ_MASK))
         enable_handler(handler, ProactHandler::READ_MASK);
 #elif NUT_PLATFORM_OS_LINUX
     nut::Guard<nut::Mutex> g(&handler->_mutex);
-    IORequest *io_request = (IORequest*) ::malloc(sizeof(IORequest));
-    assert(NULL != io_request);
-    new (io_request) IORequest(ProactHandler::READ_MASK, buf, buf_len);
     handler->_read_queue.push(io_request);
 
     if (0 == (handler->_registered_events & ProactHandler::READ_MASK))
@@ -397,19 +333,21 @@ void Proactor::launch_read(ProactHandler *handler, void *buf, int buf_len)
 #endif
 }
 
-void Proactor::launch_write(ProactHandler *handler, void *buf, int buf_len)
+void Proactor::launch_write(ProactHandler *handler, void* const *buf_ptrs,
+                            const size_t *len_ptrs, size_t buf_count)
 {
-    assert(NULL != buf && buf_len > 0);
+    assert(NULL != handler && NULL != buf_ptrs && NULL != len_ptrs && buf_count > 0);
+
+    IORequest *io_request = IORequest::new_request(ProactHandler::READ_MASK, buf_count);
+    assert(NULL != io_request);
+    io_request->set_bufs(buf_ptrs, len_ptrs);
 
 #if NUT_PLATFORM_OS_WINDOWS
     socket_t fd = handler->get_socket();
-    IORequest *io_request = (IORequest*) ::malloc(sizeof(IORequest));
-    assert(NULL != io_request);
-    new (io_request) IORequest(ProactHandler::WRITE_MASK, buf, buf_len);
     DWORD bytes = 0;
     const int rs = ::WSASend(fd,
-                             &io_request->wsabuf,
-                             1, // wsabuf 的数量
+                             io_request->wsabufs,
+                             buf_count, // wsabuf 的数量
                              &bytes, // 如果发送操作立即完成，这里会返回函数调用所发送的字节数
                              0,
                              &io_request->overlapped,
@@ -425,18 +363,12 @@ void Proactor::launch_write(ProactHandler *handler, void *buf, int buf_len)
     }
 #elif NUT_PLATFORM_OS_MAC
     nut::Guard<nut::Mutex> g(&handler->_mutex);
-    IORequest *io_request = (IORequest*) ::malloc(sizeof(IORequest));
-    assert(NULL != io_request);
-    new (io_request) IORequest(ProactHandler::WRITE_MASK, buf, buf_len);
     handler->_write_queue.push(io_request);
 
     if (0 == (handler->_registered_events & ProactHandler::WRITE_MASK))
         enable_handler(handler, ProactHandler::WRITE_MASK);
 #elif NUT_PLATFORM_OS_LINUX
     nut::Guard<nut::Mutex> g(&handler->_mutex);
-    IORequest *io_request = (IORequest*) ::malloc(sizeof(IORequest));
-    assert(NULL != io_request);
-    new (io_request) IORequest(ProactHandler::WRITE_MASK, buf, buf_len);
     handler->_write_queue.push(io_request);
 
     if (0 == (handler->_registered_events & ProactHandler::WRITE_MASK))
@@ -491,27 +423,27 @@ int Proactor::handle_events(int timeout_ms)
                                   (LPSOCKADDR*)&remote_addr,
                                   &remote_len);
          */
+        assert(1 == io_request->buf_count && NULL != io_request->wsabufs[0].buf);
+        ::free(io_request->wsabufs[0].buf);
 
         handler->handle_accept_completed(io_request->accept_socket);
         break;
     }
 
     case ProactHandler::READ_MASK:
-        handler->handle_read_completed(io_request->wsabuf.buf, bytes_transfered);
+        handler->handle_read_completed(bytes_transfered);
         break;
 
     case ProactHandler::WRITE_MASK:
-        handler->handle_write_completed(io_request->wsabuf.buf, bytes_transfered);
+        handler->handle_write_completed(bytes_transfered);
         break;
 
     default:
         NUT_LOG_E(TAG, "unknown event type %d", io_request->event_type);
-        io_request->~IORequest();
-        ::free(io_request);
+        IORequest::delete_request(io_request);
         return -1;
     }
-    io_request->~IORequest();
-    ::free(io_request);
+    IORequest::delete_request(io_request);
     return 0;
 #elif NUT_PLATFORM_OS_MAC
     struct timespec timeout;
@@ -554,11 +486,10 @@ int Proactor::handle_events(int timeout_ms)
                 if (handler->_read_queue.empty())
                     disable_handler(handler, ProactHandler::READ_MASK);
 
-                const int readed = ::read(fd, io_request->buf, io_request->buf_len);
-                handler->handle_read_completed(io_request->buf, readed);
+                const int readed = ::readv(fd, io_request->iovs, io_request->buf_count);
+                handler->handle_read_completed(readed);
 
-                io_request->~IORequest();
-                ::free(io_request);
+                IORequest::delete_request(io_request);
             }
         }
         else if (events == EVFILT_WRITE)
@@ -571,11 +502,10 @@ int Proactor::handle_events(int timeout_ms)
             if (handler->_write_queue.empty())
                 disable_handler(handler, ProactHandler::WRITE_MASK);
 
-            const int wrote = ::write(fd, io_request->buf, io_request->buf_len);
-            handler->handle_write_completed(io_request->buf, wrote);
+            const int wrote = ::writev(fd, io_request->iovs, io_request->buf_count);
+            handler->handle_write_completed(wrote);
 
-            io_request->~IORequest();
-            ::free(io_request);
+            IORequest::delete_request(io_request);
         }
         else
         {
@@ -620,11 +550,10 @@ int Proactor::handle_events(int timeout_ms)
                 if (handler->_read_queue.empty())
                     disable_handler(handler, ProactHandler::READ_MASK);
 
-                const int readed = ::read(fd, io_request->buf, io_request->buf_len);
-                handler->handle_read_completed(io_request->buf, readed);
+                const int readed = ::readv(fd, io_request->iovs, io_request->buf_count);
+                handler->handle_read_completed(readed);
 
-                io_request->~IORequest();
-                ::free(io_request);
+                IORequest::delete_request(io_request);
             }
         }
         if (0 != (events[i].events & EPOLLOUT))
@@ -637,11 +566,10 @@ int Proactor::handle_events(int timeout_ms)
             if (handler->_write_queue.empty())
                 disable_handler(handler, ProactHandler::WRITE_MASK);
 
-            const int wrote = ::write(fd, io_request->buf, io_request->buf_len);
-            handler->handle_write_completed(io_request->buf, wrote);
+            const int wrote = ::writev(fd, io_request->iovs, io_request->buf_count);
+            handler->handle_write_completed(wrote);
 
-            io_request->~IORequest();
-            ::free(io_request);
+            IORequest::delete_request(io_request);
         }
     }
     return 0;

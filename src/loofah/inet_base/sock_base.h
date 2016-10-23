@@ -44,18 +44,26 @@ public: // Socket connection operations
     static bool shutdown_write(socket_t socket_fd);
 
     /**
-     * 读(阻塞)
+     * 读
      *
-     * @return >0 读成功
+     * @return >0 读成功, 返回读取到的字节数
      *         =0 已经关闭
      *         <0 出错
      */
-    static int read(socket_t socket_fd, void *buf, unsigned max_len);
+    static ssize_t read(socket_t socket_fd, void *buf, size_t len);
+    static ssize_t readv(socket_t socket_fd, void* const *buf_ptrs,
+                         const size_t *len_ptrs, size_t buf_count);
 
     /**
-     * 写(阻塞)
+     * 写
+     *
+     * @return >0 写成功, 返回写入的字节数
+     *         =0 已经关闭
+     *         <0 出错
      */
-    static int write(socket_t socket_fd, const void *buf, unsigned max_len);
+    static ssize_t write(socket_t socket_fd, const void *buf, size_t len);
+    static ssize_t writev(socket_t socket_fd, const void* const *buf_ptrs,
+                          const size_t *len_ptrs, size_t buf_count);
 
     static InetAddr get_local_addr(socket_t socket_fd);
     static InetAddr get_peer_addr(socket_t socket_fd);

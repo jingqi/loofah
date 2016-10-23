@@ -38,8 +38,10 @@ public:
     void register_handler(ProactHandler *handler);
 
     void launch_accept(ProactHandler *handler);
-    void launch_read(ProactHandler *handler, void *buf, int buf_len);
-    void launch_write(ProactHandler *handler, void *buf, int buf_len);
+    void launch_read(ProactHandler *handler, void* const *buf_ptrs,
+                     const size_t *len_ptrs, size_t buf_count);
+    void launch_write(ProactHandler *handler, void* const *buf_ptrs,
+                      const size_t *len_ptrs, size_t buf_count);
 
     /**
      * @param timeout_ms 超时毫秒数，在 Windows 下可传入 INFINITE 表示无穷等待
@@ -47,7 +49,7 @@ public:
      */
     int handle_events(int timeout_ms = 1000);
 
-    void close();
+    void shutdown();
 };
 
 }

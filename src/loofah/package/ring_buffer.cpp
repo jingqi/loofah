@@ -32,11 +32,11 @@ RingBuffer& RingBuffer::operator=(const RingBuffer& x)
     ensure_writable_size(x.readable_size());
 
     const void *buffers[2];
-    size_t sizes[2];
-    const int n = x.readable_pointers(buffers, sizes,
-                                      buffers + 1, sizes + 1);
+    size_t lens[2];
+    const int n = x.readable_pointers(buffers, lens,
+                                      buffers + 1, lens + 1);
     for (int i = 0; i < n; ++i)
-        write(buffers[i], sizes[i]);
+        write(buffers[i], lens[i]);
 
     return *this;
 }
@@ -55,7 +55,7 @@ void RingBuffer::ensure_writable_size(size_t write_size)
     {
         assert(rd_sz == _write_index - _read_index);
         _buffer = ::realloc(_buffer, new_cap);
-        assert(NULL != buffer);
+        assert(NULL != _buffer);
         _capacity = new_cap;
     }
     else
@@ -89,10 +89,10 @@ size_t RingBuffer::readable_size() const
     return _capacity - _read_index + _write_index;
 }
 
-size_t RingBuffer::read(void *buf, size_t size)
+size_t RingBuffer::read(void *buf, size_t len)
 {
     assert(NULL != buf);
-    const size_t readed = look_ahead(buf, size);
+    const size_t readed = look_ahead(buf, len);
     _read_index += readed;
     if (0 != _capacity)
         _read_index %= _capacity;
@@ -106,10 +106,10 @@ size_t RingBuffer::read(void *buf, size_t size)
     return readed;
 }
 
-size_t RingBuffer::look_ahead(void *buf, size_t size) const
+size_t RingBuffer::look_ahead(void *buf, size_t len) const
 {
     assert(NULL != buf);
-    const size_t readed = std::min(size, readable_size()),
+    const size_t readed = std::min(len, readable_size()),
         trunk_sz = _capacity - _read_index;
     if (trunk_sz >= readed)
     {
@@ -123,9 +123,9 @@ size_t RingBuffer::look_ahead(void *buf, size_t size) const
     return readed;
 }
 
-size_t RingBuffer::skip_read(size_t size)
+size_t RingBuffer::skip_read(size_t len)
 {
-    const size_t skiped = std::min(size, readable_size());
+    const size_t skiped = std::min(len, readable_size());
     _read_index += skiped;
     if (0 != _capacity)
         _read_index %= _capacity;
@@ -139,32 +139,32 @@ size_t RingBuffer::skip_read(size_t size)
     return skiped;
 }
 
-int RingBuffer::readable_pointers(const void **buf1, size_t *size1,
-                                  const void **buf2, size_t *size2) const
+size_t RingBuffer::readable_pointers(const void **buf_ptr1, size_t *len_ptr1,
+                                     const void **buf_ptr2, size_t *len_ptr2) const
 {
     if (_write_index == _read_index)
         return 0;
 
     if (_write_index > _read_index)
     {
-        if (NULL != buf1)
-            *buf1 = (const uint8_t*) _buffer + _read_index;
-        if (NULL != size1)
-            *size1 = _write_index - _read_index;
+        if (NULL != buf_ptr1)
+            *buf_ptr1 = (const uint8_t*) _buffer + _read_index;
+        if (NULL != len_ptr1)
+            *len_ptr1 = _write_index - _read_index;
         return 1;
     }
 
-    if (NULL != buf1)
-        *buf1 = (const uint8_t*) _buffer + _read_index;
-    if (NULL != size1)
-        *size1 = _capacity - _read_index;
+    if (NULL != buf_ptr1)
+        *buf_ptr1 = (const uint8_t*) _buffer + _read_index;
+    if (NULL != len_ptr1)
+        *len_ptr1 = _capacity - _read_index;
     if (0 == _write_index)
         return 1;
 
-    if (NULL != buf2)
-        *buf2 = _buffer;
-    if (NULL != size2)
-        *size2 = _write_index;
+    if (NULL != buf_ptr2)
+        *buf_ptr2 = _buffer;
+    if (NULL != len_ptr2)
+        *len_ptr2 = _write_index;
     return 2;
 }
 
@@ -177,56 +177,56 @@ size_t RingBuffer::writable_size() const
     return _read_index - 1 - _write_index;
 }
 
-void RingBuffer::write(const void *buf, size_t size)
+void RingBuffer::write(const void *buf, size_t len)
 {
     assert(NULL != buf);
-    ensure_writable_size(size);
+    ensure_writable_size(len);
     const size_t trunk_sz = _capacity - _write_index;
-    if (trunk_sz >= size)
+    if (trunk_sz >= len)
     {
-        ::memcpy((uint8_t*) _buffer + _write_index, buf, size);
+        ::memcpy((uint8_t*) _buffer + _write_index, buf, len);
     }
     else
     {
         ::memcpy((uint8_t*) _buffer + _write_index, buf, trunk_sz);
-        ::memcpy(_buffer, (const uint8_t*) buf + trunk_sz, size - trunk_sz);
+        ::memcpy(_buffer, (const uint8_t*) buf + trunk_sz, len - trunk_sz);
     }
-    _write_index += size;
+    _write_index += len;
     if (0 != _capacity)
         _write_index %= _capacity;
 }
 
-int RingBuffer::writable_pointers(void **buf1, size_t *size1,
-                                  void **buf2, size_t *size2)
+size_t RingBuffer::writable_pointers(void **buf_ptr1, size_t *len_ptr1,
+                                  void **buf_ptr2, size_t *len_ptr2)
 {
     if (writable_size() == 0)
         return 0;
 
     if (_write_index < _read_index)
     {
-        if (NULL != buf1)
-            *buf1 = (uint8_t*) _buffer + _write_index;
-        if (NULL != size1)
-            *size1 = _read_index - 1 - _write_index;
+        if (NULL != buf_ptr1)
+            *buf_ptr1 = (uint8_t*) _buffer + _write_index;
+        if (NULL != len_ptr1)
+            *len_ptr1 = _read_index - 1 - _write_index;
         return 1;
     }
 
-    if (NULL != buf1)
-        *buf1 = (uint8_t*) _buffer + _write_index;
-    if (NULL != size1)
+    if (NULL != buf_ptr1)
+        *buf_ptr1 = (uint8_t*) _buffer + _write_index;
+    if (NULL != len_ptr1)
     {
         if (0 == _read_index)
-            *size1 = _capacity - _write_index - 1;
+            *len_ptr1 = _capacity - _write_index - 1;
         else
-            *size1 = _capacity - _write_index;
+            *len_ptr1 = _capacity - _write_index;
     }
     if (_read_index < 2)
         return 1;
 
-    if (NULL != buf2)
-        *buf2 = _buffer;
-    if (NULL != size2)
-        *size2 = _read_index - 1;
+    if (NULL != buf_ptr2)
+        *buf_ptr2 = _buffer;
+    if (NULL != len_ptr2)
+        *len_ptr2 = _read_index - 1;
     return 2;
 }
 
