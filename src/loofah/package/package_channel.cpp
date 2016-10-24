@@ -21,17 +21,17 @@ PackageChannel::PackageChannel(Proactor *proactor)
 
 PackageChannel::~PackageChannel()
 {
-    if (NULL != _read_freg)
-        _readed_buffer.delete_fregment(_read_freg);
-    _read_freg = NULL;
+    if (NULL != _read_frag)
+        nut::FragmentBuffer::delete_fragment(_read_frag);
+    _read_frag = NULL;
 }
 
 void PackageChannel::launch_read()
 {
-    if (NULL == _read_freg)
-        _read_freg = _readed_buffer.new_fregment(READ_BUF_LEN);
-    void *buf = _read_freg->buffer;
-    _proactor->launch_read(this, &buf, &_read_freg->capacity, 1);
+    if (NULL == _read_frag)
+        _read_frag = nut::FragmentBuffer::new_fragment(READ_BUF_LEN);
+    void *buf = _read_frag->buffer;
+    _proactor->launch_read(this, &buf, &_read_frag->capacity, 1);
 }
 
 void PackageChannel::launch_write()
@@ -71,9 +71,9 @@ void PackageChannel::handle_read_completed(int cb)
     }
 
     // Cache to buffer
-    assert(cb <= _read_freg->capacity);
-    _read_freg->size = cb;
-    _read_freg = _readed_buffer.enqueue_fregment(_read_freg);
+    assert(cb <= _read_frag->capacity);
+    _read_frag->size = cb;
+    _read_frag = _readed_buffer.write_fragment(_read_frag);
     launch_read();
 
     // Read package

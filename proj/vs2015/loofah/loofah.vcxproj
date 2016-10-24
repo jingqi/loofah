@@ -139,10 +139,8 @@
     <ClCompile Include="..\..\..\src\loofah\inet_base\sock_base.cpp" />
     <ClCompile Include="..\..\..\src\loofah\inet_base\sock_stream.cpp" />
     <ClCompile Include="..\..\..\src\loofah\inet_base\utils.cpp" />
-    <ClCompile Include="..\..\..\src\loofah\package\fregment_buffer.cpp" />
     <ClCompile Include="..\..\..\src\loofah\package\package.cpp" />
     <ClCompile Include="..\..\..\src\loofah\package\package_channel.cpp" />
-    <ClCompile Include="..\..\..\src\loofah\package\ring_buffer.cpp" />
     <ClCompile Include="..\..\..\src\loofah\proactor\io_request.cpp" />
     <ClCompile Include="..\..\..\src\loofah\proactor\proactor.cpp" />
     <ClCompile Include="..\..\..\src\loofah\proactor\proact_acceptor.cpp" />
@@ -160,10 +158,8 @@
     <ClInclude Include="..\..\..\src\loofah\inet_base\sock_stream.h" />
     <ClInclude Include="..\..\..\src\loofah\inet_base\utils.h" />
     <ClInclude Include="..\..\..\src\loofah\loofah.h" />
-    <ClInclude Include="..\..\..\src\loofah\package\fregment_buffer.h" />
     <ClInclude Include="..\..\..\src\loofah\package\package.h" />
     <ClInclude Include="..\..\..\src\loofah\package\package_channel.h" />
-    <ClInclude Include="..\..\..\src\loofah\package\ring_buffer.h" />
     <ClInclude Include="..\..\..\src\loofah\proactor\io_request.h" />
     <ClInclude Include="..\..\..\src\loofah\proactor\proactor.h" />
     <ClInclude Include="..\..\..\src\loofah\proactor\proact_acceptor.h" />

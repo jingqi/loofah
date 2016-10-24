@@ -59,16 +59,10 @@
     <ClCompile Include="..\..\..\src\loofah\proactor\io_request.cpp">
       <Filter>loofah\proactor</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\src\loofah\package\fregment_buffer.cpp">
-      <Filter>loofah\package</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\..\src\loofah\package\package.cpp">
       <Filter>loofah\package</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\src\loofah\package\package_channel.cpp">
-      <Filter>loofah\package</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\src\loofah\package\ring_buffer.cpp">
       <Filter>loofah\package</Filter>
     </ClCompile>
   </ItemGroup>
@@ -130,16 +124,10 @@
     <ClInclude Include="..\..\..\src\loofah\proactor\io_request.h">
       <Filter>loofah\proactor</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\src\loofah\package\fregment_buffer.h">
-      <Filter>loofah\package</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\src\loofah\package\package.h">
       <Filter>loofah\package</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\src\loofah\package\package_channel.h">
-      <Filter>loofah\package</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\src\loofah\package\ring_buffer.h">
       <Filter>loofah\package</Filter>
     </ClInclude>
   </ItemGroup>

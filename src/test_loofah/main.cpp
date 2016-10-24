@@ -13,6 +13,7 @@
 
 #if NUT_PLATFORM_OS_WINDOWS
 #   include <windows.h>
+#   include <conio.h>
 #else
 #   include <unistd.h>
 #endif
@@ -58,6 +59,11 @@ int main(int argc, char **argv)
     test_proactor();
 
     loofah::shutdown_network();
+
+    printf("press any key to continue...");
+#if NUT_PLATFORM_OS_WINDOWS
+    getch();
+#endif
 
     return 0;
 }

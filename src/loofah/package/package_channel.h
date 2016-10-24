@@ -4,10 +4,11 @@
 
 #include <list>
 
+#include <nut/container/rwbuffer/fragment_buffer.h>
+
 #include "../proactor/proact_channel.h"
 #include "../proactor/proactor.h"
 #include "package.h"
-#include "fregment_buffer.h"
 
 namespace loofah
 {
@@ -19,8 +20,8 @@ class PackageChannel : public ProactChannel
     typedef std::list<nut::rc_ptr<Package> > queue_t;
     queue_t _write_queue;
 
-    FregmentBuffer::Fregment *_read_freg = NULL;
-    FregmentBuffer _readed_buffer;
+    nut::FragmentBuffer::Fragment *_read_frag = NULL;
+    nut::FragmentBuffer _readed_buffer;
 
 private:
     void launch_read();
