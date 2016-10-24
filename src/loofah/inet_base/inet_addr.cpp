@@ -34,13 +34,13 @@
 
 #if NUT_PLATFORM_OS_WINDOWS
 #   include <winsock2.h> // NOTE should include winsock2.h before windows.h
+#   include <ws2tcpip.h> // for ::inet_pton(), ::inet_ntop()
 #   include <windows.h>
 #else
-#   include <arpa/inet.h> // for inet_aton()
-#   include <netdb.h> // for gethostbyname()
+#   include <arpa/inet.h> // for ::inet_aton()
+#   include <netdb.h> // for ::gethostbyname(), ::getaddrinfo()
 #endif
 
-#include <netdb.h> // for ::getaddrinfo()
 
 #include <nut/logging/logger.h>
 #include <nut/util/string/to_string.h>
@@ -186,10 +186,14 @@ bool InetAddr::operator==(const InetAddr& addr) const
 
 std::string InetAddr::get_ip() const
 {
-    const int buflen = std::max(INET_ADDRSTRLEN, INET6_ADDRSTRLEN) + 1;
+    const int buflen = (std::max)(INET_ADDRSTRLEN, INET6_ADDRSTRLEN) + 1;
     char buf[buflen];
     const int domain = is_ipv6() ? AF_INET6 : AF_INET;
+#if NUT_PLATFORM_OS_WINDOWS
+    ::inet_ntop(domain, (void*) cast_to_sockaddr(), buf, buflen);
+#else
     ::inet_ntop(domain, cast_to_sockaddr(), buf, buflen);
+#endif
     return buf;
 }
 

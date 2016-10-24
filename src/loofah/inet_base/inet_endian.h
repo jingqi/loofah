@@ -1,4 +1,4 @@
-/**
+﻿/**
  * See http://www.snip2code.com/Snippet/609281/This-provides-the-endian-conversion-func
  */
 
@@ -10,6 +10,15 @@
 #if NUT_PLATFORM_OS_WINDOWS
 #   if NUT_PLATFORM_CC_MINGW
 #       include <endian.h>
+#   else
+#       include <stdint.h>
+#       include <winsock.h>
+        static_assert(sizeof(short) == sizeof(int16_t), "整数长度问题");
+        static_assert(sizeof(long) == sizeof(int32_t), "整数长度问题");
+#       define htobe16(x) htons(x)
+#       define be16toh(x) ntohs(x)
+#       define htobe32(x) htonl(x)
+#       define be32toh(x) ntohl(x)
 #   endif
 #elif NUT_PLATFORM_OS_MAC
 #   include <libkern/OSByteOrder.h>

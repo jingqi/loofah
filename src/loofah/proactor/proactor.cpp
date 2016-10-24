@@ -338,7 +338,7 @@ void Proactor::launch_write(ProactHandler *handler, void* const *buf_ptrs,
 {
     assert(NULL != handler && NULL != buf_ptrs && NULL != len_ptrs && buf_count > 0);
 
-    IORequest *io_request = IORequest::new_request(ProactHandler::READ_MASK, buf_count);
+    IORequest *io_request = IORequest::new_request(ProactHandler::WRITE_MASK, buf_count);
     assert(NULL != io_request);
     io_request->set_bufs(buf_ptrs, len_ptrs);
 

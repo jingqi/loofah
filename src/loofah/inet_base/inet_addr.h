@@ -11,6 +11,7 @@
 #if NUT_PLATFORM_OS_WINDOWS
     // NOTE winsock2.h 必须放在 windows.h 之前
 #   include <winsock2.h>
+#   include <ws2ipdef.h> // for struct sockaddr_in6
 #   include <windows.h>
 #else
 #   include <netinet/in.h> // for struct sockaddr_in
@@ -70,7 +71,7 @@ public:
 
     size_t get_max_sockaddr_size() const
     {
-        return std::max(sizeof(_sock_addr), sizeof(_sock_addr6));
+        return (std::max)(sizeof(_sock_addr), sizeof(_sock_addr6));
     }
 
     size_t get_sockaddr_size() const

@@ -22,7 +22,7 @@
 
 
 #define TAG "loofah.sock_base"
-#define STACK_IOV_COUNT 10
+#define STACK_ARRAY_SIZE 10
 
 namespace loofah
 {
@@ -74,6 +74,8 @@ void SockBase::shutdown(socket_t socket_fd)
 bool SockBase::set_reuse_addr(socket_t listener_socket_fd)
 {
 #if NUT_PLATFORM_OS_WINDOWS
+    // NOTE 在 Windows 上，设置 ReuseAddr 与在 *nix 上不同，参见
+    // http://stackoverflow.com/questions/17212789/multiple-processes-listening-on-the-same-port
     BOOL optval = TRUE;
     return 0 == ::setsockopt(listener_socket_fd, SOL_SOCKET, SO_REUSEADDR,
                              (char*) &optval, sizeof(optval));
@@ -87,8 +89,10 @@ bool SockBase::set_reuse_addr(socket_t listener_socket_fd)
 bool SockBase::set_reuse_port(socket_t listener_socket_fd)
 {
 #if NUT_PLATFORM_OS_WINDOWS
+    // NOTE 在 Windows 上，设置 ReuseAddr 与在 *nix 上不同，参见
+    // http://stackoverflow.com/questions/17212789/multiple-processes-listening-on-the-same-port
     BOOL optval = TRUE;
-    return 0 == ::setsockopt(listener_socket_fd, SOL_SOCKET, SO_REUSEPORT,
+    return 0 == ::setsockopt(listener_socket_fd, SOL_SOCKET, SO_REUSEADDR,
                              (char*) &optval, sizeof(optval));
 #else
     int optval = 1;
@@ -142,8 +146,36 @@ ssize_t SockBase::readv(socket_t socket_fd, void* const *buf_ptrs,
 {
     assert(NULL != buf_ptrs && NULL != len_ptrs);
 
-    struct iovec stack_iovs[STACK_IOV_COUNT], *iovs = NULL;
-    if (buf_count > STACK_IOV_COUNT)
+#if NUT_PLATFORM_OS_WINDOWS
+    WSABUF stack_wsabufs[STACK_ARRAY_SIZE], *wsabufs = NULL;
+    if (buf_count > STACK_ARRAY_SIZE)
+        wsabufs = (WSABUF*) ::malloc(sizeof(WSABUF) * buf_count);
+    else
+        wsabufs = stack_wsabufs;
+
+    for (size_t i = 0; i < buf_count; ++i)
+    {
+        wsabufs[i].buf = (char*) *buf_ptrs;
+        wsabufs[i].len = *len_ptrs;
+
+        ++buf_ptrs;
+        ++len_ptrs;
+    }
+
+    DWORD bytes = 0, flags = 0;
+    const int rs = ::WSARecv(socket_fd,
+                             wsabufs,
+                             buf_count, // wsabuf 的数量
+                             &bytes, // 如果接收操作立即完成，这里会返回函数调用所接收到的字节数
+                             &flags, // FIXME 貌似这里设置为 NULL 会导致错误
+                             NULL,
+                             NULL);
+    if (SOCKET_ERROR == rs)
+        return -1;
+    return bytes;
+#else
+    struct iovec stack_iovs[STACK_ARRAY_SIZE], *iovs = NULL;
+    if (buf_count > STACK_ARRAY_SIZE)
         iovs = (struct iovec*) ::malloc(sizeof(struct iovec) * buf_count);
     else
         iovs = stack_iovs;
@@ -158,9 +190,10 @@ ssize_t SockBase::readv(socket_t socket_fd, void* const *buf_ptrs,
     }
 
     const ssize_t rs = ::readv(socket_fd, iovs, buf_count);
-    if (buf_count > STACK_IOV_COUNT)
+    if (buf_count > STACK_ARRAY_SIZE)
         ::free(iovs);
     return rs;
+#endif
 }
 
 ssize_t SockBase::write(socket_t socket_fd, const void *buf, size_t len)
@@ -174,8 +207,36 @@ ssize_t SockBase::writev(socket_t socket_fd, const void* const *buf_ptrs,
 {
     assert(NULL != buf_ptrs && NULL != len_ptrs);
 
-    struct iovec stack_iovs[STACK_IOV_COUNT], *iovs = NULL;
-    if (buf_count > STACK_IOV_COUNT)
+#if NUT_PLATFORM_OS_WINDOWS
+    WSABUF stack_wsabufs[STACK_ARRAY_SIZE], *wsabufs = NULL;
+    if (buf_count > STACK_ARRAY_SIZE)
+        wsabufs = (WSABUF*) ::malloc(sizeof(WSABUF) * buf_count);
+    else
+        wsabufs = stack_wsabufs;
+
+    for (size_t i = 0; i < buf_count; ++i)
+    {
+        wsabufs[i].buf = (char*) *buf_ptrs;
+        wsabufs[i].len = *len_ptrs;
+
+        ++buf_ptrs;
+        ++len_ptrs;
+    }
+
+    DWORD bytes = 0;
+    const int rs = ::WSASend(socket_fd,
+                             wsabufs,
+                             buf_count, // wsabuf 的数量
+                             &bytes, // 如果发送操作立即完成，这里会返回函数调用所发送的字节数
+                             0,
+                             NULL,
+                             NULL);
+    if (SOCKET_ERROR == rs)
+        return -1;
+    return bytes;
+#else
+    struct iovec stack_iovs[STACK_ARRAY_SIZE], *iovs = NULL;
+    if (buf_count > STACK_ARRAY_SIZE)
         iovs = (struct iovec*) ::malloc(sizeof(struct iovec) * buf_count);
     else
         iovs = stack_iovs;
@@ -190,9 +251,10 @@ ssize_t SockBase::writev(socket_t socket_fd, const void* const *buf_ptrs,
     }
 
     const ssize_t rs = ::writev(socket_fd, iovs, buf_count);
-    if (buf_count > STACK_IOV_COUNT)
+    if (buf_count > STACK_ARRAY_SIZE)
         ::free(iovs);
     return rs;
+#endif
 }
 
 InetAddr SockBase::get_local_addr(socket_t socket_fd)

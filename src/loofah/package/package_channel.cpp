@@ -1,4 +1,4 @@
-
+﻿
 #include <assert.h>
 #include <algorithm> // for std::min()
 
@@ -40,7 +40,7 @@ void PackageChannel::launch_write()
 
     void *bufs[STACK_BUF_COUNT];
     size_t lens[STACK_BUF_COUNT];
-    const size_t buf_count = std::min((size_t) STACK_BUF_COUNT, _write_queue.size());
+    const size_t buf_count = (std::min)((size_t) STACK_BUF_COUNT, _write_queue.size());
 
     queue_t::const_iterator iter = _write_queue.begin();
     for (size_t i = 0; i < buf_count; ++i, ++iter)

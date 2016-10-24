@@ -15,8 +15,11 @@
     <Filter Include="loofah\reactor">
       <UniqueIdentifier>{80ec954e-cbc4-4cba-a31d-e2897e5d9484}</UniqueIdentifier>
     </Filter>
-    <Filter Include="loofah\base">
-      <UniqueIdentifier>{fd7bd9ea-f4fb-40f9-a4f7-979b8b4f0d6f}</UniqueIdentifier>
+    <Filter Include="loofah\inet_base">
+      <UniqueIdentifier>{777ca0f2-2301-4e11-877d-7c7ba3574725}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="loofah\package">
+      <UniqueIdentifier>{101363a1-4177-4645-a79b-8a330f54ffb8}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -25,18 +28,6 @@
     </ClCompile>
     <ClCompile Include="..\..\..\src\loofah\reactor\reactor.cpp">
       <Filter>loofah\reactor</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\src\loofah\base\connector.cpp">
-      <Filter>loofah\base</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\src\loofah\base\inet_addr.cpp">
-      <Filter>loofah\base</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\src\loofah\base\sock_stream.cpp">
-      <Filter>loofah\base</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\src\loofah\base\utils.cpp">
-      <Filter>loofah\base</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\src\loofah\proactor\proact_acceptor.cpp">
       <Filter>loofah\proactor</Filter>
@@ -50,8 +41,35 @@
     <ClCompile Include="..\..\..\src\loofah\reactor\react_channel.cpp">
       <Filter>loofah\reactor</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\src\loofah\base\sock_base.cpp">
-      <Filter>loofah\base</Filter>
+    <ClCompile Include="..\..\..\src\loofah\inet_base\connector.cpp">
+      <Filter>loofah\inet_base</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\loofah\inet_base\inet_addr.cpp">
+      <Filter>loofah\inet_base</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\loofah\inet_base\sock_base.cpp">
+      <Filter>loofah\inet_base</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\loofah\inet_base\sock_stream.cpp">
+      <Filter>loofah\inet_base</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\loofah\inet_base\utils.cpp">
+      <Filter>loofah\inet_base</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\loofah\proactor\io_request.cpp">
+      <Filter>loofah\proactor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\loofah\package\fregment_buffer.cpp">
+      <Filter>loofah\package</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\loofah\package\package.cpp">
+      <Filter>loofah\package</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\loofah\package\package_channel.cpp">
+      <Filter>loofah\package</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\loofah\package\ring_buffer.cpp">
+      <Filter>loofah\package</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -63,21 +81,6 @@
     </ClInclude>
     <ClInclude Include="..\..\..\src\loofah\reactor\reactor.h">
       <Filter>loofah\reactor</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\src\loofah\base\channel.h">
-      <Filter>loofah\base</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\src\loofah\base\connector.h">
-      <Filter>loofah\base</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\src\loofah\base\inet_addr.h">
-      <Filter>loofah\base</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\src\loofah\base\sock_stream.h">
-      <Filter>loofah\base</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\src\loofah\base\utils.h">
-      <Filter>loofah\base</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\src\loofah\proactor\proact_acceptor.h">
       <Filter>loofah\proactor</Filter>
@@ -103,8 +106,41 @@
     <ClInclude Include="..\..\..\src\loofah\reactor\react_handler.h">
       <Filter>loofah\reactor</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\src\loofah\base\sock_base.h">
-      <Filter>loofah\base</Filter>
+    <ClInclude Include="..\..\..\src\loofah\inet_base\channel.h">
+      <Filter>loofah\inet_base</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\inet_base\connector.h">
+      <Filter>loofah\inet_base</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\inet_base\inet_addr.h">
+      <Filter>loofah\inet_base</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\inet_base\inet_endian.h">
+      <Filter>loofah\inet_base</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\inet_base\sock_base.h">
+      <Filter>loofah\inet_base</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\inet_base\sock_stream.h">
+      <Filter>loofah\inet_base</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\inet_base\utils.h">
+      <Filter>loofah\inet_base</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\proactor\io_request.h">
+      <Filter>loofah\proactor</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\package\fregment_buffer.h">
+      <Filter>loofah\package</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\package\package.h">
+      <Filter>loofah\package</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\package\package_channel.h">
+      <Filter>loofah\package</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\package\ring_buffer.h">
+      <Filter>loofah\package</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

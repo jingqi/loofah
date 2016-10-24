@@ -1,4 +1,4 @@
-
+﻿
 #include "../loofah.h"
 
 #include <nut/platform/platform.h>
