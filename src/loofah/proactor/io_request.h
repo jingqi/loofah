@@ -7,21 +7,11 @@
 #if NUT_PLATFORM_OS_WINDOWS
 #   include <winsock2.h>
 #   include <windows.h>
-#elif NUT_PLATFORM_OS_MAC
-#   include <sys/types.h>
-#   include <sys/event.h>
-#   include <sys/time.h>
-#   include <unistd.h> // for ::close()
-#   include <errno.h>
-#   include <sys/uio.h> // for ::readv()
-#elif NUT_PLATFORM_OS_LINUX
-#   include <sys/epoll.h> // for ::epoll_create()
-#   include <unistd.h> // for ::close()
-#   include <errno.h>
+#else
 #   include <sys/uio.h> // for ::readv()
 #endif
 
-#include <string.h>
+#include <string.h> // for size_t
 
 
 namespace loofah

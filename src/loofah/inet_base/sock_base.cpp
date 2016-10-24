@@ -12,6 +12,8 @@
 #   include <netinet/tcp.h> // for defination of TCP_NODELAY
 #   include <fcntl.h> // for ::fcntl()
 #   include <sys/uio.h> // for ::readv()
+#   include <errno.h>
+#   include <string.h> // for ::strerror()
 #endif
 
 #include <nut/logging/logger.h>
