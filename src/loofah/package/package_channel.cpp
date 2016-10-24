@@ -121,6 +121,8 @@ void PackageChannel::handle_write_completed(int cb)
 void PackageChannel::write(nut::rc_ptr<Package> pkg)
 {
     assert(NULL != pkg);
+    uint32_t header = pkg->readable_size();
+    pkg->prepend(&header);
     _write_queue.push_back(pkg);
     if (1 == _write_queue.size())
         launch_write();
