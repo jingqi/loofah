@@ -104,9 +104,12 @@ bool SockBase::set_reuse_port(socket_t listener_socket_fd)
 bool SockBase::shutdown_read(socket_t socket_fd)
 {
 #if NUT_PLATFORM_OS_WINDOWS
-    // TODO
-    NUT_LOG_E(TAG, "operation not implemented in Windows");
-    return false;
+    const int rs = ::shutdown(socket_fd, SD_RECEIVE);
+    if (0 != rs)
+    {
+        NUT_LOG_E(TAG, "failed to call ::shutdown() with return %d", rs);
+    }
+    return 0 == rs;
 #else
     const int rs = ::shutdown(socket_fd, SHUT_RD);
     if (0 != rs)
@@ -121,9 +124,12 @@ bool SockBase::shutdown_read(socket_t socket_fd)
 bool SockBase::shutdown_write(socket_t socket_fd)
 {
 #if NUT_PLATFORM_OS_WINDOWS
-    // TODO
-    NUT_LOG_E(TAG, "operation not implemented in Windows");
-    return false;
+    const int rs = ::shutdown(socket_fd, SD_SEND);
+    if (0 != rs)
+    {
+        NUT_LOG_E(TAG, "failed to call ::shutdown() with return %d", rs);
+    }
+    return 0 == rs;
 #else
     const int rs = ::shutdown(socket_fd, SHUT_WR);
     if (0 != rs)

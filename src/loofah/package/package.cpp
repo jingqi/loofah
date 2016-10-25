@@ -49,7 +49,7 @@ void Package::prepend(const void *header)
 {
     assert(NULL != header);
     VALIDATE_MEMBERS();
-    assert(_read_index >= PREPEND); // NOTE A package can only be prepended once
+    assert(_read_index >= PREPEND_LEN); // NOTE A package can only be prepended once
 
     if (NULL == _buffer)
     {
