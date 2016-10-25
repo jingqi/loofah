@@ -2,7 +2,7 @@
 #ifndef ___HEADFILE_9FF20425_5A52_4AF1_A64E_9847FC8625B7_
 #define ___HEADFILE_9FF20425_5A52_4AF1_A64E_9847FC8625B7_
 
-#include "../loofah.h"
+#include "../loofah_config.h"
 
 #include <nut/platform/platform.h>
 

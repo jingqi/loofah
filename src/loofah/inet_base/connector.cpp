@@ -1,5 +1,5 @@
 ﻿
-#include "../loofah.h"
+#include "../loofah_config.h"
 
 #include <nut/platform/platform.h>
 

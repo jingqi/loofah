@@ -6,7 +6,7 @@
 #include <errno.h>
 
 // This should appear before "windows.h"
-#include <loofah/loofah.h>
+#include <loofah/loofah_config.h>
 #include <loofah/inet_base/utils.h>
 
 #include <nut/platform/platform.h>

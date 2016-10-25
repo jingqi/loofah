@@ -3,7 +3,7 @@
 #ifndef ___HEADFILE_29BEE4A7_4FDA_4FAB_ABC2_3FC8E8A22FD4_
 #define ___HEADFILE_29BEE4A7_4FDA_4FAB_ABC2_3FC8E8A22FD4_
 
-#include "../loofah.h"
+#include "../loofah_config.h"
 
 #include <map>
 

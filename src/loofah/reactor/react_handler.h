@@ -2,7 +2,7 @@
 #ifndef ___HEADFILE_51392254_9561_4A97_A283_F00E6C58F874_
 #define ___HEADFILE_51392254_9561_4A97_A283_F00E6C58F874_
 
-#include "../loofah.h"
+#include "../loofah_config.h"
 
 
 namespace loofah

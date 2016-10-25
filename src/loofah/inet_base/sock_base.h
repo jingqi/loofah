@@ -2,7 +2,7 @@
 #ifndef ___HEADFILE_9092C70E_21B8_4084_AB7B_A802D642D26A_
 #define ___HEADFILE_9092C70E_21B8_4084_AB7B_A802D642D26A_
 
-#include "../loofah.h"
+#include "../loofah_config.h"
 
 #include <nut/platform/stdint_traits.h> // for ssize_t in windows VC
 

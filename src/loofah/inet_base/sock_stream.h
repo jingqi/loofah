@@ -2,7 +2,7 @@
 #ifndef ___HEADFILE_C5256A05_7E87_4E2F_A0B3_DBF4B7DD4015_
 #define ___HEADFILE_C5256A05_7E87_4E2F_A0B3_DBF4B7DD4015_
 
-#include "../loofah.h"
+#include "../loofah_config.h"
 #include "inet_addr.h"
 #include "sock_base.h"
 

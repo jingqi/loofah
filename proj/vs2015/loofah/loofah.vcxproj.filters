@@ -67,9 +67,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\..\src\loofah\loofah.h">
-      <Filter>loofah</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\src\loofah\proactor\proactor.h">
       <Filter>loofah\proactor</Filter>
     </ClInclude>
@@ -129,6 +126,9 @@
     </ClInclude>
     <ClInclude Include="..\..\..\src\loofah\package\package_channel.h">
       <Filter>loofah\package</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\loofah_config.h">
+      <Filter>loofah</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

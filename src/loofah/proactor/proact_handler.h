@@ -2,7 +2,7 @@
 #ifndef ___HEADFILE_64C1BFFB_AE33_4DBD_AAE2_542809F526DE_
 #define ___HEADFILE_64C1BFFB_AE33_4DBD_AAE2_542809F526DE_
 
-#include "../loofah.h"
+#include "../loofah_config.h"
 
 #include <queue>
 
