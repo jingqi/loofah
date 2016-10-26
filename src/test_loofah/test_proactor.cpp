@@ -131,46 +131,29 @@ public:
     }
 };
 
-void start_proactor_server(void*)
+}
+
+void test_proactor()
 {
+    // start server
     ProactAcceptor<ServerChannel> acc;
     InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
     acc.open(addr);
     proactor.register_handler(&acc);
     proactor.launch_accept(&acc);
     NUT_LOG_D(TAG, "listening to %s", addr.to_string().c_str());
+
+    // start client
+    ProactConnector con;
+    ClientChannel client;
+    con.connect(&client, addr);
+    NUT_LOG_D(TAG, "will connect to %s", addr.to_string().c_str());
+
+    // loop
     while (true)
     {
         if (proactor.handle_events() < 0)
             break;
     }
     proactor.shutdown();
-    thread_pool->interrupt();
-}
-
-void start_proactor_client(void*)
-{
-#if NUT_PLATFORM_OS_WINDOWS
-    ::Sleep(1000);
-#else
-    ::sleep(1); // Wait for server to be setupped
-#endif
-
-    InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
-    ProactConnector con;
-    ClientChannel *client = (ClientChannel*) ::malloc(sizeof(ClientChannel));
-    new (client) ClientChannel;
-    NUT_LOG_D(TAG, "will connect to %s", addr.to_string().c_str());
-    con.connect(client, addr);
-}
-
-}
-
-void test_proactor()
-{
-    thread_pool = rc_new<ThreadPool>(3);
-    thread_pool->add_task(&start_proactor_server);
-    thread_pool->add_task(&start_proactor_client);
-    thread_pool->start();
-    thread_pool->join();
 }

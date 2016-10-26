@@ -25,8 +25,7 @@
 
 
 #define TAG "loofah.reactor"
-#define MAX_EPOLL_EVENTS 32
-#define MAX_KQUEUE_EVENTS 32
+#define MAX_ACTIVE_EVENTS 32
 
 namespace loofah
 {
@@ -46,7 +45,7 @@ Reactor::Reactor()
         return;
     }
 #elif NUT_PLATFORM_OS_LINUX
-    _epoll_fd = ::epoll_create(MAX_EPOLL_EVENTS);
+    _epoll_fd = ::epoll_create(MAX_ACTIVE_EVENTS);
     if (-1 == _epoll_fd)
     {
         NUT_LOG_E(TAG, "failed to call ::epoll_create()");
@@ -312,9 +311,9 @@ int Reactor::handle_events(int timeout_ms)
     struct timespec timeout;
     timeout.tv_sec = timeout_ms / 1000;
     timeout.tv_nsec = (timeout_ms % 1000) * 1000 * 1000;
-    struct kevent active_evs[MAX_KQUEUE_EVENTS];
+    struct kevent active_evs[MAX_ACTIVE_EVENTS];
 
-    int n = ::kevent(_kq, NULL, 0, active_evs, MAX_KQUEUE_EVENTS, &timeout);
+    int n = ::kevent(_kq, NULL, 0, active_evs, MAX_ACTIVE_EVENTS, &timeout);
     for (int i = 0; i < n; ++i)
     {
         ReactHandler *handler = (ReactHandler*) active_evs[i].udata;
@@ -337,8 +336,8 @@ int Reactor::handle_events(int timeout_ms)
     }
     return 0;
 #elif NUT_PLATFORM_OS_LINUX
-    struct epoll_event events[MAX_EPOLL_EVENTS];
-    const int n = ::epoll_wait(_epoll_fd, events, MAX_EPOLL_EVENTS, timeout_ms);
+    struct epoll_event events[MAX_ACTIVE_EVENTS];
+    const int n = ::epoll_wait(_epoll_fd, events, MAX_ACTIVE_EVENTS, timeout_ms);
     for (int i = 0; i < n; ++i)
     {
         ReactHandler *handler = (ReactHandler*) events[i].data.ptr;

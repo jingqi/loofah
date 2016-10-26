@@ -25,7 +25,6 @@ using namespace loofah;
 namespace
 {
 
-rc_ptr<ThreadPool> thread_pool;
 Reactor reactor;
 
 class ServerChannel : public ReactChannel
@@ -121,45 +120,28 @@ public:
     }
 };
 
-void start_reactor_server(void*)
-{
+}
+
+void test_reactor()
+{   
+    // start server
     ReactAcceptor<ServerChannel> acc;
     InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
     acc.open(addr);
     reactor.register_handler(&acc, ReactHandler::READ_MASK);
     NUT_LOG_D(TAG, "listening to %s, fd %d", addr.to_string().c_str(), acc.get_socket());
+
+    // start client
+    ReactConnector con;
+    ClientChannel client;
+    con.connect(&client, addr);
+    NUT_LOG_D(TAG, "will connect to %s", addr.to_string().c_str());
+
+    // loop
     while (true)
     {
         if (reactor.handle_events() < 0)
             break;
     }
     reactor.shutdown();
-    thread_pool->interrupt();
-}
-
-void start_reactor_client(void*)
-{
-#if NUT_PLATFORM_OS_WINDOWS
-    ::Sleep(1000);
-#else
-    ::sleep(1); // Wait for server to be setupped
-#endif
-
-    InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
-    ReactConnector con;
-    ClientChannel *client = (ClientChannel*) ::malloc(sizeof(ClientChannel));
-    new (client) ClientChannel;
-    NUT_LOG_D(TAG, "will connect to %s", addr.to_string().c_str());
-    con.connect(client, addr);
-}
-
-}
-
-void test_reactor()
-{
-    thread_pool = rc_new<ThreadPool>(3);
-    thread_pool->add_task(&start_reactor_server);
-    thread_pool->add_task(&start_reactor_client);
-    thread_pool->start();
-    thread_pool->join();
 }
