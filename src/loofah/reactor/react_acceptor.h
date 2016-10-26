@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <new> // for placement new
 
+#include <nut/rc/rc_new.h>
+
 #include "react_handler.h"
 #include "../inet_base/inet_addr.h"
 
@@ -45,9 +47,8 @@ public:
                 break;
 
             // Create new handler
-            CHANNEL *handler = (CHANNEL*) ::malloc(sizeof(CHANNEL));
+            nut::rc_ptr<CHANNEL> handler = nut::rc_new<CHANNEL>();
             assert(NULL != handler);
-            new (handler) CHANNEL;
             handler->open(fd);
         }
     }

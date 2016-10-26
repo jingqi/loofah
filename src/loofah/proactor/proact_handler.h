@@ -8,12 +8,15 @@
 
 #include <nut/platform/platform.h>
 #include <nut/threading/sync/mutex.h>
+#include <nut/rc/rc_ptr.h>
 
 namespace loofah
 {
 
 class ProactHandler
 {
+    NUT_REF_COUNTABLE
+
 #if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
     int _registered_events = 0;
     int _request_accept = 0;

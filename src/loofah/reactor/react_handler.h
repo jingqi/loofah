@@ -4,12 +4,16 @@
 
 #include "../loofah_config.h"
 
+#include <nut/rc/rc_ptr.h>
+
 
 namespace loofah
 {
 
 class ReactHandler
 {
+    NUT_REF_COUNTABLE
+
 #if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
     // 用于记录注册状态，参见 Reactor 的实现
     int _registered_events = 0;

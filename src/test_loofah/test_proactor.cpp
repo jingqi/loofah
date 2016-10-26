@@ -11,7 +11,6 @@
 #endif
 
 #include <nut/logging/logger.h>
-#include <nut/threading/thread_pool.h>
 
 
 #define TAG "test_proactor"
@@ -25,8 +24,9 @@ using namespace loofah;
 namespace
 {
 
-rc_ptr<ThreadPool> thread_pool;
-Proactor proactor;
+Proactor g_proactor;
+class ServerChannel;
+std::vector<rc_ptr<ServerChannel> > g_server_channels;
 
 class ServerChannel : public ProactChannel
 {
@@ -39,11 +39,12 @@ public:
         ProactChannel::open(fd);
         NUT_LOG_D(TAG, "server channel opened");
 
-        proactor.register_handler(this);
+        g_server_channels.push_back(this);
+        g_proactor.register_handler(this);
 
         void *buf = &_tmp;
         size_t len = sizeof(_tmp);
-        proactor.launch_read(this, &buf, &len, 1);
+        g_proactor.launch_read(this, &buf, &len, 1);
     }
 
     virtual void handle_read_completed(int cb) override
@@ -52,7 +53,7 @@ public:
         if (0 == cb) // 正常结束
         {
             _sock_stream.shutdown();
-            proactor.shutdown();
+            g_proactor.shutdown();
             return;
         }
 
@@ -62,7 +63,7 @@ public:
 
         void *buf = &_counter;
         size_t len = sizeof(_counter);
-        proactor.launch_write(this, &buf, &len, 1);
+        g_proactor.launch_write(this, &buf, &len, 1);
     }
 
     virtual void handle_write_completed(int cb) override
@@ -73,7 +74,7 @@ public:
 
         void *buf = &_tmp;
         size_t len = sizeof(_tmp);
-        proactor.launch_read(this, &buf, &len, 1);
+        g_proactor.launch_read(this, &buf, &len, 1);
     }
 };
 
@@ -88,11 +89,11 @@ public:
         ProactChannel::open(fd);
         NUT_LOG_D(TAG, "client channel opened");
 
-        proactor.register_handler(this);
+        g_proactor.register_handler(this);
 
         void *buf = &_counter;
         size_t len = sizeof(_counter);
-        proactor.launch_write(this, &buf, &len, 1);
+        g_proactor.launch_write(this, &buf, &len, 1);
     }
 
     virtual void handle_read_completed(int cb) override
@@ -116,7 +117,7 @@ public:
 
         void *buf = &_counter;
         size_t len = sizeof(_counter);
-        proactor.launch_write(this, &buf, &len, 1);
+        g_proactor.launch_write(this, &buf, &len, 1);
     }
 
     virtual void handle_write_completed(int cb) override
@@ -127,7 +128,7 @@ public:
 
         void *buf = &_tmp;
         size_t len = sizeof(_tmp);
-        proactor.launch_read(this, &buf, &len, 1);
+        g_proactor.launch_read(this, &buf, &len, 1);
     }
 };
 
@@ -136,24 +137,24 @@ public:
 void test_proactor()
 {
     // start server
-    ProactAcceptor<ServerChannel> acc;
+    rc_ptr<ProactAcceptor<ServerChannel> > acc = rc_new<ProactAcceptor<ServerChannel> >();
     InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
-    acc.open(addr);
-    proactor.register_handler(&acc);
-    proactor.launch_accept(&acc);
+    acc->open(addr);
+    g_proactor.register_handler(acc);
+    g_proactor.launch_accept(acc);
     NUT_LOG_D(TAG, "listening to %s", addr.to_string().c_str());
 
     // start client
-    ProactConnector con;
-    ClientChannel client;
-    con.connect(&client, addr);
+    rc_ptr<ClientChannel> client = rc_new<ClientChannel>();
+    ProactConnector::connect(client, addr);
     NUT_LOG_D(TAG, "will connect to %s", addr.to_string().c_str());
 
     // loop
     while (true)
     {
-        if (proactor.handle_events() < 0)
+        if (g_proactor.handle_events() < 0)
             break;
     }
-    proactor.shutdown();
+    g_server_channels.clear();
+    g_proactor.shutdown();
 }

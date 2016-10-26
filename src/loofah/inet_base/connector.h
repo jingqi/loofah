@@ -11,7 +11,7 @@ namespace loofah
 class LOOFAH_API Connector
 {
 public:
-    bool connect(Channel *channel, const InetAddr& address);
+    static bool connect(Channel *channel, const InetAddr& address);
 };
 
 }

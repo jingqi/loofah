@@ -11,7 +11,6 @@
 #endif
 
 #include <nut/logging/logger.h>
-#include <nut/threading/thread_pool.h>
 
 
 #define TAG "test_reactor"
@@ -25,7 +24,9 @@ using namespace loofah;
 namespace
 {
 
-Reactor reactor;
+Reactor g_reactor;
+class ServerChannel;
+std::vector<rc_ptr<ServerChannel> > g_server_channels;
 
 class ServerChannel : public ReactChannel
 {
@@ -37,8 +38,9 @@ public:
         ReactChannel::open(fd);
         NUT_LOG_D(TAG, "server channel opened, fd %d", _sock_stream.get_socket());
 
-        reactor.register_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
-        reactor.disable_handler(this, ReactHandler::WRITE_MASK);
+        g_server_channels.push_back(this);
+        g_reactor.register_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
+        g_reactor.disable_handler(this, ReactHandler::WRITE_MASK);
     }
 
     virtual void handle_read_ready() override
@@ -49,8 +51,8 @@ public:
         if (0 == rs) // 正常结束
         {
             _sock_stream.shutdown();
-            reactor.unregister_handler(this);
-            reactor.shutdown();
+            g_reactor.unregister_handler(this);
+            g_reactor.shutdown();
             return;
         }
 
@@ -58,7 +60,7 @@ public:
         assert(seq == _counter);
         ++_counter;
 
-        reactor.enable_handler(this, ReactHandler::WRITE_MASK);
+        g_reactor.enable_handler(this, ReactHandler::WRITE_MASK);
     }
 
     virtual void handle_write_ready() override
@@ -67,7 +69,7 @@ public:
         NUT_LOG_D(TAG, "send %d bytes to client: %d", rs, _counter);
         assert(rs == sizeof(_counter));
         ++_counter;
-        reactor.disable_handler(this, ReactHandler::WRITE_MASK);
+        g_reactor.disable_handler(this, ReactHandler::WRITE_MASK);
     }
 };
 
@@ -81,8 +83,8 @@ public:
         ReactChannel::open(fd);
         NUT_LOG_D(TAG, "client channel opened, fd %d", _sock_stream.get_socket());
 
-        reactor.register_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
-        //reactor.disable_handler(this, ReactHandler::WRITE_MASK);
+        g_reactor.register_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
+        //g_reactor.disable_handler(this, ReactHandler::WRITE_MASK);
     }
 
     virtual void handle_read_ready() override
@@ -92,7 +94,7 @@ public:
         NUT_LOG_D(TAG, "received %d bytes from server: %d", rs, seq);
         if (0 == rs) // 正常结束
         {
-            reactor.unregister_handler(this);
+            g_reactor.unregister_handler(this);
             _sock_stream.shutdown();
             return;
         }
@@ -103,11 +105,11 @@ public:
 
         if (_counter > 20)
         {
-            reactor.unregister_handler(this);
+            g_reactor.unregister_handler(this);
             _sock_stream.shutdown();
             return;
         }
-        reactor.enable_handler(this, ReactHandler::WRITE_MASK);
+        g_reactor.enable_handler(this, ReactHandler::WRITE_MASK);
     }
 
     virtual void handle_write_ready() override
@@ -116,7 +118,7 @@ public:
         NUT_LOG_D(TAG, "send %d bytes to server: %d", rs, _counter);
         assert(rs == sizeof(_counter));
         ++_counter;
-        reactor.disable_handler(this, ReactHandler::WRITE_MASK);
+        g_reactor.disable_handler(this, ReactHandler::WRITE_MASK);
     }
 };
 
@@ -125,23 +127,23 @@ public:
 void test_reactor()
 {   
     // start server
-    ReactAcceptor<ServerChannel> acc;
+    rc_ptr<ReactAcceptor<ServerChannel> > acc = rc_new<ReactAcceptor<ServerChannel> >();
     InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
-    acc.open(addr);
-    reactor.register_handler(&acc, ReactHandler::READ_MASK);
-    NUT_LOG_D(TAG, "listening to %s, fd %d", addr.to_string().c_str(), acc.get_socket());
+    acc->open(addr);
+    g_reactor.register_handler(acc, ReactHandler::READ_MASK);
+    NUT_LOG_D(TAG, "listening to %s, fd %d", addr.to_string().c_str(), acc->get_socket());
 
     // start client
-    ReactConnector con;
-    ClientChannel client;
-    con.connect(&client, addr);
+    nut::rc_ptr<ClientChannel> client = nut::rc_new<ClientChannel>();
+    ReactConnector::connect(client, addr);
     NUT_LOG_D(TAG, "will connect to %s", addr.to_string().c_str());
 
     // loop
     while (true)
     {
-        if (reactor.handle_events() < 0)
+        if (g_reactor.handle_events() < 0)
             break;
     }
-    reactor.shutdown();
+    g_server_channels.clear();
+    g_reactor.shutdown();
 }
