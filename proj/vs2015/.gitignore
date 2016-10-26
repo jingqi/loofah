@@ -11,9 +11,15 @@
 /Release
 /x64
 /ipch
+
 /loofah/Debug
 /loofah/Release
 /loofah/x64
+
 /test_loofah/Debug
 /test_loofah/Release
 /test_loofah/x64
+
+/test_pingpong/Debug
+/test_pingpong/Release
+/test_pingpong/x64

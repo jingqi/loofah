@@ -60,8 +60,8 @@ int main(int argc, char **argv)
 
     loofah::shutdown_network();
 
-    printf("press any key to continue...");
 #if NUT_PLATFORM_OS_WINDOWS
+    printf("press any key to continue...");
     getch();
 #endif
 
