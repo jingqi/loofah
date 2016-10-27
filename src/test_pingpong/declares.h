@@ -8,6 +8,7 @@
 #include <string.h>
 
 #include <nut/threading/thread_pool.h>
+#include <nut/util/time/time_wheel.h>
 
 #include <loofah/proactor/proactor.h>
 
@@ -24,16 +25,18 @@ struct GlobalData
     size_t block_size = 127;
     int thread_num = 4;
     int connection_num = 10;
+    int seconds = 10;
 
     // subtotal
-    int client_read_count = 0;
-    int client_read_size = 0;
+    size_t client_read_count = 0;
+    size_t client_read_size = 0;
 
-    int server_read_count = 0;
-    int server_read_size = 0;
-    
+    size_t server_read_count = 0;
+    size_t server_read_size = 0;
+
     // others
     rc_ptr<ThreadPool> threadpool;
+    TimeWheel timewheel;
     Proactor proactor;
 };
 

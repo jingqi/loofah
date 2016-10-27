@@ -26,7 +26,7 @@ public:
     {
         _buf = ::malloc(g_global.block_size);
     }
-    
+
     ~ServerChannel()
     {
         ::free(_buf);
@@ -55,6 +55,7 @@ public:
 
         assert(cb == g_global.block_size);
         ++g_global.server_read_count;
+        g_global.server_read_size += cb;
 
         g_global.proactor.launch_write(this, &_buf, &g_global.block_size, 1);
     }

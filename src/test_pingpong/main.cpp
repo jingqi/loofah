@@ -43,7 +43,8 @@ static void print_help()
         " -h" << endl <<
         " -b BLOCK_SIZE" << endl <<
         " -t THREAD_NUM" << endl <<
-        " -c CONNECTION_NUM" << endl;
+        " -c CONNECTION_NUM" << endl <<
+        " -s SECONDS" << endl;
 }
 
 static int parse_params(int argc, char *argv[])
@@ -97,6 +98,19 @@ static int parse_params(int argc, char *argv[])
             }
             ++i;
         }
+        else if (0 == ::strcmp(argv[i], "-s"))
+        {
+            if (i + 1 < argc)
+            {
+                g_global.seconds = (int) str_to_long(argv[i + 1]);
+            }
+            else
+            {
+                cerr << "expect seconds value!" << endl;
+                return -1;
+            }
+            ++i;
+        }
         else
         {
             cerr << "unknonw option: " << argv[i] << endl;
@@ -106,19 +120,52 @@ static int parse_params(int argc, char *argv[])
     return 0;
 }
 
+std::string size_to_str(size_t size)
+{
+    if (size < 1024)
+        return llong_to_str(size);
+
+    double value = size;
+    const char *unit = NULL;
+
+    value /= 1024;
+    unit = "KB";
+
+    if (value > 1024)
+    {
+        value /= 1024;
+        unit = "MB";
+    }
+
+    if (value > 1024)
+    {
+        value /= 1024;
+        unit = "GB";
+    }
+
+    char buf[256];
+    ::sprintf(buf, "%.2f%s", value, unit);
+    return buf;
+}
+
 static void report()
 {
     cout << "-------------------------" << endl <<
         "thread: " << g_global.thread_num << endl <<
         "connection: " << g_global.connection_num << endl <<
         "block size: " << g_global.block_size << endl <<
-        "time: " << endl <<
+        "time: " << g_global.seconds << "s" << endl <<
         "server received count: " << g_global.server_read_count << endl <<
-        "server received size: " << g_global.server_read_size << endl <<
+        "server received size: " << size_to_str(g_global.server_read_size) << endl <<
         "client received count: " << g_global.client_read_count << endl <<
-        "client received size: " << g_global.client_read_size << endl <<
-        "conntion per second: " << endl <<
-        "bytes per second: " << endl;
+        "client received size: " << size_to_str(g_global.client_read_size) << endl <<
+        "operation per second: " << g_global.server_read_count / g_global.seconds << endl <<
+        "bytes per second: " << size_to_str(g_global.server_read_size / g_global.seconds) << endl;
+}
+
+static void timeout(TimeWheel::timer_id_t id, void *arg, uint64_t expires)
+{
+    g_global.proactor.shutdown();
 }
 
 int main(int argc, char *argv[])
@@ -128,7 +175,7 @@ int main(int argc, char *argv[])
         return rs;
 
     setup_std_logger();
-    
+
     if (!init_network())
     {
         NUT_LOG_F(TAG, "initialize network failed");
@@ -139,10 +186,12 @@ int main(int argc, char *argv[])
     g_global.threadpool = rc_new<ThreadPool>(g_global.thread_num);
     start_server();
     start_client();
+    g_global.timewheel.add_timer(g_global.seconds * 1000, 0, &timeout, NULL);
     while (true)
     {
-        if (g_global.proactor.handle_events() < 0)
+        if (g_global.proactor.handle_events(TimeWheel::TICK_GRANULARITY_MS) < 0)
             break;
+        g_global.timewheel.tick();
     }
     g_global.proactor.shutdown();
 
