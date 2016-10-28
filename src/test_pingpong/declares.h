@@ -22,8 +22,7 @@ using namespace loofah;
 struct GlobalData
 {
     // params
-    size_t block_size = 127;
-    int thread_num = 4;
+    size_t block_size = 4096;
     int connection_num = 10;
     int seconds = 10;
 
@@ -35,7 +34,6 @@ struct GlobalData
     size_t server_read_size = 0;
 
     // others
-    rc_ptr<ThreadPool> threadpool;
     TimeWheel timewheel;
     Proactor proactor;
 };

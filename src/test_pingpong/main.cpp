@@ -42,9 +42,8 @@ static void print_help()
     cout << "test_pingpong" << endl <<
         " -h" << endl <<
         " -b BLOCK_SIZE" << endl <<
-        " -t THREAD_NUM" << endl <<
         " -c CONNECTION_NUM" << endl <<
-        " -s SECONDS" << endl;
+        " -s WAIT_SECONDS" << endl;
 }
 
 static int parse_params(int argc, char *argv[])
@@ -68,19 +67,6 @@ static int parse_params(int argc, char *argv[])
             else
             {
                 cerr << "expect block size number!" << endl;
-                return -1;
-            }
-            ++i;
-        }
-        else if (0 == ::strcmp(argv[i], "-t"))
-        {
-            if (i + 1 < argc)
-            {
-                g_global.thread_num = (int) str_to_long(argv[i + 1]);
-            }
-            else
-            {
-                cerr << "expect thread number!" << endl;
                 return -1;
             }
             ++i;
@@ -151,7 +137,7 @@ std::string size_to_str(size_t size)
 static void report()
 {
     cout << "-------------------------" << endl <<
-        "thread: " << g_global.thread_num << endl <<
+        "thread: " << 1 << endl <<
         "connection: " << g_global.connection_num << endl <<
         "block size: " << g_global.block_size << endl <<
         "time: " << g_global.seconds << "s" << endl <<
@@ -163,7 +149,7 @@ static void report()
         "bytes per second: " << size_to_str(g_global.server_read_size / g_global.seconds) << endl;
 }
 
-static void timeout(TimeWheel::timer_id_t id, void *arg, uint64_t expires)
+static void timeout(TimeWheel::timer_id_type id, void *arg, uint64_t expires)
 {
     g_global.proactor.shutdown();
 }
@@ -183,7 +169,6 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    g_global.threadpool = rc_new<ThreadPool>(g_global.thread_num);
     start_server();
     start_client();
     g_global.timewheel.add_timer(g_global.seconds * 1000, 0, &timeout, NULL);
