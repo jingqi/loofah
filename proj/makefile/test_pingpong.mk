@@ -54,8 +54,8 @@ clean:
 	rm -rf ${TARGET}
 
 rebuild:
-	$(MAKE) -f test_loofah.mk clean
-	$(MAKE) -f test_loofah.mk all
+	$(MAKE) -f test_pingpong.mk clean
+	$(MAKE) -f test_pingpong.mk all
 
 ${LIB_NUT_DUP}: ${LIB_NUT}
 	cp -f $< $@

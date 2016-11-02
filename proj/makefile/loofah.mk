@@ -50,7 +50,7 @@ endif
 all: ${TARGET}
 
 clean:
-	cd ${NUT_MAKEFILE_DIR} ; $(MAKE) -f nut.mk
+	cd ${NUT_MAKEFILE_DIR} ; $(MAKE) -f nut.mk clean
 	rm -rf ${OBJS}
 	rm -rf ${DEPS}
 	rm -rf ${TARGET}
