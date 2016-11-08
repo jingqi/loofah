@@ -67,4 +67,4 @@ ${LIB_NUT}: FORCE
 
 # rules
 include ${NUT_MAKEFILE_DIR}/common_rules.mk
-include ${NUT_MAKEFILE_DIR}/shared_rules.mk
+include ${NUT_MAKEFILE_DIR}/shared_lib_rules.mk
