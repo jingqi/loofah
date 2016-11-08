@@ -22,6 +22,8 @@ namespace loofah
 
 class LOOFAH_API ReactChannel : public Channel, public ReactHandler
 {
+    NUT_REF_COUNTABLE_OVERRIDE
+
 protected:
     SockStream _sock_stream;
 

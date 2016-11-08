@@ -34,10 +34,9 @@ class ServerChannel : public ProactChannel
     int _tmp = 0;
 
 public:
-    virtual void open(socket_t fd) override
+    virtual void handle_connected() override
     {
-        ProactChannel::open(fd);
-        NUT_LOG_D(TAG, "server channel opened");
+        NUT_LOG_D(TAG, "server channel connected");
 
         g_server_channels.push_back(this);
         g_proactor.register_handler(this);
@@ -84,10 +83,9 @@ class ClientChannel : public ProactChannel
     int _tmp = 0;
 
 public:
-    virtual void open(socket_t fd) override
+    virtual void handle_connected() override
     {
-        ProactChannel::open(fd);
-        NUT_LOG_D(TAG, "client channel opened");
+        NUT_LOG_D(TAG, "client channel connected");
 
         g_proactor.register_handler(this);
 

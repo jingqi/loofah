@@ -4,14 +4,19 @@
 
 #include "../loofah_config.h"
 
+#include <nut/rc/rc_ptr.h>
+
 
 namespace loofah
 {
 
 class Channel
 {
+    NUT_REF_COUNTABLE
+
 public:
     virtual void open(socket_t sock_fd) = 0;
+    virtual void handle_connected() {}
 };
 
 }

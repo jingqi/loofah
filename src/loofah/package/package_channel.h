@@ -28,8 +28,10 @@ private:
     void launch_write();
 
 public:
-    PackageChannel(Proactor *proactor);
+    PackageChannel();
     ~PackageChannel();
+
+    void initialize(Proactor *proactor);
 
     virtual void open(socket_t fd) final override;
     virtual void handle_read_completed(int cb) final override;

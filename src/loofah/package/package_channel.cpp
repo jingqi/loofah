@@ -13,11 +13,8 @@
 namespace loofah
 {
 
-PackageChannel::PackageChannel(Proactor *proactor)
-    : _proactor(proactor)
-{
-    assert(NULL != proactor);
-}
+PackageChannel::PackageChannel()
+{}
 
 PackageChannel::~PackageChannel()
 {
@@ -26,8 +23,16 @@ PackageChannel::~PackageChannel()
     _read_frag = NULL;
 }
 
+void PackageChannel::initialize(Proactor *proactor)
+{
+    assert(NULL != proactor && NULL == _proactor);
+    _proactor = proactor;
+}
+
 void PackageChannel::launch_read()
 {
+    assert(NULL != _proactor);
+
     if (NULL == _read_frag)
         _read_frag = nut::FragmentBuffer::new_fragment(READ_BUF_LEN);
     void *buf = _read_frag->buffer;
@@ -36,7 +41,7 @@ void PackageChannel::launch_read()
 
 void PackageChannel::launch_write()
 {
-    assert(!_write_queue.empty());
+    assert(NULL != _proactor && !_write_queue.empty());
 
     void *bufs[STACK_BUF_COUNT];
     size_t lens[STACK_BUF_COUNT];
@@ -56,6 +61,8 @@ void PackageChannel::launch_write()
 
 void PackageChannel::open(socket_t fd)
 {
+    assert(NULL != _proactor);
+
     ProactChannel::open(fd);
 
     _proactor->register_handler(this);

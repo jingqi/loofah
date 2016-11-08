@@ -29,10 +29,9 @@ public:
         ::free(_buf);
     }
 
-    virtual void open(socket_t fd) override
+    virtual void handle_connected() override
     {
-        ProactChannel::open(fd);
-        NUT_LOG_D(TAG, "client channel opened");
+        NUT_LOG_D(TAG, "client channel connected");
 
         g_global.proactor.register_handler(this);
 

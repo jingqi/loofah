@@ -11,6 +11,8 @@ namespace loofah
 
 class LOOFAH_API ProactChannel : public Channel, public ProactHandler
 {
+    NUT_REF_COUNTABLE_OVERRIDE
+
 protected:
     SockStream _sock_stream;
 

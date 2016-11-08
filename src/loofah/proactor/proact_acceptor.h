@@ -41,6 +41,7 @@ public:
         nut::rc_ptr<CHANNEL> handler = nut::rc_new<CHANNEL>();
         assert(NULL != handler);
         handler->open(fd);
+        handler->handle_connected();
     }
 };
 

@@ -54,6 +54,7 @@ bool Connector::connect(Channel *channel, const InetAddr& address)
         NUT_LOG_W(TAG, "failed to make socket nonblocking, socketfd %d", fd);
 
     channel->open(fd);
+    channel->handle_connected();
 
     return true;
 }

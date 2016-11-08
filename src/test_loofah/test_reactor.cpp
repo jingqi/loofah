@@ -33,10 +33,9 @@ class ServerChannel : public ReactChannel
     int _counter = 0;
 
 public:
-    virtual void open(socket_t fd) override
+    virtual void handle_connected() override
     {
-        ReactChannel::open(fd);
-        NUT_LOG_D(TAG, "server channel opened, fd %d", _sock_stream.get_socket());
+        NUT_LOG_D(TAG, "server channel connected, fd %d", _sock_stream.get_socket());
 
         g_server_channels.push_back(this);
         g_reactor.register_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
@@ -81,7 +80,7 @@ public:
     virtual void open(socket_t fd) override
     {
         ReactChannel::open(fd);
-        NUT_LOG_D(TAG, "client channel opened, fd %d", _sock_stream.get_socket());
+        NUT_LOG_D(TAG, "client channel connected, fd %d", _sock_stream.get_socket());
 
         g_reactor.register_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
         //g_reactor.disable_handler(this, ReactHandler::WRITE_MASK);
