@@ -2,12 +2,15 @@
 #ifndef ___HEADFILE_C43E4883_DA8E_4E49_A032_276D3E57EE77_
 #define ___HEADFILE_C43E4883_DA8E_4E49_A032_276D3E57EE77_
 
+#include "../loofah_config.h"
+
 #include <nut/rc/rc_ptr.h>
+
 
 namespace loofah
 {
 
-class Package
+class LOOFAH_API Package
 {
     NUT_REF_COUNTABLE
 

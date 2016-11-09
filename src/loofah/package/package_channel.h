@@ -2,6 +2,8 @@
 #ifndef ___HEADFILE_C2BE4FDE_CF83_4810_ABF9_001B61183CC3_
 #define ___HEADFILE_C2BE4FDE_CF83_4810_ABF9_001B61183CC3_
 
+#include "../loofah_config.h"
+
 #include <list>
 
 #include <nut/container/rwbuffer/fragment_buffer.h>
@@ -13,7 +15,7 @@
 namespace loofah
 {
 
-class PackageChannel : public ProactChannel
+class LOOFAH_API PackageChannel : public ProactChannel
 {
     Proactor *_proactor = NULL;
 
@@ -38,9 +40,9 @@ public:
     virtual void handle_write_completed(int cb) final override;
 
     virtual void handle_close() = 0;
-    virtual void handle_read(nut::rc_ptr<Package> pkg) = 0;
+    virtual void handle_read(Package *pkg) = 0;
 
-    void write(nut::rc_ptr<Package> pkg);
+    void write(Package *pkg);
 };
 
 }
