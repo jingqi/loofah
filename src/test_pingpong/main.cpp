@@ -5,13 +5,11 @@
 
 #include <loofah/loofah_config.h>
 
-#include <nut/platform/platform.h>
+#include <nut/nut.h>
+
 #if NUT_PLATFORM_OS_WINDOWS
 #   include <conio.h>
 #endif
-
-#include <nut/logging/logger.h>
-#include <nut/util/string/to_string.h>
 
 #include <loofah/inet_base/utils.h>
 

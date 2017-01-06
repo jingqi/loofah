@@ -9,7 +9,7 @@
 #include <loofah/loofah_config.h>
 #include <loofah/inet_base/utils.h>
 
-#include <nut/platform/platform.h>
+#include <nut/nut.h>
 
 #if NUT_PLATFORM_OS_WINDOWS
 #   include <windows.h>
@@ -17,9 +17,6 @@
 #else
 #   include <unistd.h>
 #endif
-
-#include <nut/rc/rc_new.h>
-#include <nut/logging/logger.h>
 
 using namespace nut;
 
