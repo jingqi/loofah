@@ -294,7 +294,8 @@ int Reactor::handle_events(int timeout_ms)
         std::map<socket_t, ReactHandler*>::const_iterator iter = _socket_to_handler.find(fd);
         if (iter == _socket_to_handler.end())
             continue;
-        ReactHandler *handler = iter->second;
+        // NOTE 保留引用，避免被回收
+        nut::rc_ptr<ReactHandler> handler = iter->second;
         assert(NULL != handler);
         handler->handle_read_ready();
     }
@@ -304,7 +305,8 @@ int Reactor::handle_events(int timeout_ms)
         std::map<socket_t, ReactHandler*>::const_iterator iter = _socket_to_handler.find(fd);
         if (iter == _socket_to_handler.end())
             continue;
-        ReactHandler *handler = iter->second;
+        // NOTE 保留引用，避免被回收
+        nut::rc_ptr<ReactHandler> handler = iter->second;
         assert(NULL != handler);
         handler->handle_write_ready();
     }
@@ -318,7 +320,8 @@ int Reactor::handle_events(int timeout_ms)
     int n = ::kevent(_kq, NULL, 0, active_evs, MAX_ACTIVE_EVENTS, &timeout);
     for (int i = 0; i < n; ++i)
     {
-        ReactHandler *handler = (ReactHandler*) active_evs[i].udata;
+        // NOTE 保留引用，避免被回收
+        nut::rc_ptr<ReactHandler> handler = (ReactHandler*) active_evs[i].udata;
         assert(NULL != handler);
 
         int events = active_evs[i].filter;
@@ -342,7 +345,8 @@ int Reactor::handle_events(int timeout_ms)
     const int n = ::epoll_wait(_epoll_fd, events, MAX_ACTIVE_EVENTS, timeout_ms);
     for (int i = 0; i < n; ++i)
     {
-        ReactHandler *handler = (ReactHandler*) events[i].data.ptr;
+        // NOTE 保留引用，避免被回收
+        nut::rc_ptr<ReactHandler> handler = (ReactHandler*) events[i].data.ptr;
         assert(NULL != handler);
 
         if (0 != (events[i].events & EPOLLIN))

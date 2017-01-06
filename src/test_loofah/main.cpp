@@ -25,14 +25,7 @@ void test_package_channel();
 
 static void setup_std_logger()
 {
-    rc_ptr<StreamLogHandler> handler = rc_new<StreamLogHandler>(std::cout);
-    handler->get_filter().forbid(NULL, LL_WARN | LL_ERROR | LL_FATAL);
-    handler->set_flush_mask(LL_DEBUG | LL_INFO);
-    Logger::get_instance()->add_handler(handler);
-
-    handler = rc_new<StreamLogHandler>(std::cerr);
-    handler->get_filter().forbid(NULL, LL_DEBUG | LL_INFO);
-    handler->set_flush_mask(LL_WARN | LL_ERROR | LL_FATAL);
+    rc_ptr<ConsoleLogHandler> handler = rc_new<ConsoleLogHandler>();
     Logger::get_instance()->add_handler(handler);
 }
 

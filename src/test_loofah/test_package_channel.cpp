@@ -1,4 +1,4 @@
-
+﻿
 #include <loofah/loofah.h>
 #include <nut/nut.h>
 
@@ -26,14 +26,14 @@ public:
     {
         // Initialize
         initialize(&g_proactor);
-
-        // Hold reference
-        g_server_channels.push_back(this);
     }
 
     virtual void handle_connected() override
     {
         NUT_LOG_D(TAG, "server channel connected");
+
+        // Hold reference
+        g_server_channels.push_back(this);
     }
 
     virtual void handle_read(Package *pkg) override

@@ -397,7 +397,8 @@ int Proactor::handle_events(int timeout_ms)
         return -1;
     }
 
-    ProactHandler *handler = (ProactHandler*) key;
+    // NOTE 保留引用，避免被回收
+    nut::rc_ptr<ProactHandler> handler = (ProactHandler*) key;
     assert(NULL != handler);
 
     assert(NULL != io_overlapped);
@@ -453,7 +454,8 @@ int Proactor::handle_events(int timeout_ms)
     int n = ::kevent(_kq, NULL, 0, active_evs, MAX_ACTIVE_EVENTS, &timeout);
     for (int i = 0; i < n; ++i)
     {
-        ProactHandler *handler = (ProactHandler*) active_evs[i].udata;
+        // NOTE 保留引用，避免被回收
+        nut::rc_ptr<ProactHandler> handler = (ProactHandler*) active_evs[i].udata;
         assert(NULL != handler);
         nut::Guard<nut::Mutex> g(&handler->_mutex);
         socket_t fd = handler->get_socket();
@@ -518,7 +520,8 @@ int Proactor::handle_events(int timeout_ms)
     const int n = ::epoll_wait(_epoll_fd, events, MAX_ACTIVE_EVENTS, timeout_ms);
     for (int i = 0; i < n; ++i)
     {
-        ProactHandler *handler = (ProactHandler*) events[i].data.ptr;
+        // NOTE 保留引用，避免被回收
+        nut::rc_ptr<ProactHandler> handler = (ProactHandler*) events[i].data.ptr;
         assert(NULL != handler);
         nut::Guard<nut::Mutex> g(&handler->_mutex);
         socket_t fd = handler->get_socket();
