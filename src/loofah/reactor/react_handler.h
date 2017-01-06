@@ -28,12 +28,20 @@ public:
         EXCEPT_MASK = 1 << 2,
     };
 
-    virtual ~ReactHandler() {}
+    virtual ~ReactHandler()
+    {}
 
     virtual socket_t get_socket() const = 0;
 
-    virtual void handle_read_ready() {}
-    virtual void handle_write_ready() {}
+    /**
+     * acceptor 接受链接, channel 接收数据
+     */
+    virtual void handle_read_ready() = 0;
+
+    /**
+     * channel 发送数据
+     */
+    virtual void handle_write_ready() = 0;
 };
 
 }

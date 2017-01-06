@@ -1,10 +1,9 @@
 
-#include <loofah/proactor/proact_channel.h>
-#include <loofah/proactor/proact_connector.h>
-
-#include <nut/logging/logger.h>
+#include <loofah/loofah.h>
+#include <nut/nut.h>
 
 #include "declares.h"
+
 
 #define TAG "pingpong.client"
 

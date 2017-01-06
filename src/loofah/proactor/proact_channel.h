@@ -31,6 +31,11 @@ public:
     {
         return _sock_stream;
     }
+
+    virtual void handle_accept_completed(socket_t fd) final override
+    {
+        // Dummy for a channel
+    }
 };
 
 }

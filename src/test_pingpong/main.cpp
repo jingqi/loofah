@@ -1,17 +1,14 @@
 
+#include <loofah/loofah.h>
+#include <nut/nut.h>
+
 #include <assert.h>
 #include <string.h>
 #include <iostream>
 
-#include <loofah/loofah_config.h>
-
-#include <nut/nut.h>
-
 #if NUT_PLATFORM_OS_WINDOWS
 #   include <conio.h>
 #endif
-
-#include <loofah/inet_base/utils.h>
 
 #include "declares.h"
 

@@ -9,6 +9,7 @@
 #else
 #   include <sys/socket.h> // for ::socket() and so on
 #   include <netinet/in.h> // for struct sockaddr_in
+#   include <errno.h>
 #endif
 
 #include <nut/logging/logger.h>

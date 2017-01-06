@@ -1,16 +1,10 @@
 ﻿
-#include <loofah/reactor/reactor.h>
-#include <loofah/reactor/react_acceptor.h>
-#include <loofah/reactor/react_channel.h>
-#include <loofah/reactor/react_connector.h>
-
-#include <nut/platform/platform.h>
+#include <loofah/loofah.h>
+#include <nut/nut.h>
 
 #if NUT_PLATFORM_OS_WINDOWS
 #   include <windows.h>
 #endif
-
-#include <nut/logging/logger.h>
 
 
 #define TAG "test_reactor"
@@ -77,11 +71,9 @@ class ClientChannel : public ReactChannel
     int _counter = 0;
 
 public:
-    virtual void open(socket_t fd) override
+    virtual void handle_connected() override
     {
-        ReactChannel::open(fd);
         NUT_LOG_D(TAG, "client channel connected, fd %d", _sock_stream.get_socket());
-
         g_reactor.register_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
         //g_reactor.disable_handler(this, ReactHandler::WRITE_MASK);
     }
@@ -124,7 +116,7 @@ public:
 }
 
 void test_reactor()
-{   
+{
     // start server
     rc_ptr<ReactAcceptor<ServerChannel> > acc = rc_new<ReactAcceptor<ServerChannel> >();
     InetAddr addr(LISTEN_ADDR, LISTEN_PORT);

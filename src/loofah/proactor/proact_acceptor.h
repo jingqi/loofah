@@ -27,6 +27,16 @@ public:
     {
         return _listener_socket;
     }
+
+    virtual void handle_read_completed(int cb) final override
+    {
+        // Dummy for an acceptor
+    }
+
+    virtual void handle_write_completed(int cb) final override
+    {
+        // Dummy for an acceptor
+    }
 };
 
 template <typename CHANNEL>

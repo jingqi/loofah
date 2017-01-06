@@ -1,16 +1,10 @@
 ﻿
-#include <loofah/proactor/proactor.h>
-#include <loofah/proactor/proact_acceptor.h>
-#include <loofah/proactor/proact_channel.h>
-#include <loofah/proactor/proact_connector.h>
-
-#include <nut/platform/platform.h>
+#include <loofah/loofah.h>
+#include <nut/nut.h>
 
 #if !NUT_PLATFORM_OS_WINDOWS
 #   include <unistd.h>
 #endif
-
-#include <nut/logging/logger.h>
 
 
 #define TAG "test_proactor"

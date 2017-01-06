@@ -1,15 +1,12 @@
 ﻿
 // see http://blog.csdn.net/luotuo44/article/details/39670221
 
+#include <loofah/loofah.h> // This should appear before "windows.h"
+#include <nut/nut.h>
+
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
-
-// This should appear before "windows.h"
-#include <loofah/loofah_config.h>
-#include <loofah/inet_base/utils.h>
-
-#include <nut/nut.h>
 
 #if NUT_PLATFORM_OS_WINDOWS
 #   include <windows.h>
@@ -24,6 +21,7 @@ using namespace nut;
 
 void test_reactor();
 void test_proactor();
+void test_package_channel();
 
 static void setup_std_logger()
 {
@@ -54,6 +52,7 @@ int main(int argc, char **argv)
 
     test_reactor();
     test_proactor();
+    test_package_channel();
 
     loofah::shutdown_network();
 

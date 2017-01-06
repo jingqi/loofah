@@ -35,13 +35,25 @@ public:
         EXCEPT_MASK = 1 << 3,
     };
 
-    virtual ~ProactHandler() {}
+    virtual ~ProactHandler()
+    {}
 
     virtual socket_t get_socket() const = 0;
 
-    virtual void handle_accept_completed(socket_t fd) {}
-    virtual void handle_read_completed(int cb) {}
-    virtual void handle_write_completed(int cb) {}
+    /**
+     * acceptor 收到链接
+     */
+    virtual void handle_accept_completed(socket_t fd) = 0;
+
+    /**
+     * channel 收到数据
+     */
+    virtual void handle_read_completed(int cb) = 0;
+
+    /**
+     * channel 发送数据
+     */
+    virtual void handle_write_completed(int cb) = 0;
 };
 
 }

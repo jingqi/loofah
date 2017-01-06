@@ -15,8 +15,15 @@ class Channel
     NUT_REF_COUNTABLE
 
 public:
+    virtual ~Channel()
+    {}
+
     virtual void open(socket_t sock_fd) = 0;
-    virtual void handle_connected() {}
+
+    /**
+     * 链接已经建立
+     */
+    virtual void handle_connected() = 0;
 };
 
 }

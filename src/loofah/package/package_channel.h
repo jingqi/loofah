@@ -31,7 +31,7 @@ private:
 
 public:
     PackageChannel();
-    ~PackageChannel();
+    virtual ~PackageChannel();
 
     void initialize(Proactor *proactor);
 
@@ -39,9 +39,8 @@ public:
     virtual void handle_read_completed(int cb) final override;
     virtual void handle_write_completed(int cb) final override;
 
-    virtual void handle_close() = 0;
     virtual void handle_read(Package *pkg) = 0;
-
+    virtual void handle_close() = 0;
     void write(Package *pkg);
 };
 

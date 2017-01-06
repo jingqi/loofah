@@ -30,6 +30,11 @@ public:
     }
 
     static socket_t handle_accept(socket_t listener_socket);
+
+    virtual void handle_write_ready() final override
+    {
+        // Dummy for an acceptor
+    }
 };
 
 template <typename CHANNEL>

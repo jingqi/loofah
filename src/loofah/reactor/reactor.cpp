@@ -11,9 +11,11 @@
 #   include <sys/event.h>
 #   include <sys/time.h>
 #   include <unistd.h> // for ::close()
+#   include <errno.h>
 #elif NUT_PLATFORM_OS_LINUX
 #   include <sys/epoll.h>
 #   include <unistd.h> // for ::close()
+#   include <errno.h>
 #endif
 
 #include <string.h>
