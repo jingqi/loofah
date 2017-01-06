@@ -7,7 +7,6 @@
 #else
 #   include <sys/socket.h> // for ::socket() and so on
 #   include <netinet/in.h> // for sockaddr_in
-#   include <unistd.h> // for ::close()
 #   include <errno.h>
 #   include <string.h> // for ::strerror()
 #endif

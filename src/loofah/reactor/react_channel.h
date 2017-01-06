@@ -2,18 +2,7 @@
 #ifndef ___HEADFILE_C483D9A1_6AFD_4289_AC7B_07456CB8483F_
 #define ___HEADFILE_C483D9A1_6AFD_4289_AC7B_07456CB8483F_
 
-#include <stdio.h>
-
-#include <nut/platform/platform.h>
-
-#if NUT_PLATFORM_CC_VC
-#   include <io.h> // for ::close()
-#else
-#   include <unistd.h> // for ::close()
-#endif
-
 #include "react_handler.h"
-#include "../inet_base/inet_addr.h"
 #include "../inet_base/channel.h"
 #include "../inet_base/sock_stream.h"
 
