@@ -23,7 +23,7 @@ class LOOFAH_API Package
     size_t _write_index = PREPEND_LEN;
 
 public:
-    explicit Package(size_t init_cap);
+    explicit Package(size_t init_cap = 16);
     Package(const void *buf, size_t len);
     ~Package();
 
