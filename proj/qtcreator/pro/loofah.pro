@@ -1,9 +1,13 @@
 
 TEMPLATE = subdirs
-CONFIG += ordered
 
+NUT_PROJ = ../../../lib/nut.git/proj/qtcreator/pro/nut/nut.pro
 SUBDIRS += \
-    ../../../lib/nut.git/proj/qtcreator/pro/nut/nut.pro \
+    $${NUT_PROJ} \
     loofah \
     test_loofah \
     test_pingpong
+
+loofah.depends = $${NUT_PROJ}
+test_loofah.depends = $${NUT_PROJ} loofah
+test_pingpong.depends = $${NUT_PROJ} loofah
