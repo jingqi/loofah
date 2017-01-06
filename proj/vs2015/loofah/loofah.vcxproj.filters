@@ -130,5 +130,8 @@
     <ClInclude Include="..\..\..\src\loofah\loofah_config.h">
       <Filter>loofah</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\loofah.h">
+      <Filter>loofah</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
