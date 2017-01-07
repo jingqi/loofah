@@ -32,8 +32,8 @@ public:
         NUT_LOG_D(TAG, "server channel connected, fd %d", _sock_stream.get_socket());
 
         g_server_channels.push_back(this);
-        g_reactor.register_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
-        g_reactor.disable_handler(this, ReactHandler::WRITE_MASK);
+        g_reactor.async_register_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
+        g_reactor.async_disable_handler(this, ReactHandler::WRITE_MASK);
     }
 
     virtual void handle_read_ready() override
@@ -44,8 +44,8 @@ public:
         if (0 == rs) // 正常结束
         {
             _sock_stream.shutdown();
-            g_reactor.unregister_handler(this);
-            g_reactor.shutdown();
+            g_reactor.async_unregister_handler(this);
+            g_reactor.async_shutdown();
             return;
         }
 
@@ -53,7 +53,7 @@ public:
         assert(seq == _counter);
         ++_counter;
 
-        g_reactor.enable_handler(this, ReactHandler::WRITE_MASK);
+        g_reactor.async_enable_handler(this, ReactHandler::WRITE_MASK);
     }
 
     virtual void handle_write_ready() override
@@ -62,7 +62,7 @@ public:
         NUT_LOG_D(TAG, "send %d bytes to client: %d", rs, _counter);
         assert(rs == sizeof(_counter));
         ++_counter;
-        g_reactor.disable_handler(this, ReactHandler::WRITE_MASK);
+        g_reactor.async_disable_handler(this, ReactHandler::WRITE_MASK);
     }
 };
 
@@ -74,7 +74,7 @@ public:
     virtual void handle_connected() override
     {
         NUT_LOG_D(TAG, "client channel connected, fd %d", _sock_stream.get_socket());
-        g_reactor.register_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
+        g_reactor.async_register_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
         //g_reactor.disable_handler(this, ReactHandler::WRITE_MASK);
     }
 
@@ -85,7 +85,7 @@ public:
         NUT_LOG_D(TAG, "received %d bytes from server: %d", rs, seq);
         if (0 == rs) // 正常结束
         {
-            g_reactor.unregister_handler(this);
+            g_reactor.async_unregister_handler(this);
             _sock_stream.shutdown();
             return;
         }
@@ -96,11 +96,11 @@ public:
 
         if (_counter > 20)
         {
-            g_reactor.unregister_handler(this);
+            g_reactor.async_unregister_handler(this);
             _sock_stream.shutdown();
             return;
         }
-        g_reactor.enable_handler(this, ReactHandler::WRITE_MASK);
+        g_reactor.async_enable_handler(this, ReactHandler::WRITE_MASK);
     }
 
     virtual void handle_write_ready() override
@@ -109,7 +109,7 @@ public:
         NUT_LOG_D(TAG, "send %d bytes to server: %d", rs, _counter);
         assert(rs == sizeof(_counter));
         ++_counter;
-        g_reactor.disable_handler(this, ReactHandler::WRITE_MASK);
+        g_reactor.async_disable_handler(this, ReactHandler::WRITE_MASK);
     }
 };
 
@@ -121,7 +121,7 @@ void test_reactor()
     rc_ptr<ReactAcceptor<ServerChannel> > acc = rc_new<ReactAcceptor<ServerChannel> >();
     InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
     acc->open(addr);
-    g_reactor.register_handler(acc, ReactHandler::READ_MASK);
+    g_reactor.async_register_handler(acc, ReactHandler::READ_MASK);
     NUT_LOG_D(TAG, "listening to %s, fd %d", addr.to_string().c_str(), acc->get_socket());
 
     // start client
@@ -136,5 +136,5 @@ void test_reactor()
             break;
     }
     g_server_channels.clear();
-    g_reactor.shutdown();
+    g_reactor.async_shutdown();
 }

@@ -48,7 +48,7 @@ public:
 
         rc_ptr<Package> new_pkg = rc_new<Package>();
         new_pkg->write(&_counter, sizeof(_counter));
-        write(new_pkg);
+        async_write(new_pkg);
         ++_counter;
     }
 
@@ -64,7 +64,7 @@ public:
             }
         }
 
-        g_proactor.shutdown();
+        g_proactor.async_shutdown();
     }
 };
 
@@ -85,7 +85,7 @@ public:
 
         rc_ptr<Package> new_pkg = rc_new<Package>();
         new_pkg->write(&_counter, sizeof(_counter));
-        write(new_pkg);
+        async_write(new_pkg);
         ++_counter;
     }
 
@@ -106,7 +106,7 @@ public:
         }
         rc_ptr<Package> new_pkg = rc_new<Package>();
         new_pkg->write(&_counter, sizeof(_counter));
-        write(new_pkg);
+        async_write(new_pkg);
         ++_counter;
     }
 
@@ -122,8 +122,8 @@ void test_package_channel()
     rc_ptr<ProactAcceptor<ServerChannel> > acc = rc_new<ProactAcceptor<ServerChannel> >();
     InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
     acc->open(addr);
-    g_proactor.register_handler(acc);
-    g_proactor.launch_accept(acc);
+    g_proactor.async_register_handler(acc);
+    g_proactor.async_launch_accept(acc);
     NUT_LOG_D(TAG, "listening to %s", addr.to_string().c_str());
 
     // start client
@@ -138,5 +138,5 @@ void test_package_channel()
             break;
     }
     g_server_channels.clear();
-    g_proactor.shutdown();
+    g_proactor.async_shutdown();
 }

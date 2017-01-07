@@ -33,11 +33,11 @@ public:
         NUT_LOG_D(TAG, "server channel connected");
 
         g_server_channels.push_back(this);
-        g_proactor.register_handler(this);
+        g_proactor.async_register_handler(this);
 
         void *buf = &_tmp;
         size_t len = sizeof(_tmp);
-        g_proactor.launch_read(this, &buf, &len, 1);
+        g_proactor.async_launch_read(this, &buf, &len, 1);
     }
 
     virtual void handle_read_completed(int cb) override
@@ -46,7 +46,7 @@ public:
         if (0 == cb) // 正常结束
         {
             _sock_stream.shutdown();
-            g_proactor.shutdown();
+            g_proactor.async_shutdown();
             return;
         }
 
@@ -56,7 +56,7 @@ public:
 
         void *buf = &_counter;
         size_t len = sizeof(_counter);
-        g_proactor.launch_write(this, &buf, &len, 1);
+        g_proactor.async_launch_write(this, &buf, &len, 1);
     }
 
     virtual void handle_write_completed(int cb) override
@@ -67,7 +67,7 @@ public:
 
         void *buf = &_tmp;
         size_t len = sizeof(_tmp);
-        g_proactor.launch_read(this, &buf, &len, 1);
+        g_proactor.async_launch_read(this, &buf, &len, 1);
     }
 };
 
@@ -81,11 +81,11 @@ public:
     {
         NUT_LOG_D(TAG, "client channel connected");
 
-        g_proactor.register_handler(this);
+        g_proactor.async_register_handler(this);
 
         void *buf = &_counter;
         size_t len = sizeof(_counter);
-        g_proactor.launch_write(this, &buf, &len, 1);
+        g_proactor.async_launch_write(this, &buf, &len, 1);
     }
 
     virtual void handle_read_completed(int cb) override
@@ -109,7 +109,7 @@ public:
 
         void *buf = &_counter;
         size_t len = sizeof(_counter);
-        g_proactor.launch_write(this, &buf, &len, 1);
+        g_proactor.async_launch_write(this, &buf, &len, 1);
     }
 
     virtual void handle_write_completed(int cb) override
@@ -120,7 +120,7 @@ public:
 
         void *buf = &_tmp;
         size_t len = sizeof(_tmp);
-        g_proactor.launch_read(this, &buf, &len, 1);
+        g_proactor.async_launch_read(this, &buf, &len, 1);
     }
 };
 
@@ -132,8 +132,8 @@ void test_proactor()
     rc_ptr<ProactAcceptor<ServerChannel> > acc = rc_new<ProactAcceptor<ServerChannel> >();
     InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
     acc->open(addr);
-    g_proactor.register_handler(acc);
-    g_proactor.launch_accept(acc);
+    g_proactor.async_register_handler(acc);
+    g_proactor.async_launch_accept(acc);
     NUT_LOG_D(TAG, "listening to %s", addr.to_string().c_str());
 
     // start client
@@ -148,5 +148,5 @@ void test_proactor()
             break;
     }
     g_server_channels.clear();
-    g_proactor.shutdown();
+    g_proactor.async_shutdown();
 }

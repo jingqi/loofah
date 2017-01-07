@@ -36,7 +36,7 @@ void PackageChannel::launch_read()
     if (NULL == _read_frag)
         _read_frag = nut::FragmentBuffer::new_fragment(READ_BUF_LEN);
     void *buf = _read_frag->buffer;
-    _proactor->launch_read(this, &buf, &_read_frag->capacity, 1);
+    _proactor->async_launch_read(this, &buf, &_read_frag->capacity, 1);
 }
 
 void PackageChannel::launch_write()
@@ -56,7 +56,17 @@ void PackageChannel::launch_write()
         lens[i] = pkg->readable_size();
     }
 
-    _proactor->launch_write(this, bufs, lens, buf_count);
+    _proactor->async_launch_write(this, bufs, lens, buf_count);
+}
+
+void PackageChannel::write(Package *pkg)
+{
+    assert(NULL != pkg);
+    uint32_t header = pkg->readable_size();
+    pkg->prepend(&header);
+    _write_queue.push_back(pkg);
+    if (1 == _write_queue.size())
+        launch_write();
 }
 
 void PackageChannel::open(socket_t fd)
@@ -65,7 +75,7 @@ void PackageChannel::open(socket_t fd)
 
     ProactChannel::open(fd);
 
-    _proactor->register_handler(this);
+    _proactor->async_register_handler(this);
     launch_read();
 }
 
@@ -125,14 +135,26 @@ void PackageChannel::handle_write_completed(int cb)
         launch_write();
 }
 
-void PackageChannel::write(Package *pkg)
+void PackageChannel::async_write(Package *pkg)
 {
     assert(NULL != pkg);
-    uint32_t header = pkg->readable_size();
-    pkg->prepend(&header);
-    _write_queue.push_back(pkg);
-    if (1 == _write_queue.size())
-        launch_write();
+
+    class WriteTask : public nut::Runnable
+    {
+        PackageChannel *_channel;
+        nut::rc_ptr<Package> _pkg;
+
+    public:
+        WriteTask(PackageChannel *c, Package *p)
+            : _channel(c), _pkg(p)
+        {}
+
+        virtual void run() override
+        {
+            _channel->write(_pkg);
+        }
+    };
+    _proactor->run_in_loop_thread(nut::rc_new<WriteTask>(this, pkg));
 }
 
 }

@@ -61,6 +61,8 @@ Proactor::Proactor()
         return;
     }
 #endif
+
+    _loop_tid = nut::Thread::current_thread_id();
 }
 
 Proactor::~Proactor()
@@ -70,6 +72,8 @@ Proactor::~Proactor()
 
 void Proactor::shutdown()
 {
+    _closing_or_closed = true;
+
 #if NUT_PLATFORM_OS_WINDOWS
     if (NULL != _iocp)
         ::CloseHandle(_iocp);
@@ -83,8 +87,6 @@ void Proactor::shutdown()
         ::close(_epoll_fd);
     _epoll_fd = -1;
 #endif
-
-    _closed = true;
 }
 
 void Proactor::register_handler(ProactHandler *handler)
@@ -169,7 +171,6 @@ void Proactor::launch_accept(ProactHandler *handler)
         }
     }
 #elif NUT_PLATFORM_OS_MAC
-    nut::Guard<nut::Mutex> g(&handler->_mutex);
     ++handler->_request_accept;
     if (0 == (handler->_registered_events & ProactHandler::READ_MASK))
     {
@@ -184,7 +185,6 @@ void Proactor::launch_accept(ProactHandler *handler)
         handler->_registered_events |= ProactHandler::READ_MASK;
     }
 #elif NUT_PLATFORM_OS_LINUX
-    nut::Guard<nut::Mutex> g(&handler->_mutex);
     ++handler->_request_accept;
     if (0 == (handler->_registered_events & EPOLLIN))
     {
@@ -318,13 +318,11 @@ void Proactor::launch_read(ProactHandler *handler, void* const *buf_ptrs,
         }
     }
 #elif NUT_PLATFORM_OS_MAC
-    nut::Guard<nut::Mutex> g(&handler->_mutex);
     handler->_read_queue.push(io_request);
 
     if (0 == (handler->_registered_events & ProactHandler::READ_MASK))
         enable_handler(handler, ProactHandler::READ_MASK);
 #elif NUT_PLATFORM_OS_LINUX
-    nut::Guard<nut::Mutex> g(&handler->_mutex);
     handler->_read_queue.push(io_request);
 
     if (0 == (handler->_registered_events & ProactHandler::READ_MASK))
@@ -361,13 +359,11 @@ void Proactor::launch_write(ProactHandler *handler, void* const *buf_ptrs,
         }
     }
 #elif NUT_PLATFORM_OS_MAC
-    nut::Guard<nut::Mutex> g(&handler->_mutex);
     handler->_write_queue.push(io_request);
 
     if (0 == (handler->_registered_events & ProactHandler::WRITE_MASK))
         enable_handler(handler, ProactHandler::WRITE_MASK);
 #elif NUT_PLATFORM_OS_LINUX
-    nut::Guard<nut::Mutex> g(&handler->_mutex);
     handler->_write_queue.push(io_request);
 
     if (0 == (handler->_registered_events & ProactHandler::WRITE_MASK))
@@ -377,8 +373,14 @@ void Proactor::launch_write(ProactHandler *handler, void* const *buf_ptrs,
 
 int Proactor::handle_events(int timeout_ms)
 {
-    if (_closed)
+    if (_closing_or_closed)
         return -1;
+
+    if (!nut::Thread::tid_equals(_loop_tid, nut::Thread::current_thread_id()))
+    {
+        NUT_LOG_F(TAG, "handle_events() can only be called from loop thread");
+        return -1;
+    }
 
 #if NUT_PLATFORM_OS_WINDOWS
     DWORD bytes_transfered = 0;
@@ -397,8 +399,7 @@ int Proactor::handle_events(int timeout_ms)
         return -1;
     }
 
-    // NOTE 保留引用，避免被回收
-    nut::rc_ptr<ProactHandler> handler = (ProactHandler*) key;
+    ProactHandler *handler = (ProactHandler*) key;
     assert(NULL != handler);
 
     assert(NULL != io_overlapped);
@@ -454,10 +455,8 @@ int Proactor::handle_events(int timeout_ms)
     int n = ::kevent(_kq, NULL, 0, active_evs, MAX_ACTIVE_EVENTS, &timeout);
     for (int i = 0; i < n; ++i)
     {
-        // NOTE 保留引用，避免被回收
-        nut::rc_ptr<ProactHandler> handler = (ProactHandler*) active_evs[i].udata;
+        ProactHandler *handler = (ProactHandler*) active_evs[i].udata;
         assert(NULL != handler);
-        nut::Guard<nut::Mutex> g(&handler->_mutex);
         socket_t fd = handler->get_socket();
 
         int events = active_evs[i].filter;
@@ -520,10 +519,8 @@ int Proactor::handle_events(int timeout_ms)
     const int n = ::epoll_wait(_epoll_fd, events, MAX_ACTIVE_EVENTS, timeout_ms);
     for (int i = 0; i < n; ++i)
     {
-        // NOTE 保留引用，避免被回收
-        nut::rc_ptr<ProactHandler> handler = (ProactHandler*) events[i].data.ptr;
+        ProactHandler *handler = (ProactHandler*) events[i].data.ptr;
         assert(NULL != handler);
-        nut::Guard<nut::Mutex> g(&handler->_mutex);
         socket_t fd = handler->get_socket();
 
         if (0 != (events[i].events & EPOLLIN))
@@ -576,6 +573,195 @@ int Proactor::handle_events(int timeout_ms)
     }
     return 0;
 #endif
+
+    // Run in loop tasks
+    std::vector<nut::rc_ptr<nut::Runnable> > async_tasks;
+    {
+        nut::Guard<nut::Mutex> g(&_mutex);
+        async_tasks = _async_tasks;
+        _async_tasks.clear();
+    }
+    for (size_t i = 0, sz = async_tasks.size(); i < sz; ++i)
+    {
+        nut::Runnable *runnable = async_tasks.at(i);
+        assert(NULL != runnable);
+        runnable->run();
+    }
+}
+
+void Proactor::run_in_loop_thread(nut::Runnable *runnable)
+{
+    assert(NULL != runnable);
+
+    if (nut::Thread::tid_equals(_loop_tid, nut::Thread::current_thread_id()))
+    {
+        runnable->run();
+        return;
+    }
+
+    nut::Guard<nut::Mutex> g(&_mutex);
+    _async_tasks.push_back(runnable);
+}
+
+void Proactor::async_register_handler(ProactHandler *handler)
+{
+    assert(NULL != handler);
+
+    // Synchronize
+    if (nut::Thread::tid_equals(_loop_tid, nut::Thread::current_thread_id()))
+    {
+        register_handler(handler);
+        return;
+    }
+
+    // Asynchronize
+    class RegisterHandlerTask : public nut::Runnable
+    {
+        Proactor *_proactor;
+        nut::rc_ptr<ProactHandler> _handler;
+
+    public:
+        RegisterHandlerTask(Proactor *p, ProactHandler *h)
+            : _proactor(p), _handler(h)
+        {}
+
+        virtual void run() override
+        {
+            _proactor->register_handler(_handler);
+        }
+    };
+    nut::Guard<nut::Mutex> g(&_mutex);
+    _async_tasks.push_back(nut::rc_new<RegisterHandlerTask>(this, handler));
+}
+
+void Proactor::async_launch_accept(ProactHandler *handler)
+{
+    assert(NULL != handler);
+
+    // Synchronize
+    if (nut::Thread::tid_equals(_loop_tid, nut::Thread::current_thread_id()))
+    {
+        launch_accept(handler);
+        return;
+    }
+
+    // Asynchronize
+    class LaunchAcceptTask : public nut::Runnable
+    {
+        Proactor *_proactor;
+        nut::rc_ptr<ProactHandler> _handler;
+
+    public:
+        LaunchAcceptTask(Proactor *p, ProactHandler *h)
+            : _proactor(p), _handler(h)
+        {}
+
+        virtual void run() override
+        {
+            _proactor->launch_accept(_handler);
+        }
+    };
+    nut::Guard<nut::Mutex> g(&_mutex);
+    _async_tasks.push_back(nut::rc_new<LaunchAcceptTask>(this, handler));
+}
+
+void Proactor::async_launch_read(ProactHandler *handler, void* const *buf_ptrs,
+                                 const size_t *len_ptrs, size_t buf_count)
+{
+    assert(NULL != handler && NULL != buf_ptrs && NULL != len_ptrs && buf_count > 0);
+
+    // Synchronize
+    if (nut::Thread::tid_equals(_loop_tid, nut::Thread::current_thread_id()))
+    {
+        launch_read(handler, buf_ptrs, len_ptrs, buf_count);
+        return;
+    }
+
+    // Asynchronize
+    class LaunchReadTask : public nut::Runnable
+    {
+        Proactor *_proactor;
+        nut::rc_ptr<ProactHandler> _handler;
+        void **_buf_ptrs;
+        size_t *_len_ptrs;
+        size_t _buf_count;
+
+    public:
+        LaunchReadTask(Proactor *p, ProactHandler *h, void* const *bt,
+                         const size_t *lt, size_t bc)
+            : _proactor(p), _handler(h), _buf_count(bc)
+        {
+            _buf_ptrs = (void**) ::malloc(sizeof(void*) * bc);
+            ::memcpy(_buf_ptrs, bt, sizeof(void*) * bc);
+            _len_ptrs = (size_t*) ::malloc(sizeof(size_t) * bc);
+            ::memcpy(_len_ptrs, lt, sizeof(size_t) * bc);
+        }
+
+        virtual ~LaunchReadTask()
+        {
+            ::free(_buf_ptrs);
+            ::free(_len_ptrs);
+        }
+
+        virtual void run() override
+        {
+            _proactor->launch_read(_handler, _buf_ptrs, _len_ptrs, _buf_count);
+        }
+    };
+    nut::Guard<nut::Mutex> g(&_mutex);
+    _async_tasks.push_back(nut::rc_new<LaunchReadTask>(this, handler, buf_ptrs, len_ptrs, buf_count));
+}
+
+void Proactor::async_launch_write(ProactHandler *handler, void* const *buf_ptrs,
+                                 const size_t *len_ptrs, size_t buf_count)
+{
+    assert(NULL != handler && NULL != buf_ptrs && NULL != len_ptrs && buf_count > 0);
+
+    // Synchronize
+    if (nut::Thread::tid_equals(_loop_tid, nut::Thread::current_thread_id()))
+    {
+        launch_write(handler, buf_ptrs, len_ptrs, buf_count);
+        return;
+    }
+
+    // Asynchronize
+    class LaunchWriteTask : public nut::Runnable
+    {
+        Proactor *_proactor;
+        nut::rc_ptr<ProactHandler> _handler;
+        void **_buf_ptrs;
+        size_t *_len_ptrs;
+        size_t _buf_count;
+
+    public:
+        LaunchWriteTask(Proactor *p, ProactHandler *h, void* const *bt,
+                         const size_t *lt, size_t bc)
+            : _proactor(p), _handler(h), _buf_count(bc)
+        {
+            _buf_ptrs = (void**) ::malloc(sizeof(void*) * bc);
+            ::memcpy(_buf_ptrs, bt, sizeof(void*) * bc);
+            _len_ptrs = (size_t*) ::malloc(sizeof(size_t) * bc);
+            ::memcpy(_len_ptrs, lt, sizeof(size_t) * bc);
+        }
+
+        virtual ~LaunchWriteTask()
+        {
+            ::free(_buf_ptrs);
+            ::free(_len_ptrs);
+        }
+
+        virtual void run() override
+        {
+            _proactor->launch_write(_handler, _buf_ptrs, _len_ptrs, _buf_count);
+        }
+    };
+    nut::Guard<nut::Mutex> g(&_mutex);
+    _async_tasks.push_back(nut::rc_new<LaunchWriteTask>(this, handler, buf_ptrs, len_ptrs, buf_count));
+}
+
+void Proactor::async_shutdown()
+{
+    _closing_or_closed = true;
 }
 
 }

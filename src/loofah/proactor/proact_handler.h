@@ -21,7 +21,6 @@ class ProactHandler
     int _registered_events = 0;
     int _request_accept = 0;
     std::queue<void*> _read_queue, _write_queue;
-    nut::Mutex _mutex;
 
     friend class Proactor;
 #endif

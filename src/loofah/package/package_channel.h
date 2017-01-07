@@ -28,6 +28,7 @@ class LOOFAH_API PackageChannel : public ProactChannel
 private:
     void launch_read();
     void launch_write();
+    void write(Package *pkg);
 
 public:
     PackageChannel();
@@ -41,7 +42,7 @@ public:
 
     virtual void handle_read(Package *pkg) = 0;
     virtual void handle_close() = 0;
-    void write(Package *pkg);
+    void async_write(Package *pkg);
 };
 
 }
