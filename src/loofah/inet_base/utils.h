@@ -11,7 +11,7 @@
 #   include <mswsock.h>
 #endif
 
-#include "../loofah.h"
+#include "../loofah_config.h"
 
 
 namespace loofah

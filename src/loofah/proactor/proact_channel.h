@@ -3,14 +3,16 @@
 #define ___HEADFILE_9B5119C9_43AA_4CDE_A44F_60BF923E0400_
 
 #include "proact_handler.h"
-#include "../base/channel.h"
-#include "../base/sock_stream.h"
+#include "../inet_base/channel.h"
+#include "../inet_base/sock_stream.h"
 
 namespace loofah
 {
 
 class LOOFAH_API ProactChannel : public Channel, public ProactHandler
 {
+    NUT_REF_COUNTABLE_OVERRIDE
+
 protected:
     SockStream _sock_stream;
 
@@ -28,6 +30,11 @@ public:
     SockStream& get_sock_stream()
     {
         return _sock_stream;
+    }
+
+    virtual void handle_accept_completed(socket_t fd) final override
+    {
+        // Dummy for a channel
     }
 };
 

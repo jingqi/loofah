@@ -1,22 +1,29 @@
 
-TARGET = loofah
-TEMPLATE = lib
-VERSION = 1.0.0
+TARGET = test_pingpong
+TEMPLATE = app
 
 include(../global.pri)
 
 QT -= core gui
+CONFIG += console
+CONFIG -= app_bundle
 
 # INCLUDE 路径
-SRC_ROOT = $$PWD/../../../../src/loofah
+SRC_ROOT = $$PWD/../../../../src/test_pingpong
 INCLUDEPATH += \
-    $${SRC_ROOT}/..
+    $${SRC_ROOT}
 
 # 头文件
 HEADERS += $$files($${SRC_ROOT}/*.h*, true)
 
 # 源代码
 SOURCES += $$files($${SRC_ROOT}/*.c*, true)
+
+# loofah
+INCLUDEPATH += $${SRC_ROOT}/..
+LIBS += -L$$OUT_PWD/../loofah$${OUT_TAIL}
+win32: LIBS += -lloofah1
+else: LIBS += -lloofah
 
 # nut
 INCLUDEPATH += $$PWD/../../../../lib/nut.git/src
@@ -28,5 +35,5 @@ else: LIBS += -lnut
 win32: {
     # NOTE 这些 win 网络库必须放在最后，否则会出错
     #      See http://stackoverflow.com/questions/2033608/mingw-linker-error-winsock
-    LIBS += -lwininet -lws2_32 -lwsock32
+    LIBS += -lws2_32 -lwininet -lwsock32 -lmswsock
 }

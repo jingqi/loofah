@@ -1,6 +1,6 @@
 #!/user/bin/env make
 
-TARGET_NAME = loofah
+TARGET_NAME = test_pingpong
 SRC_ROOT = ../../src/${TARGET_NAME}
 
 # preface rules
@@ -18,46 +18,44 @@ endif
 INC += -I../../lib/nut.git/src -I${SRC_ROOT}/..
 
 # DEF
-DEF += -DBUILD_LOOFAH_DLL
+DEF +=
 
 # CXX_FLAGS
 CXX_FLAGS += -std=c++11
 
-# LIB LIB_DEPS
+# LIB
 ifeq (${HOST}, Darwin)
-	LIB_NUT += ${NUT_OUT_DIR}/libnut.dylib
-	LIB_NUT_DUP += ${OUT_DIR}/libnut.dylib
+	LIB_NUT = ${NUT_OUT_DIR}/libnut.dylib
+	LIB_NUT_DUP = ${OUT_DIR}/libnut.dylib
+	LIB_LOOFAH = ${OUT_DIR}/libloofah.dylib
 else
 	LIB += -lpthread
-	LIB_NUT += ${NUT_OUT_DIR}/libnut.so
-	LIB_NUT_DUP += ${OUT_DIR}/libnut.so
+	LIB_NUT = ${NUT_OUT_DIR}/libnut.so
+	LIB_NUT_DUP = ${OUT_DIR}/libnut.so
+	LIB_LOOFAH = ${OUT_DIR}/libloofah.so
 endif
-LIB += -L${OUT_DIR} -lnut
-LIB_DEPS += ${LIB_NUT_DUP}
+LIB += -L${OUT_DIR} -lnut -lloofah
+LIB_DEPS += ${LIB_NUT_DUP} ${LIB_LOOFAH}
 
 # LD_FLAGS
 LD_FLAGS +=
 
 # TARGET
-ifeq (${HOST}, Darwin)
-	TARGET = ${OUT_DIR}/lib${TARGET_NAME}.dylib
-else
-	TARGET = ${OUT_DIR}/lib${TARGET_NAME}.so
-endif
+TARGET = ${OUT_DIR}/${TARGET_NAME}
 
 .PHONY: all clean rebuild
 
 all: ${TARGET}
 
 clean:
-	cd ${NUT_MAKEFILE_DIR} ; $(MAKE) -f nut.mk clean
+	$(MAKE) -f loofah.mk clean
 	rm -rf ${OBJS}
 	rm -rf ${DEPS}
 	rm -rf ${TARGET}
 
 rebuild:
-	$(MAKE) -f loofah.mk clean
-	$(MAKE) -f loofah.mk all
+	$(MAKE) -f test_pingpong.mk clean
+	$(MAKE) -f test_pingpong.mk all
 
 ${LIB_NUT_DUP}: ${LIB_NUT}
 	cp -f $< $@
@@ -65,6 +63,9 @@ ${LIB_NUT_DUP}: ${LIB_NUT}
 ${LIB_NUT}: FORCE
 	cd ${NUT_MAKEFILE_DIR} ; $(MAKE) -f nut.mk
 
+${LIB_LOOFAH}: ${LIB_NUT_DUP} FORCE
+	$(MAKE) -f loofah.mk
+
 # rules
 include ${NUT_MAKEFILE_DIR}/common_rules.mk
-include ${NUT_MAKEFILE_DIR}/shared_lib_rules.mk
+include ${NUT_MAKEFILE_DIR}/app_rules.mk

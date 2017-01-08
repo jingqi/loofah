@@ -6,8 +6,10 @@
 #include <stdlib.h>
 #include <new> // for placement new
 
+#include <nut/rc/rc_new.h>
+
 #include "react_handler.h"
-#include "../base/inet_addr.h"
+#include "../inet_base/inet_addr.h"
 
 namespace loofah
 {
@@ -20,7 +22,7 @@ public:
     /**
      * @param listen_num 在 windows 下, 可以使用 'SOMAXCONN' 表示最大允许链接数
      */
-    bool open(const INETAddr& addr, int listen_num = 2048);
+    bool open(const InetAddr& addr, int listen_num = 2048);
 
     virtual socket_t get_socket() const override
     {
@@ -28,6 +30,11 @@ public:
     }
 
     static socket_t handle_accept(socket_t listener_socket);
+
+    virtual void handle_write_ready() final override
+    {
+        // Dummy for an acceptor
+    }
 };
 
 template <typename CHANNEL>
@@ -45,10 +52,11 @@ public:
                 break;
 
             // Create new handler
-            CHANNEL *handler = (CHANNEL*) ::malloc(sizeof(CHANNEL));
-            assert(NULL != handler);
-            new (handler) CHANNEL;
-            handler->open(fd);
+            nut::rc_ptr<CHANNEL> channel = nut::rc_new<CHANNEL>();
+            assert(NULL != channel);
+            channel->initialize();
+            channel->open(fd);
+            channel->handle_connected();
         }
     }
 };

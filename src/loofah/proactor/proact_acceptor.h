@@ -5,8 +5,10 @@
 #include <assert.h>
 #include <new>
 
+#include <nut/rc/rc_new.h>
+
 #include "proact_handler.h"
-#include "../base/inet_addr.h"
+#include "../inet_base/inet_addr.h"
 
 namespace loofah
 {
@@ -19,11 +21,21 @@ public:
     /**
      * @param listen_num 在 windows 下, 可以使用 'SOMAXCONN' 表示最大允许链接数
      */
-    bool open(const INETAddr& addr, int listen_num = 2048);
+    bool open(const InetAddr& addr, int listen_num = 2048);
 
     virtual socket_t get_socket() const override
     {
         return _listener_socket;
+    }
+
+    virtual void handle_read_completed(int cb) final override
+    {
+        // Dummy for an acceptor
+    }
+
+    virtual void handle_write_completed(int cb) final override
+    {
+        // Dummy for an acceptor
     }
 };
 
@@ -36,10 +48,11 @@ public:
         assert(INVALID_SOCKET_VALUE != fd);
 
         // Create new handler
-        CHANNEL *handler = (CHANNEL*) ::malloc(sizeof(CHANNEL));
-        assert(NULL != handler);
-        new (handler) CHANNEL;
-        handler->open(fd);
+        nut::rc_ptr<CHANNEL> channel = nut::rc_new<CHANNEL>();
+        assert(NULL != channel);
+        channel->initialize();
+        channel->open(fd);
+        channel->handle_connected();
     }
 };
 

@@ -1,33 +1,35 @@
 ﻿
-#ifndef ___HEADFILE_F7D25C02_82B8_45D8_ACB0_C2504E27D677_
-#define ___HEADFILE_F7D25C02_82B8_45D8_ACB0_C2504E27D677_
+#ifndef ___HEADFILE_6D81A172_D34D_4AEC_A0F5_89031A4E6E57_
+#define ___HEADFILE_6D81A172_D34D_4AEC_A0F5_89031A4E6E57_
 
-#include <nut/platform/platform.h>
+#include "loofah_config.h"
 
-#if NUT_PLATFORM_OS_WINDOWS
-    // NOTE winsock2.h 必须放在 windows.h 之前
-#   include <winsock2.h>
-#   include <windows.h>
-#endif
+// base
+#include "inet_base/inet_endian.h"
+#include "inet_base/inet_addr.h"
+#include "inet_base/sock_operation.h"
+#include "inet_base/sock_stream.h"
+#include "inet_base/channel.h"
+#include "inet_base/connector_base.h"
+#include "inet_base/utils.h"
 
-#if defined(BUILDING_LOOFAH_DLL)
-#   define LOOFAH_API DLL_EXPORT
-#else
-#   define LOOFAH_API DLL_IMPORT
-#endif
+// reactor
+#include "reactor/react_handler.h"
+#include "reactor/react_channel.h"
+#include "reactor/react_acceptor.h"
+#include "reactor/react_connector.h"
+#include "reactor/reactor.h"
 
-namespace loofah
-{
+// proactor
+#include "proactor/io_request.h"
+#include "proactor/proact_handler.h"
+#include "proactor/proact_channel.h"
+#include "proactor/proact_acceptor.h"
+#include "proactor/proact_connector.h"
+#include "proactor/proactor.h"
 
-// native file descriptor or handle
-#if NUT_PLATFORM_OS_WINDOWS
-    typedef SOCKET socket_t;
-    #define INVALID_SOCKET_VALUE INVALID_SOCKET
-#else
-    typedef int socket_t;
-    #define INVALID_SOCKET_VALUE -1
-#endif
-
-}
+// package channel
+#include "package/package.h"
+#include "package/package_channel.h"
 
 #endif
