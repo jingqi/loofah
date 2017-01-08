@@ -27,11 +27,14 @@ class ServerChannel : public ReactChannel
     int _counter = 0;
 
 public:
+    virtual void initialize() override
+    {
+        g_server_channels.push_back(this);
+    }
+
     virtual void handle_connected() override
     {
         NUT_LOG_D(TAG, "server channel connected, fd %d", _sock_stream.get_socket());
-
-        g_server_channels.push_back(this);
         g_reactor.async_register_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
         g_reactor.async_disable_handler(this, ReactHandler::WRITE_MASK);
     }
@@ -71,6 +74,9 @@ class ClientChannel : public ReactChannel
     int _counter = 0;
 
 public:
+    virtual void initialize() override
+    {}
+
     virtual void handle_connected() override
     {
         NUT_LOG_D(TAG, "client channel connected, fd %d", _sock_stream.get_socket());
@@ -125,8 +131,7 @@ void test_reactor()
     NUT_LOG_D(TAG, "listening to %s, fd %d", addr.to_string().c_str(), acc->get_socket());
 
     // start client
-    nut::rc_ptr<ClientChannel> client = nut::rc_new<ClientChannel>();
-    ReactConnector::connect(client, addr);
+    nut::rc_ptr<ClientChannel> client = ReactConnector<ClientChannel>::connect(addr);
     NUT_LOG_D(TAG, "will connect to %s", addr.to_string().c_str());
 
     // loop

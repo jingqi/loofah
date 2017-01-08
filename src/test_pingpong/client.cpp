@@ -28,6 +28,11 @@ public:
         ::free(_buf);
     }
 
+    virtual void initialize() override
+    {
+        g_client_channels.push_back(this);
+    }
+
     virtual void handle_connected() override
     {
         NUT_LOG_D(TAG, "client channel connected");
@@ -67,9 +72,7 @@ void start_client()
     InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
     for (int i = 0; i < g_global.connection_num; ++i)
     {
-        rc_ptr<ClientChannel> client = rc_new<ClientChannel>();
-        g_client_channels.push_back(client);
-        ProactConnector::connect(client, addr);
+        rc_ptr<ClientChannel> client = ProactConnector<ClientChannel>::connect(addr);
         NUT_LOG_D(TAG, "will connect to %s", addr.to_string().c_str());
     }
 }

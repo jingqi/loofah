@@ -4,7 +4,7 @@
 
 #include "../loofah_config.h"
 #include "inet_addr.h"
-#include "sock_base.h"
+#include "sock_operation.h"
 
 namespace loofah
 {
@@ -24,18 +24,18 @@ public:
 
     void shutdown()
     {
-        SockBase::shutdown(_socket_fd);
+        SockOperation::shutdown(_socket_fd);
         _socket_fd = INVALID_SOCKET_VALUE;
     }
 
     bool shutdown_read()
     {
-        return SockBase::shutdown_read(_socket_fd);
+        return SockOperation::shutdown_read(_socket_fd);
     }
 
     bool shutdown_write()
     {
-        return SockBase::shutdown_write(_socket_fd);
+        return SockOperation::shutdown_write(_socket_fd);
     }
 
     /**
@@ -47,7 +47,7 @@ public:
      */
     int read(void *buf, unsigned max_len)
     {
-        return SockBase::read(_socket_fd, buf, max_len);
+        return SockOperation::read(_socket_fd, buf, max_len);
     }
 
     /**
@@ -55,27 +55,27 @@ public:
      */
     int write(const void *buf, unsigned max_len)
     {
-        return SockBase::write(_socket_fd, buf, max_len);
+        return SockOperation::write(_socket_fd, buf, max_len);
     }
 
     InetAddr get_local_addr() const
     {
-        return SockBase::get_local_addr(_socket_fd);
+        return SockOperation::get_local_addr(_socket_fd);
     }
 
     InetAddr get_peer_addr() const
     {
-        return SockBase::get_peer_addr(_socket_fd);
+        return SockOperation::get_peer_addr(_socket_fd);
     }
 
     bool is_self_connected() const
     {
-        return SockBase::is_self_connected(_socket_fd);
+        return SockOperation::is_self_connected(_socket_fd);
     }
 
     bool set_tcp_nodelay(bool no_delay = true)
     {
-        return SockBase::set_tcp_nodelay(_socket_fd, no_delay);
+        return SockOperation::set_tcp_nodelay(_socket_fd, no_delay);
     }
 };
 

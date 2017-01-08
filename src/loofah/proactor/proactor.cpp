@@ -61,8 +61,6 @@ Proactor::Proactor()
         return;
     }
 #endif
-
-    _loop_tid = nut::Thread::current_thread_id();
 }
 
 Proactor::~Proactor()
@@ -376,9 +374,9 @@ int Proactor::handle_events(int timeout_ms)
     if (_closing_or_closed)
         return -1;
 
-    if (!nut::Thread::tid_equals(_loop_tid, nut::Thread::current_thread_id()))
+    if (!is_in_loop_thread())
     {
-        NUT_LOG_F(TAG, "handle_events() can only be called from loop thread");
+        NUT_LOG_F(TAG, "handle_events() can only be called from inside loop thread");
         return -1;
     }
 
@@ -574,33 +572,8 @@ int Proactor::handle_events(int timeout_ms)
     return 0;
 #endif
 
-    // Run in loop tasks
-    std::vector<nut::rc_ptr<nut::Runnable> > async_tasks;
-    {
-        nut::Guard<nut::Mutex> g(&_mutex);
-        async_tasks = _async_tasks;
-        _async_tasks.clear();
-    }
-    for (size_t i = 0, sz = async_tasks.size(); i < sz; ++i)
-    {
-        nut::Runnable *runnable = async_tasks.at(i);
-        assert(NULL != runnable);
-        runnable->run();
-    }
-}
-
-void Proactor::run_in_loop_thread(nut::Runnable *runnable)
-{
-    assert(NULL != runnable);
-
-    if (nut::Thread::tid_equals(_loop_tid, nut::Thread::current_thread_id()))
-    {
-        runnable->run();
-        return;
-    }
-
-    nut::Guard<nut::Mutex> g(&_mutex);
-    _async_tasks.push_back(runnable);
+    // Run asynchronized tasks
+    run_async_tasks();
 }
 
 void Proactor::async_register_handler(ProactHandler *handler)
@@ -608,7 +581,7 @@ void Proactor::async_register_handler(ProactHandler *handler)
     assert(NULL != handler);
 
     // Synchronize
-    if (nut::Thread::tid_equals(_loop_tid, nut::Thread::current_thread_id()))
+    if (is_in_loop_thread())
     {
         register_handler(handler);
         return;
@@ -630,8 +603,7 @@ void Proactor::async_register_handler(ProactHandler *handler)
             _proactor->register_handler(_handler);
         }
     };
-    nut::Guard<nut::Mutex> g(&_mutex);
-    _async_tasks.push_back(nut::rc_new<RegisterHandlerTask>(this, handler));
+    add_async_task(nut::rc_new<RegisterHandlerTask>(this, handler));
 }
 
 void Proactor::async_launch_accept(ProactHandler *handler)
@@ -639,7 +611,7 @@ void Proactor::async_launch_accept(ProactHandler *handler)
     assert(NULL != handler);
 
     // Synchronize
-    if (nut::Thread::tid_equals(_loop_tid, nut::Thread::current_thread_id()))
+    if (is_in_loop_thread())
     {
         launch_accept(handler);
         return;
@@ -661,8 +633,7 @@ void Proactor::async_launch_accept(ProactHandler *handler)
             _proactor->launch_accept(_handler);
         }
     };
-    nut::Guard<nut::Mutex> g(&_mutex);
-    _async_tasks.push_back(nut::rc_new<LaunchAcceptTask>(this, handler));
+    add_async_task(nut::rc_new<LaunchAcceptTask>(this, handler));
 }
 
 void Proactor::async_launch_read(ProactHandler *handler, void* const *buf_ptrs,
@@ -671,7 +642,7 @@ void Proactor::async_launch_read(ProactHandler *handler, void* const *buf_ptrs,
     assert(NULL != handler && NULL != buf_ptrs && NULL != len_ptrs && buf_count > 0);
 
     // Synchronize
-    if (nut::Thread::tid_equals(_loop_tid, nut::Thread::current_thread_id()))
+    if (is_in_loop_thread())
     {
         launch_read(handler, buf_ptrs, len_ptrs, buf_count);
         return;
@@ -708,8 +679,7 @@ void Proactor::async_launch_read(ProactHandler *handler, void* const *buf_ptrs,
             _proactor->launch_read(_handler, _buf_ptrs, _len_ptrs, _buf_count);
         }
     };
-    nut::Guard<nut::Mutex> g(&_mutex);
-    _async_tasks.push_back(nut::rc_new<LaunchReadTask>(this, handler, buf_ptrs, len_ptrs, buf_count));
+    add_async_task(nut::rc_new<LaunchReadTask>(this, handler, buf_ptrs, len_ptrs, buf_count));
 }
 
 void Proactor::async_launch_write(ProactHandler *handler, void* const *buf_ptrs,
@@ -718,7 +688,7 @@ void Proactor::async_launch_write(ProactHandler *handler, void* const *buf_ptrs,
     assert(NULL != handler && NULL != buf_ptrs && NULL != len_ptrs && buf_count > 0);
 
     // Synchronize
-    if (nut::Thread::tid_equals(_loop_tid, nut::Thread::current_thread_id()))
+    if (is_in_loop_thread())
     {
         launch_write(handler, buf_ptrs, len_ptrs, buf_count);
         return;
@@ -755,8 +725,7 @@ void Proactor::async_launch_write(ProactHandler *handler, void* const *buf_ptrs,
             _proactor->launch_write(_handler, _buf_ptrs, _len_ptrs, _buf_count);
         }
     };
-    nut::Guard<nut::Mutex> g(&_mutex);
-    _async_tasks.push_back(nut::rc_new<LaunchWriteTask>(this, handler, buf_ptrs, len_ptrs, buf_count));
+    add_async_task(nut::rc_new<LaunchWriteTask>(this, handler, buf_ptrs, len_ptrs, buf_count));
 }
 
 void Proactor::async_shutdown()

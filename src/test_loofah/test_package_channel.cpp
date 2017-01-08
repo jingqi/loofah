@@ -22,18 +22,18 @@ class ServerChannel : public PackageChannel
     int _counter = 0;
 
 public:
-    ServerChannel()
+    virtual void initialize() override
     {
         // Initialize
-        initialize(&g_proactor);
+        set_proactor(&g_proactor);
+
+        // Hold reference
+        g_server_channels.push_back(this);
     }
 
     virtual void handle_connected() override
     {
         NUT_LOG_D(TAG, "server channel connected");
-
-        // Hold reference
-        g_server_channels.push_back(this);
     }
 
     virtual void handle_read(Package *pkg) override
@@ -73,10 +73,10 @@ class ClientChannel : public PackageChannel
     int _counter = 0;
 
 public:
-    ClientChannel()
+    virtual void initialize() override
     {
         // Initialize
-        initialize(&g_proactor);
+        set_proactor(&g_proactor);
     }
 
     virtual void handle_connected() override
@@ -127,8 +127,7 @@ void test_package_channel()
     NUT_LOG_D(TAG, "listening to %s", addr.to_string().c_str());
 
     // start client
-    rc_ptr<ClientChannel> client = rc_new<ClientChannel>();
-    ProactConnector::connect(client, addr);
+    rc_ptr<ClientChannel> client = ProactConnector<ClientChannel>::connect(addr);
     NUT_LOG_D(TAG, "will connect to %s", addr.to_string().c_str());
 
     // loop

@@ -14,17 +14,17 @@
 
 #include <nut/logging/logger.h>
 
-#include "connector.h"
+#include "connector_base.h"
 #include "../inet_base/utils.h"
-#include "../inet_base/sock_base.h"
+#include "../inet_base/sock_operation.h"
 
 
-#define TAG "loofah.connector"
+#define TAG "loofah.connector_base"
 
 namespace loofah
 {
 
-bool Connector::connect(Channel *channel, const InetAddr& address)
+bool ConnectorBase::connect(Channel *channel, const InetAddr& address)
 {
     assert(NULL != channel);
 
@@ -43,13 +43,13 @@ bool Connector::connect(Channel *channel, const InetAddr& address)
     {
         NUT_LOG_E(TAG, "failed to call ::connect(), socketfd %d, errno %d", fd, errno);
         int save_errno = errno;
-        SockBase::shutdown(fd);
-        errno = save_errno; // The SockBase::shutdown() may set new errno
+        SockOperation::shutdown(fd);
+        errno = save_errno; // The SockOperation::shutdown() may set new errno
         return false;
     }
 
     // Make it nonblocking
-    if (!SockBase::set_nonblocking(fd))
+    if (!SockOperation::set_nonblocking(fd))
         NUT_LOG_W(TAG, "failed to make socket nonblocking, socketfd %d", fd);
 
     channel->open(fd);

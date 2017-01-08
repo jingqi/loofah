@@ -13,7 +13,7 @@
 
 #include "proact_acceptor.h"
 #include "../inet_base/utils.h"
-#include "../inet_base/sock_base.h"
+#include "../inet_base/sock_operation.h"
 
 
 #define TAG "loofah.proact_acceptor"
@@ -43,9 +43,9 @@ bool ProactAcceptorBase::open(const InetAddr& addr, int listen_num)
     }
 
     // Make port reuseable
-    if (!SockBase::set_reuse_addr(_listener_socket))
+    if (!SockOperation::set_reuse_addr(_listener_socket))
         NUT_LOG_W(TAG, "failed to make listen socket addr reuseable, socketfd %d", _listener_socket);
-    if (!SockBase::set_reuse_port(_listener_socket))
+    if (!SockOperation::set_reuse_port(_listener_socket))
         NUT_LOG_W(TAG, "failed to make listen socket port reuseable, socketfd %d", _listener_socket);
 
     // Bind
@@ -56,7 +56,7 @@ bool ProactAcceptorBase::open(const InetAddr& addr, int listen_num)
 #endif
     {
         NUT_LOG_E(TAG, "failed to call ::bind() with addr %s", addr.to_string().c_str());
-        SockBase::shutdown(_listener_socket);
+        SockOperation::shutdown(_listener_socket);
         _listener_socket = INVALID_SOCKET_VALUE;
         return false;
     }
@@ -69,13 +69,13 @@ bool ProactAcceptorBase::open(const InetAddr& addr, int listen_num)
 #endif
     {
         NUT_LOG_E(TAG, "failed to call ::listen() with addr %s", addr.to_string().c_str());
-        SockBase::shutdown(_listener_socket);
+        SockOperation::shutdown(_listener_socket);
         _listener_socket = INVALID_SOCKET_VALUE;
         return false;
     }
 
     // Make socket non-blocking
-    if (!SockBase::set_nonblocking(_listener_socket))
+    if (!SockOperation::set_nonblocking(_listener_socket))
         NUT_LOG_W(TAG, "failed to make listen socket nonblocking, socketfd %d", _listener_socket);
 
     return true;

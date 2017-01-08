@@ -18,6 +18,10 @@ public:
     virtual ~Channel()
     {}
 
+    /**
+     * 初始化
+     */
+    virtual void initialize() = 0;
     virtual void open(socket_t sock_fd) = 0;
 
     /**

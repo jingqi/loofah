@@ -11,11 +11,12 @@
 namespace loofah
 {
 
-class LOOFAH_API SockBase
+class LOOFAH_API SockOperation
 {
 private:
-    SockBase();
-    SockBase(const SockBase&);
+    // Invalid methods
+    SockOperation();
+    SockOperation(const SockOperation&);
 
 public: // Common operations
     /**

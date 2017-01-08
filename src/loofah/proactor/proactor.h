@@ -2,8 +2,6 @@
 #ifndef ___HEADFILE_54F6D416_3E0D_4941_AF22_B260CD34E51B_
 #define ___HEADFILE_54F6D416_3E0D_4941_AF22_B260CD34E51B_
 
-#include <vector>
-
 #include <nut/platform/platform.h>
 
 #if NUT_PLATFORM_OS_WINDOWS
@@ -11,17 +9,14 @@
 #   include <windows.h>
 #endif
 
-#include <nut/threading/runnable.h>
-#include <nut/threading/thread.h>
-#include <nut/threading/sync/mutex.h>
-
+#include "../inet_base/event_loop_base.h"
 #include "proact_handler.h"
 
 
 namespace loofah
 {
 
-class LOOFAH_API Proactor
+class LOOFAH_API Proactor : public EventLoopBase
 {
 #if NUT_PLATFORM_OS_WINDOWS
     HANDLE _iocp = INVALID_HANDLE_VALUE;
@@ -30,10 +25,6 @@ class LOOFAH_API Proactor
 #elif NUT_PLATFORM_OS_LINUX
     int _epoll_fd = -1;
 #endif
-
-    nut::Thread::tid_type _loop_tid;
-    std::vector<nut::rc_ptr<nut::Runnable> > _async_tasks;
-    nut::Mutex _mutex;
 
     bool _closing_or_closed = false;
 
@@ -69,11 +60,6 @@ public:
      * 关闭 proactor
      */
     void async_shutdown();
-
-    /**
-     * 在事件循环线程中运行
-     */
-    void run_in_loop_thread(nut::Runnable *runnable);
 
     /**
      * @param timeout_ms 超时毫秒数，在 Windows 下可传入 INFINITE 表示无穷等待

@@ -34,7 +34,7 @@ public:
     PackageChannel();
     virtual ~PackageChannel();
 
-    void initialize(Proactor *proactor);
+    void set_proactor(Proactor *proactor);
 
     virtual void open(socket_t fd) final override;
     virtual void handle_read_completed(int cb) final override;

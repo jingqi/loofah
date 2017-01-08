@@ -48,10 +48,11 @@ public:
         assert(INVALID_SOCKET_VALUE != fd);
 
         // Create new handler
-        nut::rc_ptr<CHANNEL> handler = nut::rc_new<CHANNEL>();
-        assert(NULL != handler);
-        handler->open(fd);
-        handler->handle_connected();
+        nut::rc_ptr<CHANNEL> channel = nut::rc_new<CHANNEL>();
+        assert(NULL != channel);
+        channel->initialize();
+        channel->open(fd);
+        channel->handle_connected();
     }
 };
 

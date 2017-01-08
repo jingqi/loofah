@@ -31,13 +31,15 @@ public:
         ::free(_buf);
     }
 
+    virtual void initialize() override
+    {
+        g_server_channels.push_back(this);
+    }
+
     virtual void handle_connected() override
     {
         NUT_LOG_D(TAG, "server channel connected");
-
-        g_server_channels.push_back(this);
         g_global.proactor.async_register_handler(this);
-
         g_global.proactor.async_launch_read(this, &_buf, &g_global.block_size, 1);
     }
 

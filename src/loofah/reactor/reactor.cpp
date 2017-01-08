@@ -55,8 +55,6 @@ Reactor::Reactor()
         return;
     }
 #endif
-
-    _loop_tid = nut::Thread::current_thread_id();
 }
 
 Reactor::~Reactor()
@@ -267,9 +265,9 @@ int Reactor::handle_events(int timeout_ms)
     if (_closing_or_closed)
         return -1;
 
-    if (!nut::Thread::tid_equals(_loop_tid, nut::Thread::current_thread_id()))
+    if (!is_in_loop_thread())
     {
-        NUT_LOG_F(TAG, "handle_events() can only be called from loop thread");
+        NUT_LOG_F(TAG, "handle_events() can only be called from inside loop thread");
         return -1;
     }
 
@@ -354,20 +352,9 @@ int Reactor::handle_events(int timeout_ms)
     }
     return 0;
 #endif
-}
 
-void Reactor::run_in_loop_thread(nut::Runnable *runnable)
-{
-    assert(NULL != runnable);
-
-    if (nut::Thread::tid_equals(_loop_tid, nut::Thread::current_thread_id()))
-    {
-        runnable->run();
-        return;
-    }
-
-    nut::Guard<nut::Mutex> g(&_mutex);
-    _async_tasks.push_back(runnable);
+    // Run asynchronized tasks
+    run_async_tasks();
 }
 
 void Reactor::async_register_handler(ReactHandler *handler, int mask)
@@ -375,7 +362,7 @@ void Reactor::async_register_handler(ReactHandler *handler, int mask)
     assert(NULL != handler);
 
     // Synchronize
-    if (nut::Thread::tid_equals(_loop_tid, nut::Thread::current_thread_id()))
+    if (is_in_loop_thread())
     {
         register_handler(handler, mask);
         return;
@@ -398,8 +385,7 @@ void Reactor::async_register_handler(ReactHandler *handler, int mask)
             _reactor->register_handler(_handler, _mask);
         }
     };
-    nut::Guard<nut::Mutex> g(&_mutex);
-    _async_tasks.push_back(nut::rc_new<RegisterHandlerTask>(this, handler, mask));
+    add_async_task(nut::rc_new<RegisterHandlerTask>(this, handler, mask));
 }
 
 void Reactor::async_unregister_handler(ReactHandler *handler)
@@ -407,7 +393,7 @@ void Reactor::async_unregister_handler(ReactHandler *handler)
     assert(NULL != handler);
 
     // Synchronize
-    if (nut::Thread::tid_equals(_loop_tid, nut::Thread::current_thread_id()))
+    if (is_in_loop_thread())
     {
         unregister_handler(handler);
         return;
@@ -429,8 +415,7 @@ void Reactor::async_unregister_handler(ReactHandler *handler)
             _reactor->unregister_handler(_handler);
         }
     };
-    nut::Guard<nut::Mutex> g(&_mutex);
-    _async_tasks.push_back(nut::rc_new<UnregisterHandlerTask>(this, handler));
+    add_async_task(nut::rc_new<UnregisterHandlerTask>(this, handler));
 }
 
 void Reactor::async_enable_handler(ReactHandler *handler, int mask)
@@ -438,7 +423,7 @@ void Reactor::async_enable_handler(ReactHandler *handler, int mask)
     assert(NULL != handler);
 
     // Synchronize
-    if (nut::Thread::tid_equals(_loop_tid, nut::Thread::current_thread_id()))
+    if (is_in_loop_thread())
     {
         enable_handler(handler, mask);
         return;
@@ -461,8 +446,7 @@ void Reactor::async_enable_handler(ReactHandler *handler, int mask)
             _reactor->enable_handler(_handler, _mask);
         }
     };
-    nut::Guard<nut::Mutex> g(&_mutex);
-    _async_tasks.push_back(nut::rc_new<EnableHandlerTask>(this, handler, mask));
+    add_async_task(nut::rc_new<EnableHandlerTask>(this, handler, mask));
 }
 
 void Reactor::async_disable_handler(ReactHandler *handler, int mask)
@@ -470,7 +454,7 @@ void Reactor::async_disable_handler(ReactHandler *handler, int mask)
     assert(NULL != handler);
 
     // Synchronize
-    if (nut::Thread::tid_equals(_loop_tid, nut::Thread::current_thread_id()))
+    if (is_in_loop_thread())
     {
         disable_handler(handler, mask);
         return;
@@ -493,8 +477,7 @@ void Reactor::async_disable_handler(ReactHandler *handler, int mask)
             _reactor->disable_handler(_handler, _mask);
         }
     };
-    nut::Guard<nut::Mutex> g(&_mutex);
-    _async_tasks.push_back(nut::rc_new<DisableHandlerTask>(this, handler, mask));
+    add_async_task(nut::rc_new<DisableHandlerTask>(this, handler, mask));
 }
 
 void Reactor::async_shutdown()

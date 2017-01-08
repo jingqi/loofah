@@ -23,7 +23,7 @@ PackageChannel::~PackageChannel()
     _read_frag = NULL;
 }
 
-void PackageChannel::initialize(Proactor *proactor)
+void PackageChannel::set_proactor(Proactor *proactor)
 {
     assert(NULL != proactor && NULL == _proactor);
     _proactor = proactor;
@@ -71,10 +71,9 @@ void PackageChannel::write(Package *pkg)
 
 void PackageChannel::open(socket_t fd)
 {
-    assert(NULL != _proactor);
-
     ProactChannel::open(fd);
 
+    assert(NULL != _proactor);
     _proactor->async_register_handler(this);
     launch_read();
 }

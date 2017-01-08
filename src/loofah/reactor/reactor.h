@@ -5,21 +5,18 @@
 
 #include "../loofah_config.h"
 
-#include <vector>
 #include <map>
 
 #include <nut/platform/platform.h>
-#include <nut/threading/runnable.h>
-#include <nut/threading/thread.h>
-#include <nut/threading/sync/mutex.h>
 
+#include "../inet_base/event_loop_base.h"
 #include "react_handler.h"
 
 
 namespace loofah
 {
 
-class LOOFAH_API Reactor
+class LOOFAH_API Reactor : public EventLoopBase
 {
 #if NUT_PLATFORM_OS_WINDOWS
     FD_SET _read_set, _write_set, _except_set;
@@ -30,10 +27,6 @@ class LOOFAH_API Reactor
     int _epoll_fd = -1;
     bool _edge_triggered = false; // level-triggered or edge-triggered
 #endif
-
-    nut::Thread::tid_type _loop_tid;
-    std::vector<nut::rc_ptr<nut::Runnable> > _async_tasks;
-    nut::Mutex _mutex;
 
     bool _closing_or_closed = false;
 
@@ -56,9 +49,10 @@ public:
     void async_enable_handler(ReactHandler *handler, int mask);
     void async_disable_handler(ReactHandler *handler, int mask);
 
+    /**
+     * 关闭 reactor
+     */
     void async_shutdown();
-
-    void run_in_loop_thread(nut::Runnable *runnable);
 
     /**
      * @return <0 出错

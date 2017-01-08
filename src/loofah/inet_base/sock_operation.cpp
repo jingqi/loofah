@@ -18,16 +18,16 @@
 
 #include <nut/logging/logger.h>
 
-#include "sock_base.h"
+#include "sock_operation.h"
 
 
-#define TAG "loofah.sock_base"
+#define TAG "loofah.sock_operation"
 #define STACK_ARRAY_SIZE 10
 
 namespace loofah
 {
 
-bool SockBase::set_nonblocking(socket_t socket_fd, bool nonblocking)
+bool SockOperation::set_nonblocking(socket_t socket_fd, bool nonblocking)
 {
 #if NUT_PLATFORM_OS_WINDOWS
     unsigned long mode = (nonblocking ? 1 : 0);
@@ -44,7 +44,7 @@ bool SockBase::set_nonblocking(socket_t socket_fd, bool nonblocking)
 #endif
 }
 
-bool SockBase::set_close_on_exit(socket_t socket_fd, bool close_on_exit)
+bool SockOperation::set_close_on_exit(socket_t socket_fd, bool close_on_exit)
 {
 #if NUT_PLATFORM_OS_WINDOWS
     // TODO
@@ -62,7 +62,7 @@ bool SockBase::set_close_on_exit(socket_t socket_fd, bool close_on_exit)
 #endif
 }
 
-void SockBase::shutdown(socket_t socket_fd)
+void SockOperation::shutdown(socket_t socket_fd)
 {
 #if NUT_PLATFORM_OS_WINDOWS
     ::closesocket(socket_fd);
@@ -71,7 +71,7 @@ void SockBase::shutdown(socket_t socket_fd)
 #endif
 }
 
-bool SockBase::set_reuse_addr(socket_t listener_socket_fd)
+bool SockOperation::set_reuse_addr(socket_t listener_socket_fd)
 {
 #if NUT_PLATFORM_OS_WINDOWS
     // NOTE 在 Windows 上，设置 ReuseAddr 与在 *nix 上不同，参见
@@ -86,7 +86,7 @@ bool SockBase::set_reuse_addr(socket_t listener_socket_fd)
 #endif
 }
 
-bool SockBase::set_reuse_port(socket_t listener_socket_fd)
+bool SockOperation::set_reuse_port(socket_t listener_socket_fd)
 {
 #if NUT_PLATFORM_OS_WINDOWS
     // NOTE 在 Windows 上，设置 ReuseAddr 与在 *nix 上不同，参见
@@ -101,7 +101,7 @@ bool SockBase::set_reuse_port(socket_t listener_socket_fd)
 #endif
 }
 
-bool SockBase::shutdown_read(socket_t socket_fd)
+bool SockOperation::shutdown_read(socket_t socket_fd)
 {
 #if NUT_PLATFORM_OS_WINDOWS
     const int rs = ::shutdown(socket_fd, SD_RECEIVE);
@@ -121,7 +121,7 @@ bool SockBase::shutdown_read(socket_t socket_fd)
 #endif
 }
 
-bool SockBase::shutdown_write(socket_t socket_fd)
+bool SockOperation::shutdown_write(socket_t socket_fd)
 {
 #if NUT_PLATFORM_OS_WINDOWS
     const int rs = ::shutdown(socket_fd, SD_SEND);
@@ -141,13 +141,13 @@ bool SockBase::shutdown_write(socket_t socket_fd)
 #endif
 }
 
-ssize_t SockBase::read(socket_t socket_fd, void *buf, size_t len)
+ssize_t SockOperation::read(socket_t socket_fd, void *buf, size_t len)
 {
     assert(NULL != buf);
     return ::recv(socket_fd, (char*) buf, len, 0);
 }
 
-ssize_t SockBase::readv(socket_t socket_fd, void* const *buf_ptrs,
+ssize_t SockOperation::readv(socket_t socket_fd, void* const *buf_ptrs,
                         const size_t *len_ptrs, size_t buf_count)
 {
     assert(NULL != buf_ptrs && NULL != len_ptrs);
@@ -202,13 +202,13 @@ ssize_t SockBase::readv(socket_t socket_fd, void* const *buf_ptrs,
 #endif
 }
 
-ssize_t SockBase::write(socket_t socket_fd, const void *buf, size_t len)
+ssize_t SockOperation::write(socket_t socket_fd, const void *buf, size_t len)
 {
     assert(NULL != buf);
     return ::send(socket_fd, (const char*) buf, len, 0);
 }
 
-ssize_t SockBase::writev(socket_t socket_fd, const void* const *buf_ptrs,
+ssize_t SockOperation::writev(socket_t socket_fd, const void* const *buf_ptrs,
                          const size_t *len_ptrs, size_t buf_count)
 {
     assert(NULL != buf_ptrs && NULL != len_ptrs);
@@ -263,7 +263,7 @@ ssize_t SockBase::writev(socket_t socket_fd, const void* const *buf_ptrs,
 #endif
 }
 
-InetAddr SockBase::get_local_addr(socket_t socket_fd)
+InetAddr SockOperation::get_local_addr(socket_t socket_fd)
 {
     InetAddr ret;
 #if NUT_PLATFORM_OS_WINDOWS
@@ -279,7 +279,7 @@ InetAddr SockBase::get_local_addr(socket_t socket_fd)
     return ret;
 }
 
-InetAddr SockBase::get_peer_addr(socket_t socket_fd)
+InetAddr SockOperation::get_peer_addr(socket_t socket_fd)
 {
     InetAddr ret;
 #if NUT_PLATFORM_OS_WINDOWS
@@ -295,12 +295,12 @@ InetAddr SockBase::get_peer_addr(socket_t socket_fd)
     return ret;
 }
 
-bool SockBase::is_self_connected(socket_t socket_fd)
+bool SockOperation::is_self_connected(socket_t socket_fd)
 {
     return get_local_addr(socket_fd) == get_peer_addr(socket_fd);
 }
 
-bool SockBase::set_tcp_nodelay(socket_t socket_fd, bool no_delay)
+bool SockOperation::set_tcp_nodelay(socket_t socket_fd, bool no_delay)
 {
 #if NUT_PLATFORM_OS_WINDOWS
     BOOL optval = no_delay ? TRUE : FALSE;
@@ -313,7 +313,7 @@ bool SockBase::set_tcp_nodelay(socket_t socket_fd, bool no_delay)
 #endif
 }
 
-bool SockBase::set_keep_alive(socket_t socket_fd, bool keep_alive)
+bool SockOperation::set_keep_alive(socket_t socket_fd, bool keep_alive)
 {
 #if NUT_PLATFORM_OS_WINDOWS
     BOOL optval = keep_alive ? TRUE : FALSE;

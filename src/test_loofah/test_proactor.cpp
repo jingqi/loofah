@@ -28,11 +28,15 @@ class ServerChannel : public ProactChannel
     int _tmp = 0;
 
 public:
+    virtual void initialize() override
+    {
+        g_server_channels.push_back(this);
+    }
+
     virtual void handle_connected() override
     {
         NUT_LOG_D(TAG, "server channel connected");
 
-        g_server_channels.push_back(this);
         g_proactor.async_register_handler(this);
 
         void *buf = &_tmp;
@@ -77,6 +81,9 @@ class ClientChannel : public ProactChannel
     int _tmp = 0;
 
 public:
+    virtual void initialize() override
+    {}
+
     virtual void handle_connected() override
     {
         NUT_LOG_D(TAG, "client channel connected");
@@ -137,8 +144,7 @@ void test_proactor()
     NUT_LOG_D(TAG, "listening to %s", addr.to_string().c_str());
 
     // start client
-    rc_ptr<ClientChannel> client = rc_new<ClientChannel>();
-    ProactConnector::connect(client, addr);
+    rc_ptr<ClientChannel> client = ProactConnector<ClientChannel>::connect(addr);
     NUT_LOG_D(TAG, "will connect to %s", addr.to_string().c_str());
 
     // loop

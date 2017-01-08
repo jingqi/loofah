@@ -8,9 +8,9 @@
 namespace loofah
 {
 
-class LOOFAH_API Connector
+class LOOFAH_API ConnectorBase
 {
-public:
+protected:
     static bool connect(Channel *channel, const InetAddr& address);
 };
 
