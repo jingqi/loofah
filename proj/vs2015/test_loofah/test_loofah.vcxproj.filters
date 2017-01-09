@@ -20,5 +20,8 @@
     <ClCompile Include="..\..\..\src\test_loofah\test_proactor.cpp">
       <Filter>test_loofah</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\src\test_loofah\test_package_channel.cpp">
+      <Filter>test_loofah</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

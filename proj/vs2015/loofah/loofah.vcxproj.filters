@@ -41,13 +41,7 @@
     <ClCompile Include="..\..\..\src\loofah\reactor\react_channel.cpp">
       <Filter>loofah\reactor</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\src\loofah\inet_base\connector.cpp">
-      <Filter>loofah\inet_base</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\..\src\loofah\inet_base\inet_addr.cpp">
-      <Filter>loofah\inet_base</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\src\loofah\inet_base\sock_base.cpp">
       <Filter>loofah\inet_base</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\src\loofah\inet_base\sock_stream.cpp">
@@ -64,6 +58,15 @@
     </ClCompile>
     <ClCompile Include="..\..\..\src\loofah\package\package_channel.cpp">
       <Filter>loofah\package</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\loofah\inet_base\connector_base.cpp">
+      <Filter>loofah\inet_base</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\loofah\inet_base\event_loop_base.cpp">
+      <Filter>loofah\inet_base</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\loofah\inet_base\sock_operation.cpp">
+      <Filter>loofah\inet_base</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -100,16 +103,10 @@
     <ClInclude Include="..\..\..\src\loofah\inet_base\channel.h">
       <Filter>loofah\inet_base</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\src\loofah\inet_base\connector.h">
-      <Filter>loofah\inet_base</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\src\loofah\inet_base\inet_addr.h">
       <Filter>loofah\inet_base</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\src\loofah\inet_base\inet_endian.h">
-      <Filter>loofah\inet_base</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\src\loofah\inet_base\sock_base.h">
       <Filter>loofah\inet_base</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\src\loofah\inet_base\sock_stream.h">
@@ -132,6 +129,15 @@
     </ClInclude>
     <ClInclude Include="..\..\..\src\loofah\loofah.h">
       <Filter>loofah</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\inet_base\connector_base.h">
+      <Filter>loofah\inet_base</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\inet_base\event_loop_base.h">
+      <Filter>loofah\inet_base</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\inet_base\sock_operation.h">
+      <Filter>loofah\inet_base</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

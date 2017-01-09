@@ -155,6 +155,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\src\test_loofah\main.cpp" />
+    <ClCompile Include="..\..\..\src\test_loofah\test_package_channel.cpp" />
     <ClCompile Include="..\..\..\src\test_loofah\test_proactor.cpp" />
     <ClCompile Include="..\..\..\src\test_loofah\test_reactor.cpp" />
   </ItemGroup>
