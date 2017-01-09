@@ -7,6 +7,7 @@
 #include <list>
 
 #include <nut/container/rwbuffer/fragment_buffer.h>
+#include <nut/debugging/destroy_checker.h>
 
 #include "../proactor/proact_channel.h"
 #include "../proactor/proactor.h"
@@ -25,13 +26,15 @@ class LOOFAH_API PackageChannel : public ProactChannel
     nut::FragmentBuffer::Fragment *_read_frag = NULL;
     nut::FragmentBuffer _readed_buffer;
 
+    NUT_DEBUGGING_DESTROY_CHECKER
+
 private:
     void launch_read();
     void launch_write();
     void write(Package *pkg);
+    void close();
 
 public:
-    PackageChannel();
     virtual ~PackageChannel();
 
     void set_proactor(Proactor *proactor);
@@ -43,6 +46,7 @@ public:
     virtual void handle_read(Package *pkg) = 0;
     virtual void handle_close() = 0;
     void async_write(Package *pkg);
+    void async_close();
 };
 
 }

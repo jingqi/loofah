@@ -7,8 +7,14 @@
 #include <queue>
 
 #include <nut/platform/platform.h>
+
+#if NUT_PLATFORM_OS_WINDOWS
+#   include <windows.h>
+#endif
+
 #include <nut/threading/sync/mutex.h>
 #include <nut/rc/rc_ptr.h>
+
 
 namespace loofah
 {
@@ -17,13 +23,15 @@ class ProactHandler
 {
     NUT_REF_COUNTABLE
 
-#if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
+#if NUT_PLATFORM_OS_WINDOWS
+    HANDLE _reg_iocp = INVALID_HANDLE_VALUE;
+#elif NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
     int _registered_events = 0;
     int _request_accept = 0;
     std::queue<void*> _read_queue, _write_queue;
+#endif
 
     friend class Proactor;
-#endif
 
 public:
     enum EventType

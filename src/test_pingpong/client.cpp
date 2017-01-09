@@ -1,4 +1,4 @@
-
+﻿
 #include <loofah/loofah.h>
 #include <nut/nut.h>
 
@@ -36,9 +36,7 @@ public:
     virtual void handle_connected() override
     {
         NUT_LOG_D(TAG, "client channel connected");
-
         g_global.proactor.async_register_handler(this);
-
         g_global.proactor.async_launch_write(this, &_buf, &g_global.block_size, 1);
     }
 
@@ -47,7 +45,8 @@ public:
         //NUT_LOG_D(TAG, "received %d bytes from server: %d", cb, _tmp);
         if (0 == cb) // 正常结束
         {
-            _sock_stream.shutdown();
+            g_global.proactor.async_unregister_handler(this);
+            _sock_stream.close();
             return;
         }
 

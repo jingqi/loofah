@@ -1,4 +1,4 @@
-
+ï»¿
 #include <loofah/loofah.h>
 #include <nut/nut.h>
 
@@ -46,9 +46,10 @@ public:
     virtual void handle_read_completed(int cb) override
     {
         //NUT_LOG_D(TAG, "received %d bytes from client: %d", cb, _tmp);
-        if (0 == cb) // Õı³£½áÊø
+        if (0 == cb) // æ­£å¸¸ç»“æŸ
         {
-            _sock_stream.shutdown();
+            g_global.proactor.async_unregister_handler(this);
+            _sock_stream.close();
             g_global.proactor.async_shutdown();
             return;
         }

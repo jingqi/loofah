@@ -13,11 +13,10 @@
 namespace loofah
 {
 
-PackageChannel::PackageChannel()
-{}
-
 PackageChannel::~PackageChannel()
 {
+    NUT_DEBUGGING_ASSERT_ALIVE;
+
     if (NULL != _read_frag)
         nut::FragmentBuffer::delete_fragment(_read_frag);
     _read_frag = NULL;
@@ -26,23 +25,27 @@ PackageChannel::~PackageChannel()
 void PackageChannel::set_proactor(Proactor *proactor)
 {
     assert(NULL != proactor && NULL == _proactor);
+    NUT_DEBUGGING_ASSERT_ALIVE;
+
     _proactor = proactor;
 }
 
 void PackageChannel::launch_read()
 {
-    assert(NULL != _proactor);
+    NUT_DEBUGGING_ASSERT_ALIVE;
 
     if (NULL == _read_frag)
         _read_frag = nut::FragmentBuffer::new_fragment(READ_BUF_LEN);
     void *buf = _read_frag->buffer;
+    assert(NULL != _proactor);
     _proactor->async_launch_read(this, &buf, &_read_frag->capacity, 1);
 }
 
 void PackageChannel::launch_write()
 {
-    assert(NULL != _proactor && !_write_queue.empty());
+    NUT_DEBUGGING_ASSERT_ALIVE;
 
+    assert(!_write_queue.empty());
     void *bufs[STACK_BUF_COUNT];
     size_t lens[STACK_BUF_COUNT];
     const size_t buf_count = (std::min)((size_t) STACK_BUF_COUNT, _write_queue.size());
@@ -56,12 +59,15 @@ void PackageChannel::launch_write()
         lens[i] = pkg->readable_size();
     }
 
+    assert(NULL != _proactor);
     _proactor->async_launch_write(this, bufs, lens, buf_count);
 }
 
 void PackageChannel::write(Package *pkg)
 {
     assert(NULL != pkg);
+    NUT_DEBUGGING_ASSERT_ALIVE;
+
     uint32_t header = pkg->readable_size();
     pkg->prepend(&header);
     _write_queue.push_back(pkg);
@@ -69,8 +75,20 @@ void PackageChannel::write(Package *pkg)
         launch_write();
 }
 
+void PackageChannel::close()
+{
+    NUT_DEBUGGING_ASSERT_ALIVE;
+
+    assert(NULL != _proactor);
+    _proactor->async_unregister_handler(this);
+    _sock_stream.close();
+    handle_close(); // NOTE 这里可能会导致自身被删除，不能再做任何操作了
+}
+
 void PackageChannel::open(socket_t fd)
 {
+    NUT_DEBUGGING_ASSERT_ALIVE;
+
     ProactChannel::open(fd);
 
     assert(NULL != _proactor);
@@ -80,9 +98,14 @@ void PackageChannel::open(socket_t fd)
 
 void PackageChannel::handle_read_completed(int cb)
 {
+    NUT_DEBUGGING_ASSERT_ALIVE;
+
     if (0 == cb)
     {
-        handle_close();
+        assert(NULL != _proactor);
+        _proactor->async_unregister_handler(dynamic_cast<ProactHandler*>(this));
+        _sock_stream.close();
+        handle_close(); // NOTE 这里可能会导致自身被删除，不能再做任何操作了
         return;
     }
 
@@ -113,6 +136,8 @@ void PackageChannel::handle_read_completed(int cb)
 
 void PackageChannel::handle_write_completed(int cb)
 {
+    NUT_DEBUGGING_ASSERT_ALIVE;
+
     assert(!_write_queue.empty());
     while (cb > 0)
     {
@@ -137,6 +162,14 @@ void PackageChannel::handle_write_completed(int cb)
 void PackageChannel::async_write(Package *pkg)
 {
     assert(NULL != pkg);
+    NUT_DEBUGGING_ASSERT_ALIVE;
+
+    assert(NULL != _proactor);
+    if (_proactor->is_in_loop_thread())
+    {
+        write(pkg);
+        return;
+    }
 
     class WriteTask : public nut::Runnable
     {
@@ -154,6 +187,34 @@ void PackageChannel::async_write(Package *pkg)
         }
     };
     _proactor->run_in_loop_thread(nut::rc_new<WriteTask>(this, pkg));
+}
+
+void PackageChannel::async_close()
+{
+    NUT_DEBUGGING_ASSERT_ALIVE;
+
+    assert(NULL != _proactor);
+    if (_proactor->is_in_loop_thread())
+    {
+        close();
+        return;
+    }
+
+    class CloseTask : public nut::Runnable
+    {
+        PackageChannel *_channel;
+
+    public:
+        CloseTask(PackageChannel *c)
+            : _channel(c)
+        {}
+
+        virtual void run() override
+        {
+            _channel->close();
+        }
+    };
+    _proactor->run_in_loop_thread(nut::rc_new<CloseTask>(this));
 }
 
 }

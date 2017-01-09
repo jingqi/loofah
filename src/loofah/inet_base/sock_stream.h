@@ -22,9 +22,9 @@ public:
 
     void open(socket_t fd);
 
-    void shutdown()
+    void close()
     {
-        SockOperation::shutdown(_socket_fd);
+        SockOperation::close(_socket_fd);
         _socket_fd = INVALID_SOCKET_VALUE;
     }
 

@@ -103,7 +103,8 @@ void Reactor::register_handler(ReactHandler *handler, int mask)
         EV_SET(ev + n++, fd, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, (void*) handler);
     if (0 != ::kevent(_kq, ev, n, NULL, 0, NULL))
     {
-        NUT_LOG_E(TAG, "failed to call ::kevent()");
+        NUT_LOG_E(TAG, "failed to call ::kevent() with errno %d: %s", errno,
+                  ::strerror(errno));
         return;
     }
     handler->_registered_events = mask;
@@ -142,11 +143,12 @@ void Reactor::unregister_handler(ReactHandler *handler)
     _socket_to_handler.erase(fd);
 #elif NUT_PLATFORM_OS_MAC
     struct kevent ev[2];
-    EV_SET(ev + 0, fd, EVFILT_READ, EV_DELETE, 0, 0, (void*) handler);
+    EV_SET(ev, fd, EVFILT_READ, EV_DELETE, 0, 0, (void*) handler);
     EV_SET(ev + 1, fd, EVFILT_WRITE, EV_DELETE, 0, 0, (void*) handler);
     if (0 != ::kevent(_kq, ev, 2, NULL, 0, NULL))
     {
-        NUT_LOG_E(TAG, "failed to call ::kevent()");
+        NUT_LOG_E(TAG, "failed to call ::kevent() with errno %d: %s", errno,
+                  ::strerror(errno));
         return;
     }
     handler->_registered_events = 0;

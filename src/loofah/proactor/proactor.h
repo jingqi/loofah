@@ -35,6 +35,7 @@ protected:
 #endif
 
     void register_handler(ProactHandler *handler);
+    void unregister_handler(ProactHandler *handler);
 
     void launch_accept(ProactHandler *handler);
     void launch_read(ProactHandler *handler, void* const *buf_ptrs,
@@ -49,6 +50,7 @@ public:
     ~Proactor();
 
     void async_register_handler(ProactHandler *handler);
+    void async_unregister_handler(ProactHandler *handler);
 
     void async_launch_accept(ProactHandler *handler);
     void async_launch_read(ProactHandler *handler, void* const *buf_ptrs,

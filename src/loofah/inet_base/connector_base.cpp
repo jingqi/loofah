@@ -43,7 +43,7 @@ bool ConnectorBase::connect(Channel *channel, const InetAddr& address)
     {
         NUT_LOG_E(TAG, "failed to call ::connect(), socketfd %d, errno %d", fd, errno);
         int save_errno = errno;
-        SockOperation::shutdown(fd);
+        SockOperation::close(fd);
         errno = save_errno; // The SockOperation::shutdown() may set new errno
         return false;
     }

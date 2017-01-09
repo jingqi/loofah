@@ -43,7 +43,7 @@ bool ReactAcceptorBase::open(const InetAddr& addr, int listen_num)
     if (::bind(_listener_socket, addr.cast_to_sockaddr(), addr.get_sockaddr_size()) < 0)
     {
         NUT_LOG_E(TAG, "failed to call ::bind() with addr %s", addr.to_string().c_str());
-        SockOperation::shutdown(_listener_socket);
+        SockOperation::close(_listener_socket);
         _listener_socket = INVALID_SOCKET_VALUE;
         return false;
     }
@@ -52,7 +52,7 @@ bool ReactAcceptorBase::open(const InetAddr& addr, int listen_num)
     if (::listen(_listener_socket, listen_num) < 0)
     {
         NUT_LOG_E(TAG, "failed to call ::listen() with addr %s", addr.to_string().c_str());
-        SockOperation::shutdown(_listener_socket);
+        SockOperation::close(_listener_socket);
         _listener_socket = INVALID_SOCKET_VALUE;
         return false;
     }

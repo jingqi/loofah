@@ -22,6 +22,10 @@ public:
      * 初始化
      */
     virtual void initialize() = 0;
+
+    /**
+     * 设置 socket fd
+     */
     virtual void open(socket_t sock_fd) = 0;
 
     /**

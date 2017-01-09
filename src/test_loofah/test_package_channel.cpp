@@ -54,6 +54,8 @@ public:
 
     virtual void handle_close() override
     {
+        NUT_LOG_D(TAG, "server closed");
+
         // Unhold reference
         for (size_t i = 0, sz = g_server_channels.size(); i < sz; ++i)
         {
@@ -101,7 +103,7 @@ public:
 
         if (_counter > 20)
         {
-            _sock_stream.shutdown();
+            async_close();
             return;
         }
         rc_ptr<Package> new_pkg = rc_new<Package>();
@@ -111,7 +113,9 @@ public:
     }
 
     virtual void handle_close() override
-    {}
+    {
+        NUT_LOG_D(TAG, "client closed");
+    }
 };
 
 }

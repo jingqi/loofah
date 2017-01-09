@@ -46,8 +46,8 @@ public:
         NUT_LOG_D(TAG, "received %d bytes from client: %d", rs, seq);
         if (0 == rs) // 正常结束
         {
-            _sock_stream.shutdown();
             g_reactor.async_unregister_handler(this);
+            _sock_stream.close();
             g_reactor.async_shutdown();
             return;
         }
@@ -92,7 +92,7 @@ public:
         if (0 == rs) // 正常结束
         {
             g_reactor.async_unregister_handler(this);
-            _sock_stream.shutdown();
+            _sock_stream.close();
             return;
         }
 
@@ -103,7 +103,7 @@ public:
         if (_counter > 20)
         {
             g_reactor.async_unregister_handler(this);
-            _sock_stream.shutdown();
+            _sock_stream.close();
             return;
         }
         g_reactor.async_enable_handler(this, ReactHandler::WRITE_MASK);

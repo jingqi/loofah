@@ -32,7 +32,7 @@ public: // Common operations
     /**
      * 关闭 socket
      */
-    static void shutdown(socket_t socket_fd);
+    static void close(socket_t socket_fd);
 
 public: // Listener socket operations
     /**
@@ -51,7 +51,7 @@ public: // Socket connection operations
      * 读
      *
      * @return >0 读成功, 返回读取到的字节数
-     *         =0 已经关闭
+     *         =0 对方关闭了链接, 或者对方关闭了写通道, 或者己方关闭了读通道
      *         <0 出错
      */
     static ssize_t read(socket_t socket_fd, void *buf, size_t len);
@@ -62,7 +62,6 @@ public: // Socket connection operations
      * 写
      *
      * @return >0 写成功, 返回写入的字节数
-     *         =0 已经关闭
      *         <0 出错
      */
     static ssize_t write(socket_t socket_fd, const void *buf, size_t len);

@@ -90,12 +90,12 @@ void Proactor::shutdown()
 void Proactor::register_handler(ProactHandler *handler)
 {
     assert(NULL != handler);
-    socket_t fd = handler->get_socket();
+    const socket_t fd = handler->get_socket();
 
 #if NUT_PLATFORM_OS_WINDOWS
-    assert(NULL != _iocp);
-    const HANDLE rs_iocp = ::CreateIoCompletionPort((HANDLE)fd, _iocp, (ULONG_PTR) handler, 0);
-    if (NULL == rs_iocp)
+    assert(NULL != _iocp && INVALID_HANDLE_VALUE == handler->_reg_iocp);
+    handler->_reg_iocp = ::CreateIoCompletionPort((HANDLE)fd, _iocp, (ULONG_PTR) handler, 0);
+    if (NULL == handler->_reg_iocp)
     {
         NUT_LOG_E(TAG, "failed to associate IOCP with errno %d", ::GetLastError());
         return;
@@ -123,10 +123,41 @@ void Proactor::register_handler(ProactHandler *handler)
 #endif
 }
 
+void Proactor::unregister_handler(ProactHandler *handler)
+{
+    assert(NULL != handler);
+    const socket_t fd = handler->get_socket();
+
+#if NUT_PLATFORM_OS_WINDOWS
+    assert(INVALID_HANDLE_VALUE != handler->_reg_iocp);
+    ::CloseHandle(handler->_reg_iocp);
+    handler->_reg_iocp = INVALID_HANDLE_VALUE;
+#elif NUT_PLATFORM_OS_MAC
+    struct kevent ev[2];
+    EV_SET(ev, fd, EVFILT_READ, EV_DELETE, 0, 0, (void*) handler);
+    EV_SET(ev + 1, fd, EVFILT_WRITE, EV_DELETE, 0, 0, (void*) handler);
+    if (0 != ::kevent(_kq, ev, 2, NULL, 0, NULL))
+    {
+        NUT_LOG_E(TAG, "failed to call ::kevent() with errno %d: %s", errno,
+                  ::strerror(errno));
+        return;
+    }
+#elif NUT_PLATFORM_OS_LINUX
+    struct epoll_event epv;
+    ::memset(&epv, 0, sizeof(epv));
+    epv.data.ptr = (void*) handler;
+    if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_DEL, fd, &epv))
+    {
+        NUT_LOG_E(TAG, "failed to call ::epoll_ctl()");
+        return;
+    }
+#endif
+}
+
 void Proactor::launch_accept(ProactHandler *handler)
 {
     assert(NULL != handler);
-    socket_t listener_socket = handler->get_socket();
+    const socket_t listener_socket = handler->get_socket();
 
 #if NUT_PLATFORM_OS_WINDOWS
     // Create socket
@@ -296,7 +327,7 @@ void Proactor::launch_read(ProactHandler *handler, void* const *buf_ptrs,
     io_request->set_bufs(buf_ptrs, len_ptrs);
 
 #if NUT_PLATFORM_OS_WINDOWS
-    socket_t fd = handler->get_socket();
+    const socket_t fd = handler->get_socket();
 
     DWORD bytes = 0, flags = 0;
     const int rs = ::WSARecv(fd,
@@ -338,7 +369,7 @@ void Proactor::launch_write(ProactHandler *handler, void* const *buf_ptrs,
     io_request->set_bufs(buf_ptrs, len_ptrs);
 
 #if NUT_PLATFORM_OS_WINDOWS
-    socket_t fd = handler->get_socket();
+    const socket_t fd = handler->get_socket();
     DWORD bytes = 0;
     const int rs = ::WSASend(fd,
                              io_request->wsabufs,
@@ -455,7 +486,7 @@ int Proactor::handle_events(int timeout_ms)
     {
         ProactHandler *handler = (ProactHandler*) active_evs[i].udata;
         assert(NULL != handler);
-        socket_t fd = handler->get_socket();
+        const socket_t fd = handler->get_socket();
 
         int events = active_evs[i].filter;
         if (events == EVFILT_READ)
@@ -519,7 +550,7 @@ int Proactor::handle_events(int timeout_ms)
     {
         ProactHandler *handler = (ProactHandler*) events[i].data.ptr;
         assert(NULL != handler);
-        socket_t fd = handler->get_socket();
+        const socket_t fd = handler->get_socket();
 
         if (0 != (events[i].events & EPOLLIN))
         {
@@ -604,6 +635,36 @@ void Proactor::async_register_handler(ProactHandler *handler)
         }
     };
     add_async_task(nut::rc_new<RegisterHandlerTask>(this, handler));
+}
+
+void Proactor::async_unregister_handler(ProactHandler *handler)
+{
+    assert(NULL != handler);
+
+    // Synchronize
+    if (is_in_loop_thread())
+    {
+        unregister_handler(handler);
+        return;
+    }
+
+    // Asynchronize
+    class UnregisterHandlerTask : public nut::Runnable
+    {
+        Proactor *_proactor;
+        nut::rc_ptr<ProactHandler> _handler;
+
+    public:
+        UnregisterHandlerTask(Proactor *p, ProactHandler *h)
+            : _proactor(p), _handler(h)
+        {}
+
+        virtual void run() override
+        {
+            _proactor->unregister_handler(_handler);
+        }
+    };
+    add_async_task(nut::rc_new<UnregisterHandlerTask>(this, handler));
 }
 
 void Proactor::async_launch_accept(ProactHandler *handler)

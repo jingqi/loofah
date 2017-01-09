@@ -62,7 +62,7 @@ bool SockOperation::set_close_on_exit(socket_t socket_fd, bool close_on_exit)
 #endif
 }
 
-void SockOperation::shutdown(socket_t socket_fd)
+void SockOperation::close(socket_t socket_fd)
 {
 #if NUT_PLATFORM_OS_WINDOWS
     ::closesocket(socket_fd);
