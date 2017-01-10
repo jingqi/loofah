@@ -35,8 +35,8 @@ public:
     virtual void handle_connected() override
     {
         NUT_LOG_D(TAG, "server channel connected, fd %d", _sock_stream.get_socket());
-        g_reactor.async_register_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
-        g_reactor.async_disable_handler(this, ReactHandler::WRITE_MASK);
+        g_reactor.register_handler_later(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
+        g_reactor.disable_handler_later(this, ReactHandler::WRITE_MASK);
     }
 
     virtual void handle_read_ready() override
@@ -47,9 +47,17 @@ public:
         if (0 == rs) // 正常结束
         {
             if (Reactor::NEED_UNREGISTER_BEFORE_CLOSE)
-                g_reactor.async_unregister_handler(this);
+                g_reactor.unregister_handler_later(this);
             _sock_stream.close();
-            g_reactor.async_shutdown();
+            for (size_t i = 0, sz = g_server_channels.size(); i < sz; ++i)
+            {
+                if (g_server_channels.at(i).pointer() == this)
+                {
+                    g_server_channels.erase(g_server_channels.begin() + i);
+                    break;
+
+                }
+            }
             return;
         }
 
@@ -57,7 +65,7 @@ public:
         assert(seq == _counter);
         ++_counter;
 
-        g_reactor.async_enable_handler(this, ReactHandler::WRITE_MASK);
+        g_reactor.enable_handler_later(this, ReactHandler::WRITE_MASK);
     }
 
     virtual void handle_write_ready() override
@@ -66,7 +74,7 @@ public:
         NUT_LOG_D(TAG, "send %d bytes to client: %d", rs, _counter);
         assert(rs == sizeof(_counter));
         ++_counter;
-        g_reactor.async_disable_handler(this, ReactHandler::WRITE_MASK);
+        g_reactor.disable_handler_later(this, ReactHandler::WRITE_MASK);
     }
 };
 
@@ -81,8 +89,8 @@ public:
     virtual void handle_connected() override
     {
         NUT_LOG_D(TAG, "client channel connected, fd %d", _sock_stream.get_socket());
-        g_reactor.async_register_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
-        //g_reactor.disable_handler(this, ReactHandler::WRITE_MASK);
+        g_reactor.register_handler_later(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
+        //g_reactor.disable_handler_later(this, ReactHandler::WRITE_MASK);
     }
 
     virtual void handle_read_ready() override
@@ -93,7 +101,7 @@ public:
         if (0 == rs) // 正常结束
         {
             if (Reactor::NEED_UNREGISTER_BEFORE_CLOSE)
-                g_reactor.async_unregister_handler(this);
+                g_reactor.unregister_handler_later(this);
             _sock_stream.close();
             return;
         }
@@ -105,11 +113,11 @@ public:
         if (_counter > 20)
         {
             if (Reactor::NEED_UNREGISTER_BEFORE_CLOSE)
-                g_reactor.async_unregister_handler(this);
+                g_reactor.unregister_handler_later(this);
             _sock_stream.close();
             return;
         }
-        g_reactor.async_enable_handler(this, ReactHandler::WRITE_MASK);
+        g_reactor.enable_handler_later(this, ReactHandler::WRITE_MASK);
     }
 
     virtual void handle_write_ready() override
@@ -118,7 +126,7 @@ public:
         NUT_LOG_D(TAG, "send %d bytes to server: %d", rs, _counter);
         assert(rs == sizeof(_counter));
         ++_counter;
-        g_reactor.async_disable_handler(this, ReactHandler::WRITE_MASK);
+        g_reactor.disable_handler_later(this, ReactHandler::WRITE_MASK);
     }
 };
 
@@ -130,7 +138,7 @@ void test_reactor()
     rc_ptr<ReactAcceptor<ServerChannel> > acc = rc_new<ReactAcceptor<ServerChannel> >();
     InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
     acc->open(addr);
-    g_reactor.async_register_handler(acc, ReactHandler::READ_MASK);
+    g_reactor.register_handler_later(acc, ReactHandler::READ_MASK);
     NUT_LOG_D(TAG, "listening to %s, fd %d", addr.to_string().c_str(), acc->get_socket());
 
     // start client
@@ -138,11 +146,9 @@ void test_reactor()
     NUT_LOG_D(TAG, "will connect to %s", addr.to_string().c_str());
 
     // loop
-    while (true)
+    while (!g_server_channels.empty() || LOOFAH_INVALID_SOCKET_FD != client->get_socket())
     {
         if (g_reactor.handle_events() < 0)
             break;
     }
-    g_server_channels.clear();
-    g_reactor.async_shutdown();
 }

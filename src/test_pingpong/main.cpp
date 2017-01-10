@@ -139,7 +139,7 @@ static void report()
 
 static void timeout(TimeWheel::timer_id_type id, void *arg, uint64_t expires)
 {
-    g_global.proactor.async_shutdown();
+    g_global.proactor.shutdown_later();
 }
 
 int main(int argc, char *argv[])
@@ -166,7 +166,7 @@ int main(int argc, char *argv[])
             break;
         g_global.timewheel.tick();
     }
-    g_global.proactor.async_shutdown();
+    g_global.proactor.shutdown_later();
 
     shutdown_network();
     report();

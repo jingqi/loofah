@@ -19,15 +19,15 @@
 namespace loofah
 {
 
-// Native file descriptor or handle
+// Invalid socket file descriptor
 #if NUT_PLATFORM_OS_WINDOWS
     // ::socket() returns -1 when failed
     // ::WSASocket() returns INVALID_SOCKET when failed, which is also -1
     typedef SOCKET socket_t;
-    #define INVALID_SOCKET_VALUE INVALID_SOCKET
+    #define LOOFAH_INVALID_SOCKET_FD INVALID_SOCKET
 #else
     typedef int socket_t;
-    #define INVALID_SOCKET_VALUE -1
+    #define LOOFAH_INVALID_SOCKET_FD -1
 #endif
 
 }

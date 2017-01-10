@@ -3,12 +3,19 @@
 #include <algorithm> // for std::min()
 
 #include <nut/rc/rc_new.h>
+#include <nut/logging/logger.h>
 
 #include "package_channel.h"
 
 
+// 读缓冲区大小
 #define READ_BUF_LEN 65536
+// 栈上 buffer 指针数
 #define STACK_BUF_COUNT 10
+// 强制关闭超时事件, 单位为毫秒. <0 表示不强制关闭, 0 表示立即关闭, >0 表示超时强制关闭
+#define FORCE_CLOSE_DELAY 5000
+
+#define TAG "loofah.package_channel"
 
 namespace loofah
 {
@@ -17,6 +24,8 @@ PackageChannel::~PackageChannel()
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
 
+    cancel_force_close_timer();
+
     if (NULL != _read_frag)
         nut::FragmentBuffer::delete_fragment(_read_frag);
     _read_frag = NULL;
@@ -24,26 +33,168 @@ PackageChannel::~PackageChannel()
 
 void PackageChannel::set_proactor(Proactor *proactor)
 {
-    assert(NULL != proactor && NULL == _proactor);
+    assert(NULL != proactor);
     NUT_DEBUGGING_ASSERT_ALIVE;
 
+    assert(NULL == _proactor);
     _proactor = proactor;
+}
+
+void PackageChannel::set_time_wheel(nut::TimeWheel *time_wheel)
+{
+    assert(NULL != time_wheel);
+    NUT_DEBUGGING_ASSERT_ALIVE;
+
+    assert(NULL == _time_wheel);
+    _time_wheel = time_wheel;
+}
+
+void PackageChannel::open(socket_t fd)
+{
+    NUT_DEBUGGING_ASSERT_ALIVE;
+    assert(NULL != _proactor && _proactor->is_in_loop_thread() &&
+           !_sock_stream.is_valid());
+
+    ProactChannel::open(fd);
+
+    _proactor->register_handler_later(this);
+    launch_read();
+}
+
+void PackageChannel::setup_force_close_timer()
+{
+    if (NULL == _time_wheel || NUT_INVALID_TIMER_ID != _force_close_timer || FORCE_CLOSE_DELAY <= 0)
+        return;
+    assert(NULL != _proactor && _proactor->is_in_loop_thread());
+    _force_close_timer = _time_wheel->add_timer(
+        FORCE_CLOSE_DELAY, 0, &PackageChannel::on_force_close_timer, this);
+}
+
+void PackageChannel::cancel_force_close_timer()
+{
+    if (NULL == _time_wheel || NUT_INVALID_TIMER_ID == _force_close_timer)
+        return;
+    assert(NULL != _proactor && _proactor->is_in_loop_thread());
+    _time_wheel->cancel_timer(_force_close_timer);
+    _force_close_timer = NUT_INVALID_TIMER_ID;
+}
+
+void PackageChannel::on_force_close_timer(nut::TimeWheel::timer_id_type id,
+                                          void *arg, uint64_t delta)
+{
+    assert(NULL != arg);
+
+    PackageChannel *pthis = (PackageChannel*) arg;
+    pthis->force_close();
+}
+
+void PackageChannel::force_close()
+{
+    NUT_DEBUGGING_ASSERT_ALIVE;
+    assert(NULL != _proactor && _proactor->is_in_loop_thread());
+
+    // 设置关闭标记
+    _closing = true;
+
+    if (!_sock_stream.is_valid())
+        return;
+    cancel_force_close_timer();
+    _sock_stream.close();
+
+    // Handle close event
+    if (_proactor->is_in_loop_thread_and_not_handling())
+    {
+        handle_close(); // NOTE 这里可能会导致自身被删除, 放到最后
+        return;
+    }
+
+    class HandleCloseTask : public nut::Runnable
+    {
+        PackageChannel *_channel;
+
+    public:
+        HandleCloseTask(PackageChannel *c)
+            : _channel(c)
+        {}
+
+        virtual void run() override
+        {
+            _channel->handle_close();
+        }
+    };
+    _proactor->run_later(nut::rc_new<HandleCloseTask>(this));
+}
+
+void PackageChannel::start_closing()
+{
+    NUT_DEBUGGING_ASSERT_ALIVE;
+    assert(NULL != _proactor && _proactor->is_in_loop_thread());
+
+    // 设置关闭标记
+    _closing = true;
+
+    // 可能需要强制关闭
+    if (0 == FORCE_CLOSE_DELAY || _write_queue.empty())
+    {
+        force_close();
+        return;
+    }
+
+    // 关闭读通道
+    _sock_stream.shutdown_read();
+
+    // 设置超时关闭
+    setup_force_close_timer();
+}
+
+void PackageChannel::close_later()
+{
+    NUT_DEBUGGING_ASSERT_ALIVE;
+
+    // 设置关闭标记
+    _closing = true;
+
+    assert(NULL != _proactor);
+    if (_proactor->is_in_loop_thread())
+    {
+        start_closing();
+        return;
+    }
+
+    class StartClosingTask : public nut::Runnable
+    {
+        PackageChannel *_channel;
+
+    public:
+        StartClosingTask(PackageChannel *c)
+            : _channel(c)
+        {}
+
+        virtual void run() override
+        {
+            _channel->start_closing();
+        }
+    };
+    _proactor->run_later(nut::rc_new<StartClosingTask>(this));
 }
 
 void PackageChannel::launch_read()
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
+    assert(NULL != _proactor && _proactor->is_in_loop_thread() &&
+           _sock_stream.is_valid() && !_sock_stream.is_reading_shutdown());
 
     if (NULL == _read_frag)
         _read_frag = nut::FragmentBuffer::new_fragment(READ_BUF_LEN);
     void *buf = _read_frag->buffer;
-    assert(NULL != _proactor);
-    _proactor->async_launch_read(this, &buf, &_read_frag->capacity, 1);
+    _proactor->launch_read_later(this, &buf, &_read_frag->capacity, 1);
 }
 
 void PackageChannel::launch_write()
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
+    assert(NULL != _proactor && _proactor->is_in_loop_thread() &&
+           _sock_stream.is_valid() && !_sock_stream.is_writing_shutdown());
 
     assert(!_write_queue.empty());
     void *bufs[STACK_BUF_COUNT];
@@ -60,13 +211,15 @@ void PackageChannel::launch_write()
     }
 
     assert(NULL != _proactor);
-    _proactor->async_launch_write(this, bufs, lens, buf_count);
+    _proactor->launch_write_later(this, bufs, lens, buf_count);
 }
 
 void PackageChannel::write(Package *pkg)
 {
     assert(NULL != pkg);
     NUT_DEBUGGING_ASSERT_ALIVE;
+    assert(NULL != _proactor && _proactor->is_in_loop_thread() &&
+           _sock_stream.is_valid() && !_closing);
 
     uint32_t header = pkg->readable_size();
     pkg->prepend(&header);
@@ -75,92 +228,16 @@ void PackageChannel::write(Package *pkg)
         launch_write();
 }
 
-void PackageChannel::close()
-{
-    NUT_DEBUGGING_ASSERT_ALIVE;
-
-    assert(NULL != _proactor);
-    _sock_stream.close();
-    handle_close(); // NOTE 这里可能会导致自身被删除, 放到最后
-}
-
-void PackageChannel::open(socket_t fd)
-{
-    NUT_DEBUGGING_ASSERT_ALIVE;
-
-    ProactChannel::open(fd);
-
-    assert(NULL != _proactor);
-    _proactor->async_register_handler(this);
-    launch_read();
-}
-
-void PackageChannel::handle_read_completed(int cb)
-{
-    NUT_DEBUGGING_ASSERT_ALIVE;
-
-    if (0 == cb)
-    {
-        assert(NULL != _proactor);
-        _sock_stream.close();
-        handle_close(); // NOTE 这里可能会导致自身被删除, 放到最后
-        return;
-    }
-
-    // Cache to buffer
-    assert(cb <= _read_frag->capacity);
-    _read_frag->size = cb;
-    _read_frag = _readed_buffer.write_fragment(_read_frag);
-    launch_read();
-
-    // Read package
-    const size_t readable = _readed_buffer.readable_size();
-    if (readable < sizeof(uint32_t))
-        return;
-    uint32_t pkg_len = 0;
-    const size_t rs = _readed_buffer.look_ahead(&pkg_len, sizeof(pkg_len));
-    assert(sizeof(pkg_len) == rs);
-    UNUSED(rs);
-    if (sizeof(pkg_len) + pkg_len > readable)
-        return;
-
-    nut::rc_ptr<Package> pkg = nut::rc_new<Package>(pkg_len);
-    assert(pkg->writable_size() >= pkg_len);
-    _readed_buffer.skip_read(sizeof(pkg_len));
-    _readed_buffer.read(pkg->writable_data(), pkg_len);
-    pkg->skip_write(pkg_len);
-    handle_read(pkg);
-}
-
-void PackageChannel::handle_write_completed(int cb)
-{
-    NUT_DEBUGGING_ASSERT_ALIVE;
-
-    assert(!_write_queue.empty());
-    while (cb > 0)
-    {
-        nut::rc_ptr<Package> pkg = _write_queue.front();
-        const size_t readable = pkg->readable_size();
-        if (cb >= readable)
-        {
-            _write_queue.pop_front();
-            cb -= readable;
-        }
-        else
-        {
-            pkg->skip_read(cb);
-            cb = 0;
-        }
-    }
-
-    if (!_write_queue.empty())
-        launch_write();
-}
-
-void PackageChannel::async_write(Package *pkg)
+void PackageChannel::write_later(Package *pkg)
 {
     assert(NULL != pkg);
     NUT_DEBUGGING_ASSERT_ALIVE;
+
+    if (_closing)
+    {
+        NUT_LOG_E(TAG, "try to write a closing channel");
+        return;
+    }
 
     assert(NULL != _proactor);
     if (_proactor->is_in_loop_thread())
@@ -184,35 +261,95 @@ void PackageChannel::async_write(Package *pkg)
             _channel->write(_pkg);
         }
     };
-    _proactor->run_in_loop_thread(nut::rc_new<WriteTask>(this, pkg));
+    _proactor->run_later(nut::rc_new<WriteTask>(this, pkg));
 }
 
-void PackageChannel::async_close()
+void PackageChannel::handle_read_completed(int cb)
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
 
-    assert(NULL != _proactor);
-    if (_proactor->is_in_loop_thread())
+    if (0 == cb)
     {
-        close();
+        _closing = true;
+        _sock_stream.set_reading_shutdown();
+        if (0 == FORCE_CLOSE_DELAY || _sock_stream.is_writing_shutdown() || _write_queue.empty())
+        {
+            force_close();
+            return;
+        }
+
+        setup_force_close_timer();
         return;
     }
 
-    class CloseTask : public nut::Runnable
+    // Ignore if in closing
+    if (_closing)
+        return;
+
+    // Cache to buffer
+    assert(cb <= _read_frag->capacity);
+    _read_frag->size = cb;
+    _read_frag = _readed_buffer.write_fragment(_read_frag);
+    launch_read();
+
+    // Read package
+    const size_t readable = _readed_buffer.readable_size();
+    if (readable < sizeof(uint32_t))
+        return;
+    uint32_t pkg_len = 0;
+    const size_t rs = _readed_buffer.look_ahead(&pkg_len, sizeof(pkg_len));
+    assert(sizeof(pkg_len) == rs);
+    UNUSED(rs);
+    if (sizeof(pkg_len) + pkg_len > readable)
+        return;
+
+    // Handle package
+    nut::rc_ptr<Package> pkg = nut::rc_new<Package>(pkg_len);
+    assert(pkg->writable_size() >= pkg_len);
+    _readed_buffer.skip_read(sizeof(pkg_len));
+    _readed_buffer.read(pkg->writable_data(), pkg_len);
+    pkg->skip_write(pkg_len);
+    handle_read(pkg);
+}
+
+void PackageChannel::handle_write_completed(int cb)
+{
+    NUT_DEBUGGING_ASSERT_ALIVE;
+
+    // 从本地写队列中移除已写内容
+    assert(!_write_queue.empty());
+    while (cb > 0)
     {
-        PackageChannel *_channel;
-
-    public:
-        CloseTask(PackageChannel *c)
-            : _channel(c)
-        {}
-
-        virtual void run() override
+        nut::rc_ptr<Package> pkg = _write_queue.front();
+        const size_t readable = pkg->readable_size();
+        if (cb >= readable)
         {
-            _channel->close();
+            _write_queue.pop_front();
+            cb -= readable;
         }
-    };
-    _proactor->run_in_loop_thread(nut::rc_new<CloseTask>(this));
+        else
+        {
+            pkg->skip_read(cb);
+            cb = 0;
+        }
+    }
+
+    // 如果本地写队列中还有内容，继续写
+    if (!_write_queue.empty())
+    {
+        launch_write();
+        return;
+    }
+
+    // 如果本地写队列空了，并且处于关闭流程中，则关闭
+    if (_closing)
+    {
+        if (_sock_stream.is_reading_shutdown())
+            force_close();
+        else
+            _sock_stream.shutdown_write();
+        return;
+    }
 }
 
 }

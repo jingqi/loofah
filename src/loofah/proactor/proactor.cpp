@@ -25,7 +25,6 @@
 #include <string.h>
 
 #include <nut/logging/logger.h>
-#include <nut/threading/sync/guard.h>
 
 #include "proactor.h"
 #include "io_request.h"
@@ -424,208 +423,215 @@ int Proactor::handle_events(int timeout_ms)
         return -1;
     }
 
+    {
+        HandleEventsGuard g(this);
+
 #if NUT_PLATFORM_OS_WINDOWS
-    DWORD bytes_transfered = 0;
-    void *key = NULL;
-    OVERLAPPED *io_overlapped = NULL;
-    assert(NULL != _iocp);
-    BOOL rs = ::GetQueuedCompletionStatus(_iocp, &bytes_transfered, (PULONG_PTR)&key,
-                                          &io_overlapped, timeout_ms);
-    // NOTE 返回值为 False, 但是返回的 io_overlapped 不为 NULL, 则仅仅说明链接被中断了
-    if (FALSE == rs && NULL == io_overlapped)
-    {
-        const DWORD errcode = ::GetLastError();
-        if (WAIT_TIMEOUT == errcode)
-            return 0; // WAIT_TIMEOUT 表示等待超时
-        if (ERROR_SUCCESS == errcode)
-            return 0; // timeout_ms 传入 0, 而无事件可处理, 触发 ERROR_SUCCESS 错误
-
-        NUT_LOG_W(TAG, "failed to call ::GetQueuedCompletionStatus() with errno %d",
-                  errcode);
-        return -1;
-    }
-    assert(FALSE != rs || 0 == bytes_transfered);
-
-    ProactHandler *handler = (ProactHandler*) key;
-    assert(NULL != handler);
-
-    assert(NULL != io_overlapped);
-    IORequest *io_request = CONTAINING_RECORD(io_overlapped, IORequest, overlapped);
-    assert(NULL != io_request);
-
-    switch (io_request->event_type)
-    {
-    case ProactHandler::ACCEPT_MASK:
-    {
-        /* Get peer address
-         *
-        struct sockaddr_in *remote_addr = NULL, *local_addr = NULL;
-        int remote_len = sizeof(struct sockaddr_in), local_len = sizeof(struct sockaddr_in);
-        assert(NULL != func_GetAcceptExSockaddrs);
-        func_GetAcceptExSockaddrs(io_request->wsabuf.buf,
-                                  io_request->wsabuf.len - 2 * (sizeof(struct sockaddr_in) + 16),
-                                  sizeof(struct sockaddr_in) + 16,
-                                  sizeof(struct sockaddr_in) + 16,
-                                  (LPSOCKADDR*)&local_addr,
-                                  &local_len,
-                                  (LPSOCKADDR*)&remote_addr,
-                                  &remote_len);
-         */
-        assert(1 == io_request->buf_count && NULL != io_request->wsabufs[0].buf);
-        ::free(io_request->wsabufs[0].buf);
-
-        handler->handle_accept_completed(io_request->accept_socket);
-        break;
-    }
-
-    case ProactHandler::READ_MASK:
-        handler->handle_read_completed(bytes_transfered);
-        break;
-
-    case ProactHandler::WRITE_MASK:
-        handler->handle_write_completed(bytes_transfered);
-        break;
-
-    default:
-        NUT_LOG_E(TAG, "unknown event type %d", io_request->event_type);
-        IORequest::delete_request(io_request);
-        return -1;
-    }
-    IORequest::delete_request(io_request);
-    return 0;
-#elif NUT_PLATFORM_OS_MAC
-    struct timespec timeout;
-    timeout.tv_sec = timeout_ms / 1000;
-    timeout.tv_nsec = (timeout_ms % 1000) * 1000 * 1000;
-    struct kevent active_evs[MAX_ACTIVE_EVENTS];
-
-    int n = ::kevent(_kq, NULL, 0, active_evs, MAX_ACTIVE_EVENTS, &timeout);
-    for (int i = 0; i < n; ++i)
-    {
-        ProactHandler *handler = (ProactHandler*) active_evs[i].udata;
-        assert(NULL != handler);
-        const socket_t fd = handler->get_socket();
-
-        int events = active_evs[i].filter;
-        if (events == EVFILT_READ)
+        DWORD bytes_transfered = 0;
+        void *key = NULL;
+        OVERLAPPED *io_overlapped = NULL;
+        assert(NULL != _iocp);
+        BOOL rs = ::GetQueuedCompletionStatus(_iocp, &bytes_transfered, (PULONG_PTR)&key,
+                                              &io_overlapped, timeout_ms);
+        // NOTE 返回值为 False, 但是返回的 io_overlapped 不为 NULL, 则仅仅说明链接被中断了
+        if (FALSE == rs && NULL == io_overlapped)
         {
-            if (handler->_request_accept > 0)
+            const DWORD errcode = ::GetLastError();
+            // NOTE WAIT_TIMEOUT 表示等待超时;
+            //      timeout_ms 传入 0, 而无事件可处理, 触发 ERROR_SUCCESS 错误;
+            if (WAIT_TIMEOUT != errcode && ERROR_SUCCESS != errcode)
             {
-                --handler->_request_accept;
-                if (handler->_request_accept <= 0)
-                    disable_handler(handler, ProactHandler::READ_MASK);
-
-                while (true)
-                {
-                    socket_t accepted = ReactAcceptorBase::handle_accept(fd);
-                    if (INVALID_SOCKET_VALUE == accepted)
-                        break;
-                    handler->handle_accept_completed(accepted);
-                }
+                NUT_LOG_W(TAG, "failed to call ::GetQueuedCompletionStatus() with errno %d",
+                          errcode);
+                return -1;
             }
-            else
-            {
-                assert(!handler->_read_queue.empty());
-                IORequest *io_request = handler->_read_queue.front();
-                assert(NULL != io_request);
-                handler->_read_queue.pop();
-
-                if (handler->_read_queue.empty())
-                    disable_handler(handler, ProactHandler::READ_MASK);
-
-                const int readed = ::readv(fd, io_request->iovs, io_request->buf_count);
-                handler->handle_read_completed(readed);
-
-                IORequest::delete_request(io_request);
-            }
-        }
-        else if (events == EVFILT_WRITE)
-        {
-            assert(!handler->_write_queue.empty());
-            IORequest *io_request = handler->_write_queue.front();
-            assert(NULL != io_request);
-            handler->_write_queue.pop();
-
-            if (handler->_write_queue.empty())
-                disable_handler(handler, ProactHandler::WRITE_MASK);
-
-            const int wrote = ::writev(fd, io_request->iovs, io_request->buf_count);
-            handler->handle_write_completed(wrote);
-
-            IORequest::delete_request(io_request);
         }
         else
         {
-            NUT_LOG_E(TAG, "unknown kevent type %d", events);
-            return -1;
-        }
-    }
-    return 0;
-#elif NUT_PLATFORM_OS_LINUX
-    struct epoll_event events[MAX_ACTIVE_EVENTS];
-    const int n = ::epoll_wait(_epoll_fd, events, MAX_ACTIVE_EVENTS, timeout_ms);
-    for (int i = 0; i < n; ++i)
-    {
-        ProactHandler *handler = (ProactHandler*) events[i].data.ptr;
-        assert(NULL != handler);
-        const socket_t fd = handler->get_socket();
+            assert(FALSE != rs || 0 == bytes_transfered);
 
-        if (0 != (events[i].events & EPOLLIN))
-        {
-            if (handler->_request_accept > 0)
+            ProactHandler *handler = (ProactHandler*) key;
+            assert(NULL != handler);
+
+            assert(NULL != io_overlapped);
+            IORequest *io_request = CONTAINING_RECORD(io_overlapped, IORequest, overlapped);
+            assert(NULL != io_request);
+
+            switch (io_request->event_type)
             {
-                --handler->_request_accept;
-                if (handler->_request_accept <= 0)
-                    disable_handler(handler, ProactHandler::READ_MASK);
+            case ProactHandler::ACCEPT_MASK:
+            {
+                /* Get peer address
+                 *
+                struct sockaddr_in *remote_addr = NULL, *local_addr = NULL;
+                int remote_len = sizeof(struct sockaddr_in), local_len = sizeof(struct sockaddr_in);
+                assert(NULL != func_GetAcceptExSockaddrs);
+                func_GetAcceptExSockaddrs(io_request->wsabuf.buf,
+                                          io_request->wsabuf.len - 2 * (sizeof(struct sockaddr_in) + 16),
+                                          sizeof(struct sockaddr_in) + 16,
+                                          sizeof(struct sockaddr_in) + 16,
+                                          (LPSOCKADDR*)&local_addr,
+                                          &local_len,
+                                          (LPSOCKADDR*)&remote_addr,
+                                          &remote_len);
+                 */
+                assert(1 == io_request->buf_count && NULL != io_request->wsabufs[0].buf);
+                ::free(io_request->wsabufs[0].buf);
 
-                while (true)
+                handler->handle_accept_completed(io_request->accept_socket);
+                break;
+            }
+
+            case ProactHandler::READ_MASK:
+                handler->handle_read_completed(bytes_transfered);
+                break;
+
+            case ProactHandler::WRITE_MASK:
+                handler->handle_write_completed(bytes_transfered);
+                break;
+
+            default:
+                NUT_LOG_E(TAG, "unknown event type %d", io_request->event_type);
+                IORequest::delete_request(io_request);
+                return -1;
+            }
+            IORequest::delete_request(io_request);
+        }
+#elif NUT_PLATFORM_OS_MAC
+        struct timespec timeout;
+        timeout.tv_sec = timeout_ms / 1000;
+        timeout.tv_nsec = (timeout_ms % 1000) * 1000 * 1000;
+        struct kevent active_evs[MAX_ACTIVE_EVENTS];
+
+        int n = ::kevent(_kq, NULL, 0, active_evs, MAX_ACTIVE_EVENTS, &timeout);
+        for (int i = 0; i < n; ++i)
+        {
+            ProactHandler *handler = (ProactHandler*) active_evs[i].udata;
+            assert(NULL != handler);
+            const socket_t fd = handler->get_socket();
+
+            int events = active_evs[i].filter;
+            if (events == EVFILT_READ)
+            {
+                if (handler->_request_accept > 0)
                 {
-                    socket_t accepted = ReactAcceptorBase::handle_accept(fd);
-                    if (INVALID_SOCKET_VALUE == accepted)
-                        break;
-                    handler->handle_accept_completed(accepted);
+                    --handler->_request_accept;
+                    if (handler->_request_accept <= 0)
+                        disable_handler(handler, ProactHandler::READ_MASK);
+
+                    while (true)
+                    {
+                        socket_t accepted = ReactAcceptorBase::handle_accept(fd);
+                        if (LOOFAH_INVALID_SOCKET_FD == accepted)
+                            break;
+                        handler->handle_accept_completed(accepted);
+                    }
                 }
+                else
+                {
+                    assert(!handler->_read_queue.empty());
+                    IORequest *io_request = handler->_read_queue.front();
+                    assert(NULL != io_request);
+                    handler->_read_queue.pop();
+
+                    if (handler->_read_queue.empty())
+                        disable_handler(handler, ProactHandler::READ_MASK);
+
+                    const int readed = ::readv(fd, io_request->iovs, io_request->buf_count);
+                    handler->handle_read_completed(readed);
+
+                    IORequest::delete_request(io_request);
+                }
+            }
+            else if (events == EVFILT_WRITE)
+            {
+                assert(!handler->_write_queue.empty());
+                IORequest *io_request = handler->_write_queue.front();
+                assert(NULL != io_request);
+                handler->_write_queue.pop();
+
+                if (handler->_write_queue.empty())
+                    disable_handler(handler, ProactHandler::WRITE_MASK);
+
+                const int wrote = ::writev(fd, io_request->iovs, io_request->buf_count);
+                handler->handle_write_completed(wrote);
+
+                IORequest::delete_request(io_request);
             }
             else
             {
-                assert(!handler->_read_queue.empty());
-                IORequest *io_request = handler->_read_queue.front();
+                NUT_LOG_E(TAG, "unknown kevent type %d", events);
+                return -1;
+            }
+        }
+#elif NUT_PLATFORM_OS_LINUX
+        struct epoll_event events[MAX_ACTIVE_EVENTS];
+        const int n = ::epoll_wait(_epoll_fd, events, MAX_ACTIVE_EVENTS, timeout_ms);
+        for (int i = 0; i < n; ++i)
+        {
+            ProactHandler *handler = (ProactHandler*) events[i].data.ptr;
+            assert(NULL != handler);
+            const socket_t fd = handler->get_socket();
+
+            if (0 != (events[i].events & EPOLLIN))
+            {
+                if (handler->_request_accept > 0)
+                {
+                    --handler->_request_accept;
+                    if (handler->_request_accept <= 0)
+                        disable_handler(handler, ProactHandler::READ_MASK);
+
+                    while (true)
+                    {
+                        socket_t accepted = ReactAcceptorBase::handle_accept(fd);
+                        if (LOOFAH_INVALID_SOCKET_FD == accepted)
+                            break;
+                        handler->handle_accept_completed(accepted);
+                    }
+                }
+                else
+                {
+                    assert(!handler->_read_queue.empty());
+                    IORequest *io_request = handler->_read_queue.front();
+                    assert(NULL != io_request);
+                    handler->_read_queue.pop();
+
+                    if (handler->_read_queue.empty())
+                        disable_handler(handler, ProactHandler::READ_MASK);
+
+                    const int readed = ::readv(fd, io_request->iovs, io_request->buf_count);
+                    handler->handle_read_completed(readed);
+
+                    IORequest::delete_request(io_request);
+                }
+            }
+            if (0 != (events[i].events & EPOLLOUT))
+            {
+                assert(!handler->_write_queue.empty());
+                IORequest *io_request = handler->_write_queue.front();
                 assert(NULL != io_request);
-                handler->_read_queue.pop();
+                handler->_write_queue.pop();
 
-                if (handler->_read_queue.empty())
-                    disable_handler(handler, ProactHandler::READ_MASK);
+                if (handler->_write_queue.empty())
+                    disable_handler(handler, ProactHandler::WRITE_MASK);
 
-                const int readed = ::readv(fd, io_request->iovs, io_request->buf_count);
-                handler->handle_read_completed(readed);
+                const int wrote = ::writev(fd, io_request->iovs, io_request->buf_count);
+                handler->handle_write_completed(wrote);
 
                 IORequest::delete_request(io_request);
             }
         }
-        if (0 != (events[i].events & EPOLLOUT))
-        {
-            assert(!handler->_write_queue.empty());
-            IORequest *io_request = handler->_write_queue.front();
-            assert(NULL != io_request);
-            handler->_write_queue.pop();
-
-            if (handler->_write_queue.empty())
-                disable_handler(handler, ProactHandler::WRITE_MASK);
-
-            const int wrote = ::writev(fd, io_request->iovs, io_request->buf_count);
-            handler->handle_write_completed(wrote);
-
-            IORequest::delete_request(io_request);
-        }
-    }
-    return 0;
 #endif
 
+    }
+
     // Run asynchronized tasks
-    run_async_tasks();
+    run_later_tasks();
+
+    return 0;
 }
 
-void Proactor::async_register_handler(ProactHandler *handler)
+void Proactor::register_handler_later(ProactHandler *handler)
 {
     assert(NULL != handler);
 
@@ -652,11 +658,11 @@ void Proactor::async_register_handler(ProactHandler *handler)
             _proactor->register_handler(_handler);
         }
     };
-    add_async_task(nut::rc_new<RegisterHandlerTask>(this, handler));
+    add_later_task(nut::rc_new<RegisterHandlerTask>(this, handler));
 }
 
 #if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
-void Proactor::async_unregister_handler(ProactHandler *handler)
+void Proactor::unregister_handler_later(ProactHandler *handler)
 {
     assert(NULL != handler);
 
@@ -683,11 +689,11 @@ void Proactor::async_unregister_handler(ProactHandler *handler)
             _proactor->unregister_handler(_handler);
         }
     };
-    add_async_task(nut::rc_new<UnregisterHandlerTask>(this, handler));
+    add_later_task(nut::rc_new<UnregisterHandlerTask>(this, handler));
 }
 #endif
 
-void Proactor::async_launch_accept(ProactHandler *handler)
+void Proactor::launch_accept_later(ProactHandler *handler)
 {
     assert(NULL != handler);
 
@@ -714,10 +720,10 @@ void Proactor::async_launch_accept(ProactHandler *handler)
             _proactor->launch_accept(_handler);
         }
     };
-    add_async_task(nut::rc_new<LaunchAcceptTask>(this, handler));
+    add_later_task(nut::rc_new<LaunchAcceptTask>(this, handler));
 }
 
-void Proactor::async_launch_read(ProactHandler *handler, void* const *buf_ptrs,
+void Proactor::launch_read_later(ProactHandler *handler, void* const *buf_ptrs,
                                  const size_t *len_ptrs, size_t buf_count)
 {
     assert(NULL != handler && NULL != buf_ptrs && NULL != len_ptrs && buf_count > 0);
@@ -760,11 +766,11 @@ void Proactor::async_launch_read(ProactHandler *handler, void* const *buf_ptrs,
             _proactor->launch_read(_handler, _buf_ptrs, _len_ptrs, _buf_count);
         }
     };
-    add_async_task(nut::rc_new<LaunchReadTask>(this, handler, buf_ptrs, len_ptrs, buf_count));
+    add_later_task(nut::rc_new<LaunchReadTask>(this, handler, buf_ptrs, len_ptrs, buf_count));
 }
 
-void Proactor::async_launch_write(ProactHandler *handler, void* const *buf_ptrs,
-                                 const size_t *len_ptrs, size_t buf_count)
+void Proactor::launch_write_later(ProactHandler *handler, void* const *buf_ptrs,
+                                  const size_t *len_ptrs, size_t buf_count)
 {
     assert(NULL != handler && NULL != buf_ptrs && NULL != len_ptrs && buf_count > 0);
 
@@ -806,10 +812,10 @@ void Proactor::async_launch_write(ProactHandler *handler, void* const *buf_ptrs,
             _proactor->launch_write(_handler, _buf_ptrs, _len_ptrs, _buf_count);
         }
     };
-    add_async_task(nut::rc_new<LaunchWriteTask>(this, handler, buf_ptrs, len_ptrs, buf_count));
+    add_later_task(nut::rc_new<LaunchWriteTask>(this, handler, buf_ptrs, len_ptrs, buf_count));
 }
 
-void Proactor::async_shutdown()
+void Proactor::shutdown_later()
 {
     _closing_or_closed = true;
 }

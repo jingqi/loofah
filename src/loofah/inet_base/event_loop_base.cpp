@@ -1,4 +1,4 @@
-
+﻿
 #include <stdlib.h> // for NULL
 
 #include <nut/threading/sync/guard.h>
@@ -17,11 +17,11 @@ EventLoopBase::EventLoopBase()
     _loop_tid = nut::Thread::current_thread_id();
 }
 
-void EventLoopBase::add_async_task(nut::Runnable *runnable)
+void EventLoopBase::add_later_task(nut::Runnable *runnable)
 {
     assert(NULL != runnable);
     nut::Guard<nut::Mutex> g(&_mutex);
-    _async_tasks.push_back(runnable);
+    _later_tasks.push_back(runnable);
 }
 
 bool EventLoopBase::is_in_loop_thread() const
@@ -29,36 +29,36 @@ bool EventLoopBase::is_in_loop_thread() const
     return nut::Thread::tid_equals(_loop_tid, nut::Thread::current_thread_id());
 }
 
-void EventLoopBase::run_in_loop_thread(nut::Runnable *runnable)
+void EventLoopBase::run_later_tasks()
+{
+    // NOTE This method can only be called from inside loop thread
+    assert(is_in_loop_thread_and_not_handling());
+
+    std::vector<nut::rc_ptr<nut::Runnable> > later_tasks;
+    {
+        nut::Guard<nut::Mutex> g(&_mutex);
+        later_tasks = _later_tasks;
+        _later_tasks.clear();
+    }
+
+    for (size_t i = 0, sz = later_tasks.size(); i < sz; ++i)
+    {
+        nut::Runnable *runnable = later_tasks.at(i);
+        assert(NULL != runnable);
+        runnable->run();
+    }
+}
+
+void EventLoopBase::run_later(nut::Runnable *runnable)
 {
     assert(NULL != runnable);
 
-    if (nut::Thread::tid_equals(_loop_tid, nut::Thread::current_thread_id()))
+    if (is_in_loop_thread_and_not_handling())
     {
         runnable->run();
         return;
     }
-    add_async_task(runnable);
-}
-
-void EventLoopBase::run_async_tasks()
-{
-    // NOTE This method can only be called from inside loop thread
-    assert(is_in_loop_thread());
-
-    std::vector<nut::rc_ptr<nut::Runnable> > async_tasks;
-    {
-        nut::Guard<nut::Mutex> g(&_mutex);
-        async_tasks = _async_tasks;
-        _async_tasks.clear();
-    }
-
-    for (size_t i = 0, sz = async_tasks.size(); i < sz; ++i)
-    {
-        nut::Runnable *runnable = async_tasks.at(i);
-        assert(NULL != runnable);
-        runnable->run();
-    }
+    add_later_task(runnable);
 }
 
 }

@@ -58,7 +58,7 @@ bool ProactAcceptorBase::open(const InetAddr& addr, int listen_num)
     {
         NUT_LOG_E(TAG, "failed to call ::bind() with addr %s", addr.to_string().c_str());
         SockOperation::close(_listener_socket);
-        _listener_socket = INVALID_SOCKET_VALUE;
+        _listener_socket = LOOFAH_INVALID_SOCKET_FD;
         return false;
     }
 
@@ -71,7 +71,7 @@ bool ProactAcceptorBase::open(const InetAddr& addr, int listen_num)
     {
         NUT_LOG_E(TAG, "failed to call ::listen() with addr %s", addr.to_string().c_str());
         SockOperation::close(_listener_socket);
-        _listener_socket = INVALID_SOCKET_VALUE;
+        _listener_socket = LOOFAH_INVALID_SOCKET_FD;
         return false;
     }
 

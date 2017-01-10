@@ -54,21 +54,21 @@ public:
     Proactor();
     ~Proactor();
 
-    void async_register_handler(ProactHandler *handler);
+    void register_handler_later(ProactHandler *handler);
 #if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
-    void async_unregister_handler(ProactHandler *handler);
+    void unregister_handler_later(ProactHandler *handler);
 #endif
 
-    void async_launch_accept(ProactHandler *handler);
-    void async_launch_read(ProactHandler *handler, void* const *buf_ptrs,
+    void launch_accept_later(ProactHandler *handler);
+    void launch_read_later(ProactHandler *handler, void* const *buf_ptrs,
                            const size_t *len_ptrs, size_t buf_count);
-    void async_launch_write(ProactHandler *handler, void* const *buf_ptrs,
+    void launch_write_later(ProactHandler *handler, void* const *buf_ptrs,
                             const size_t *len_ptrs, size_t buf_count);
 
     /**
      * 关闭 proactor
      */
-    void async_shutdown();
+    void shutdown_later();
 
     /**
      * @param timeout_ms 超时毫秒数，在 Windows 下可传入 INFINITE 表示无穷等待

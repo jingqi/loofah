@@ -39,8 +39,8 @@ public:
     virtual void handle_connected() override
     {
         NUT_LOG_D(TAG, "server channel connected");
-        g_global.proactor.async_register_handler(this);
-        g_global.proactor.async_launch_read(this, &_buf, &g_global.block_size, 1);
+        g_global.proactor.register_handler_later(this);
+        g_global.proactor.launch_read_later(this, &_buf, &g_global.block_size, 1);
     }
 
     virtual void handle_read_completed(int cb) override
@@ -49,7 +49,7 @@ public:
         if (0 == cb) // 正常结束
         {
             _sock_stream.close();
-            g_global.proactor.async_shutdown();
+            g_global.proactor.shutdown_later();
             return;
         }
 
@@ -57,13 +57,13 @@ public:
         ++g_global.server_read_count;
         g_global.server_read_size += cb;
 
-        g_global.proactor.async_launch_write(this, &_buf, &g_global.block_size, 1);
+        g_global.proactor.launch_write_later(this, &_buf, &g_global.block_size, 1);
     }
 
     virtual void handle_write_completed(int cb) override
     {
         assert(cb == g_global.block_size);
-        g_global.proactor.async_launch_read(this, &_buf, &g_global.block_size, 1);
+        g_global.proactor.launch_read_later(this, &_buf, &g_global.block_size, 1);
     }
 };
 
@@ -74,7 +74,7 @@ void start_server()
     g_acceptor = rc_new<ProactAcceptor<ServerChannel> >();
     InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
     g_acceptor->open(addr);
-    g_global.proactor.async_register_handler(g_acceptor);
-    g_global.proactor.async_launch_accept(g_acceptor);
+    g_global.proactor.register_handler_later(g_acceptor);
+    g_global.proactor.launch_accept_later(g_acceptor);
     NUT_LOG_D(TAG, "listening to %s", addr.to_string().c_str());
 }

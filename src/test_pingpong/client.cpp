@@ -36,8 +36,8 @@ public:
     virtual void handle_connected() override
     {
         NUT_LOG_D(TAG, "client channel connected");
-        g_global.proactor.async_register_handler(this);
-        g_global.proactor.async_launch_write(this, &_buf, &g_global.block_size, 1);
+        g_global.proactor.register_handler_later(this);
+        g_global.proactor.launch_write_later(this, &_buf, &g_global.block_size, 1);
     }
 
     virtual void handle_read_completed(int cb) override
@@ -53,13 +53,13 @@ public:
         ++g_global.client_read_count;
         g_global.client_read_size += cb;
 
-        g_global.proactor.async_launch_write(this, &_buf, &g_global.block_size, 1);
+        g_global.proactor.launch_write_later(this, &_buf, &g_global.block_size, 1);
     }
 
     virtual void handle_write_completed(int cb) override
     {
         assert(cb == g_global.block_size);
-        g_global.proactor.async_launch_read(this, &_buf, &g_global.block_size, 1);
+        g_global.proactor.launch_read_later(this, &_buf, &g_global.block_size, 1);
     }
 };
 

@@ -16,7 +16,7 @@ namespace loofah
 
 class LOOFAH_API ReactAcceptorBase : public ReactHandler
 {
-    socket_t _listener_socket = INVALID_SOCKET_VALUE;
+    socket_t _listener_socket = LOOFAH_INVALID_SOCKET_FD;
 
 public:
     /**
@@ -48,7 +48,7 @@ public:
         {
             // Accept
             socket_t fd = handle_accept(get_socket());
-            if (INVALID_SOCKET_VALUE == fd)
+            if (LOOFAH_INVALID_SOCKET_FD == fd)
                 break;
 
             // Create new handler

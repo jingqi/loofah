@@ -14,6 +14,7 @@ namespace
 {
 
 Proactor g_proactor;
+TimeWheel g_timewheel;
 class ServerChannel;
 std::vector<rc_ptr<ServerChannel> > g_server_channels;
 
@@ -26,6 +27,7 @@ public:
     {
         // Initialize
         set_proactor(&g_proactor);
+        set_time_wheel(&g_timewheel);
 
         // Hold reference
         g_server_channels.push_back(this);
@@ -48,7 +50,7 @@ public:
 
         rc_ptr<Package> new_pkg = rc_new<Package>();
         new_pkg->write(&_counter, sizeof(_counter));
-        async_write(new_pkg);
+        write_later(new_pkg);
         ++_counter;
     }
 
@@ -65,8 +67,6 @@ public:
                 break;
             }
         }
-
-        g_proactor.async_shutdown();
     }
 };
 
@@ -79,6 +79,7 @@ public:
     {
         // Initialize
         set_proactor(&g_proactor);
+        set_time_wheel(&g_timewheel);
     }
 
     virtual void handle_connected() override
@@ -87,7 +88,7 @@ public:
 
         rc_ptr<Package> new_pkg = rc_new<Package>();
         new_pkg->write(&_counter, sizeof(_counter));
-        async_write(new_pkg);
+        write_later(new_pkg);
         ++_counter;
     }
 
@@ -101,16 +102,17 @@ public:
         assert(tmp == _counter);
         ++_counter;
 
-        if (_counter > 20)
-        {
-            async_close();
-            return;
-        }
-
         rc_ptr<Package> new_pkg = rc_new<Package>();
         new_pkg->write(&_counter, sizeof(_counter));
-        async_write(new_pkg);
+        write_later(new_pkg);
         ++_counter;
+
+        if (_counter > 20)
+        {
+            NUT_LOG_D(TAG, "client going to close");
+            close_later();
+            return;
+        }
     }
 
     virtual void handle_close() override
@@ -127,8 +129,8 @@ void test_package_channel()
     rc_ptr<ProactAcceptor<ServerChannel> > acc = rc_new<ProactAcceptor<ServerChannel> >();
     InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
     acc->open(addr);
-    g_proactor.async_register_handler(acc);
-    g_proactor.async_launch_accept(acc);
+    g_proactor.register_handler_later(acc);
+    g_proactor.launch_accept_later(acc);
     NUT_LOG_D(TAG, "listening to %s", addr.to_string().c_str());
 
     // start client
@@ -136,11 +138,10 @@ void test_package_channel()
     NUT_LOG_D(TAG, "will connect to %s", addr.to_string().c_str());
 
     // loop
-    while (true)
+    while (!g_server_channels.empty() || LOOFAH_INVALID_SOCKET_FD != client->get_socket())
     {
-        if (g_proactor.handle_events() < 0)
+        if (g_proactor.handle_events(TimeWheel::TICK_GRANULARITY_MS) < 0)
             break;
+        g_timewheel.tick();
     }
-    g_server_channels.clear();
-    g_proactor.async_shutdown();
 }

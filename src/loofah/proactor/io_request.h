@@ -29,7 +29,7 @@ public:
     // 事件类型
     int event_type = 0;
 
-    socket_t accept_socket = INVALID_SOCKET_VALUE;
+    socket_t accept_socket = LOOFAH_INVALID_SOCKET_FD;
 
     const size_t buf_count = 0;
 
@@ -60,7 +60,7 @@ private:
 public:
 #if NUT_PLATFORM_OS_WINDOWS
     static IORequest* new_request(int event_type, size_t buf_count,
-                                  socket_t accept_socket = INVALID_SOCKET_VALUE);
+                                  socket_t accept_socket = LOOFAH_INVALID_SOCKET_FD);
 #else
     static IORequest* new_request(int event_type, size_t buf_count);
 #endif

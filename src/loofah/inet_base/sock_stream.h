@@ -12,9 +12,14 @@ namespace loofah
 class LOOFAH_API SockStream
 {
 protected:
-    socket_t _socket_fd = INVALID_SOCKET_VALUE;
+    socket_t _socket_fd = LOOFAH_INVALID_SOCKET_FD;
+    bool _reading_shutdown = false, _writing_shutdown = false;
 
 public:
+    ~SockStream();
+
+    void open(socket_t fd);
+
     socket_t get_socket() const
     {
         return _socket_fd;
@@ -22,25 +27,28 @@ public:
 
     bool is_valid() const
     {
-        return INVALID_SOCKET_VALUE != _socket_fd;
+        return LOOFAH_INVALID_SOCKET_FD != _socket_fd;
     }
 
-    void open(socket_t fd);
+    void close();
 
-    void close()
+    bool shutdown_read();
+
+    bool is_reading_shutdown() const
     {
-        SockOperation::close(_socket_fd);
-        _socket_fd = INVALID_SOCKET_VALUE;
+        return _reading_shutdown;
     }
 
-    bool shutdown_read()
+    void set_reading_shutdown()
     {
-        return SockOperation::shutdown_read(_socket_fd);
+        _reading_shutdown = true;
     }
 
-    bool shutdown_write()
+    bool shutdown_write();
+
+    bool is_writing_shutdown() const
     {
-        return SockOperation::shutdown_write(_socket_fd);
+        return _writing_shutdown;
     }
 
     /**

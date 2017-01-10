@@ -54,16 +54,16 @@ public:
     Reactor();
     ~Reactor();
 
-    void async_register_handler(ReactHandler *handler, int mask);
-    void async_unregister_handler(ReactHandler *handler);
+    void register_handler_later(ReactHandler *handler, int mask);
+    void unregister_handler_later(ReactHandler *handler);
 
-    void async_enable_handler(ReactHandler *handler, int mask);
-    void async_disable_handler(ReactHandler *handler, int mask);
+    void enable_handler_later(ReactHandler *handler, int mask);
+    void disable_handler_later(ReactHandler *handler, int mask);
 
     /**
      * 关闭 reactor
      */
-    void async_shutdown();
+    void shutdown_later();
 
     /**
      * @return <0 出错

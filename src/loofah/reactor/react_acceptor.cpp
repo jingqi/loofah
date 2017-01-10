@@ -27,7 +27,7 @@ bool ReactAcceptorBase::open(const InetAddr& addr, int listen_num)
     // Create socket
     const int domain = addr.is_ipv6() ? AF_INET6 : AF_INET;
     _listener_socket = ::socket(domain, SOCK_STREAM, 0);
-    if (INVALID_SOCKET_VALUE == _listener_socket)
+    if (LOOFAH_INVALID_SOCKET_FD == _listener_socket)
     {
         NUT_LOG_E(TAG, "failed to call ::socket()");
         return false;
@@ -44,7 +44,7 @@ bool ReactAcceptorBase::open(const InetAddr& addr, int listen_num)
     {
         NUT_LOG_E(TAG, "failed to call ::bind() with addr %s", addr.to_string().c_str());
         SockOperation::close(_listener_socket);
-        _listener_socket = INVALID_SOCKET_VALUE;
+        _listener_socket = LOOFAH_INVALID_SOCKET_FD;
         return false;
     }
 
@@ -53,7 +53,7 @@ bool ReactAcceptorBase::open(const InetAddr& addr, int listen_num)
     {
         NUT_LOG_E(TAG, "failed to call ::listen() with addr %s", addr.to_string().c_str());
         SockOperation::close(_listener_socket);
-        _listener_socket = INVALID_SOCKET_VALUE;
+        _listener_socket = LOOFAH_INVALID_SOCKET_FD;
         return false;
     }
 
@@ -73,7 +73,7 @@ socket_t ReactAcceptorBase::handle_accept(socket_t listener_socket)
     socklen_t rsz = peer_addr.get_max_sockaddr_size();
 #endif
     socket_t fd = ::accept(listener_socket, peer_addr.cast_to_sockaddr(), &rsz);
-    if (INVALID_SOCKET_VALUE == fd)
+    if (LOOFAH_INVALID_SOCKET_FD == fd)
     {
 #if NUT_PLATFORM_OS_WINDOWS
         const int errcode = ::WSAGetLastError();
@@ -88,7 +88,7 @@ socket_t ReactAcceptorBase::handle_accept(socket_t listener_socket)
                       ::strerror(errno));
         }
 #endif
-        return INVALID_SOCKET_VALUE;
+        return LOOFAH_INVALID_SOCKET_FD;
     }
 
     if (!SockOperation::set_nonblocking(fd))

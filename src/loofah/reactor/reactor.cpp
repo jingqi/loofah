@@ -21,7 +21,6 @@
 #include <string.h>
 
 #include <nut/logging/logger.h>
-#include <nut/threading/sync/guard.h>
 #include <nut/rc/rc_new.h>
 
 #include "reactor.h"
@@ -273,93 +272,97 @@ int Reactor::handle_events(int timeout_ms)
         return -1;
     }
 
+    {
+        HandleEventsGuard g(this);
+
 #if NUT_PLATFORM_OS_WINDOWS
-    struct timeval timeout, *ptimeout = NULL; // NULL 表示无限等待
-    if (timeout_ms >= 0)
-    {
-        timeout.tv_sec = timeout_ms / 1000;
-        timeout.tv_usec = (timeout_ms % 1000) * 1000;
-        ptimeout = &timeout;
-    }
-
-    FD_SET read_set = _read_set, write_set = _write_set, except_set = _except_set;
-
-    const int rs = ::select(0, &read_set, &write_set, &except_set, ptimeout);
-    if (SOCKET_ERROR == rs)
-    {
-        NUT_LOG_E(TAG, "failed to call ::select() with errorno %d", ::WSAGetLastError());
-        return -1;
-    }
-    for (unsigned i = 0; i < read_set.fd_count; ++i)
-    {
-        socket_t fd = read_set.fd_array[i];
-        std::map<socket_t, ReactHandler*>::const_iterator iter = _socket_to_handler.find(fd);
-        if (iter == _socket_to_handler.end())
-            continue;
-        ReactHandler *handler = iter->second;
-        assert(NULL != handler);
-        handler->handle_read_ready();
-    }
-    for (unsigned i = 0; i < write_set.fd_count; ++i)
-    {
-        socket_t fd = write_set.fd_array[i];
-        std::map<socket_t, ReactHandler*>::const_iterator iter = _socket_to_handler.find(fd);
-        if (iter == _socket_to_handler.end())
-            continue;
-        ReactHandler *handler = iter->second;
-        assert(NULL != handler);
-        handler->handle_write_ready();
-    }
-    return 0;
-#elif NUT_PLATFORM_OS_MAC
-    struct timespec timeout;
-    timeout.tv_sec = timeout_ms / 1000;
-    timeout.tv_nsec = (timeout_ms % 1000) * 1000 * 1000;
-    struct kevent active_evs[MAX_ACTIVE_EVENTS];
-
-    int n = ::kevent(_kq, NULL, 0, active_evs, MAX_ACTIVE_EVENTS, &timeout);
-    for (int i = 0; i < n; ++i)
-    {
-        ReactHandler *handler = (ReactHandler*) active_evs[i].udata;
-        assert(NULL != handler);
-
-        int events = active_evs[i].filter;
-        if (events == EVFILT_READ)
+        struct timeval timeout, *ptimeout = NULL; // NULL 表示无限等待
+        if (timeout_ms >= 0)
         {
-            handler->handle_read_ready();
+            timeout.tv_sec = timeout_ms / 1000;
+            timeout.tv_usec = (timeout_ms % 1000) * 1000;
+            ptimeout = &timeout;
         }
-        else if (events == EVFILT_WRITE)
+
+        FD_SET read_set = _read_set, write_set = _write_set, except_set = _except_set;
+
+        const int rs = ::select(0, &read_set, &write_set, &except_set, ptimeout);
+        if (SOCKET_ERROR == rs)
         {
-            handler->handle_write_ready();
-        }
-        else
-        {
-            NUT_LOG_E(TAG, "unknown kevent type %d", events);
+            NUT_LOG_E(TAG, "failed to call ::select() with errorno %d", ::WSAGetLastError());
             return -1;
         }
-    }
-    return 0;
-#elif NUT_PLATFORM_OS_LINUX
-    struct epoll_event events[MAX_ACTIVE_EVENTS];
-    const int n = ::epoll_wait(_epoll_fd, events, MAX_ACTIVE_EVENTS, timeout_ms);
-    for (int i = 0; i < n; ++i)
-    {
-        ReactHandler *handler = (ReactHandler*) events[i].data.ptr;
-        assert(NULL != handler);
-
-        if (0 != (events[i].events & EPOLLIN))
+        for (unsigned i = 0; i < read_set.fd_count; ++i)
+        {
+            socket_t fd = read_set.fd_array[i];
+            std::map<socket_t, ReactHandler*>::const_iterator iter = _socket_to_handler.find(fd);
+            if (iter == _socket_to_handler.end())
+                continue;
+            ReactHandler *handler = iter->second;
+            assert(NULL != handler);
             handler->handle_read_ready();
-        if (0 != (events[i].events & EPOLLOUT))
+        }
+        for (unsigned i = 0; i < write_set.fd_count; ++i)
+        {
+            socket_t fd = write_set.fd_array[i];
+            std::map<socket_t, ReactHandler*>::const_iterator iter = _socket_to_handler.find(fd);
+            if (iter == _socket_to_handler.end())
+                continue;
+            ReactHandler *handler = iter->second;
+            assert(NULL != handler);
             handler->handle_write_ready();
-    }
-    return 0;
+        }
+#elif NUT_PLATFORM_OS_MAC
+        struct timespec timeout;
+        timeout.tv_sec = timeout_ms / 1000;
+        timeout.tv_nsec = (timeout_ms % 1000) * 1000 * 1000;
+        struct kevent active_evs[MAX_ACTIVE_EVENTS];
+
+        int n = ::kevent(_kq, NULL, 0, active_evs, MAX_ACTIVE_EVENTS, &timeout);
+        for (int i = 0; i < n; ++i)
+        {
+            ReactHandler *handler = (ReactHandler*) active_evs[i].udata;
+            assert(NULL != handler);
+
+            int events = active_evs[i].filter;
+            if (events == EVFILT_READ)
+            {
+                handler->handle_read_ready();
+            }
+            else if (events == EVFILT_WRITE)
+            {
+                handler->handle_write_ready();
+            }
+            else
+            {
+                NUT_LOG_E(TAG, "unknown kevent type %d", events);
+                return -1;
+            }
+        }
+#elif NUT_PLATFORM_OS_LINUX
+        struct epoll_event events[MAX_ACTIVE_EVENTS];
+        const int n = ::epoll_wait(_epoll_fd, events, MAX_ACTIVE_EVENTS, timeout_ms);
+        for (int i = 0; i < n; ++i)
+        {
+            ReactHandler *handler = (ReactHandler*) events[i].data.ptr;
+            assert(NULL != handler);
+
+            if (0 != (events[i].events & EPOLLIN))
+                handler->handle_read_ready();
+            if (0 != (events[i].events & EPOLLOUT))
+                handler->handle_write_ready();
+        }
 #endif
 
+    }
+
     // Run asynchronized tasks
-    run_async_tasks();
+    run_later_tasks();
+
+    return 0;
 }
 
-void Reactor::async_register_handler(ReactHandler *handler, int mask)
+void Reactor::register_handler_later(ReactHandler *handler, int mask)
 {
     assert(NULL != handler);
 
@@ -387,10 +390,10 @@ void Reactor::async_register_handler(ReactHandler *handler, int mask)
             _reactor->register_handler(_handler, _mask);
         }
     };
-    add_async_task(nut::rc_new<RegisterHandlerTask>(this, handler, mask));
+    add_later_task(nut::rc_new<RegisterHandlerTask>(this, handler, mask));
 }
 
-void Reactor::async_unregister_handler(ReactHandler *handler)
+void Reactor::unregister_handler_later(ReactHandler *handler)
 {
     assert(NULL != handler);
 
@@ -417,10 +420,10 @@ void Reactor::async_unregister_handler(ReactHandler *handler)
             _reactor->unregister_handler(_handler);
         }
     };
-    add_async_task(nut::rc_new<UnregisterHandlerTask>(this, handler));
+    add_later_task(nut::rc_new<UnregisterHandlerTask>(this, handler));
 }
 
-void Reactor::async_enable_handler(ReactHandler *handler, int mask)
+void Reactor::enable_handler_later(ReactHandler *handler, int mask)
 {
     assert(NULL != handler);
 
@@ -448,10 +451,10 @@ void Reactor::async_enable_handler(ReactHandler *handler, int mask)
             _reactor->enable_handler(_handler, _mask);
         }
     };
-    add_async_task(nut::rc_new<EnableHandlerTask>(this, handler, mask));
+    add_later_task(nut::rc_new<EnableHandlerTask>(this, handler, mask));
 }
 
-void Reactor::async_disable_handler(ReactHandler *handler, int mask)
+void Reactor::disable_handler_later(ReactHandler *handler, int mask)
 {
     assert(NULL != handler);
 
@@ -479,10 +482,10 @@ void Reactor::async_disable_handler(ReactHandler *handler, int mask)
             _reactor->disable_handler(_handler, _mask);
         }
     };
-    add_async_task(nut::rc_new<DisableHandlerTask>(this, handler, mask));
+    add_later_task(nut::rc_new<DisableHandlerTask>(this, handler, mask));
 }
 
-void Reactor::async_shutdown()
+void Reactor::shutdown_later()
 {
     _closing_or_closed = true;
 }

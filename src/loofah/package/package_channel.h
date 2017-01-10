@@ -7,6 +7,7 @@
 #include <list>
 
 #include <nut/container/rwbuffer/fragment_buffer.h>
+#include <nut/util/time/time_wheel.h>
 #include <nut/debugging/destroy_checker.h>
 
 #include "../proactor/proact_channel.h"
@@ -19,6 +20,7 @@ namespace loofah
 class LOOFAH_API PackageChannel : public ProactChannel
 {
     Proactor *_proactor = NULL;
+    nut::TimeWheel *_time_wheel = NULL;
 
     typedef std::list<nut::rc_ptr<Package> > queue_t;
     queue_t _write_queue;
@@ -26,18 +28,31 @@ class LOOFAH_API PackageChannel : public ProactChannel
     nut::FragmentBuffer::Fragment *_read_frag = NULL;
     nut::FragmentBuffer _readed_buffer;
 
+    nut::TimeWheel::timer_id_type _force_close_timer = NUT_INVALID_TIMER_ID;
+    bool _closing = false; // 是否等待关闭
+
     NUT_DEBUGGING_DESTROY_CHECKER
 
 private:
     void launch_read();
     void launch_write();
     void write(Package *pkg);
-    void close();
+
+    // 强制关闭
+    void force_close();
+    // 开始关闭流程
+    void start_closing();
+
+    // 定时强制关闭
+    void setup_force_close_timer();
+    void cancel_force_close_timer();
+    static void on_force_close_timer(nut::TimeWheel::timer_id_type id, void *arg, uint64_t delta);
 
 public:
     virtual ~PackageChannel();
 
     void set_proactor(Proactor *proactor);
+    void set_time_wheel(nut::TimeWheel *time_wheel);
 
     virtual void open(socket_t fd) final override;
     virtual void handle_read_completed(int cb) final override;
@@ -45,8 +60,8 @@ public:
 
     virtual void handle_read(Package *pkg) = 0;
     virtual void handle_close() = 0;
-    void async_write(Package *pkg);
-    void async_close();
+    void write_later(Package *pkg);
+    void close_later();
 };
 
 }

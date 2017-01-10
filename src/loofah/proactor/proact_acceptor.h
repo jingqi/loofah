@@ -15,7 +15,7 @@ namespace loofah
 
 class LOOFAH_API ProactAcceptorBase : public ProactHandler
 {
-    socket_t _listener_socket = INVALID_SOCKET_VALUE;
+    socket_t _listener_socket = LOOFAH_INVALID_SOCKET_FD;
 
 public:
     /**
@@ -45,7 +45,7 @@ class ProactAcceptor : public ProactAcceptorBase
 public:
     virtual void handle_accept_completed(socket_t fd) override
     {
-        assert(INVALID_SOCKET_VALUE != fd);
+        assert(LOOFAH_INVALID_SOCKET_FD != fd);
 
         // Create new handler
         nut::rc_ptr<CHANNEL> channel = nut::rc_new<CHANNEL>();
