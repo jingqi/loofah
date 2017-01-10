@@ -526,7 +526,7 @@ int Proactor::handle_events(int timeout_ms)
             else
             {
                 assert(!handler->_read_queue.empty());
-                IORequest *io_request = (IORequest*) handler->_read_queue.front();
+                IORequest *io_request = handler->_read_queue.front();
                 assert(NULL != io_request);
                 handler->_read_queue.pop();
 
@@ -542,7 +542,7 @@ int Proactor::handle_events(int timeout_ms)
         else if (events == EVFILT_WRITE)
         {
             assert(!handler->_write_queue.empty());
-            IORequest *io_request = (IORequest*) handler->_write_queue.front();
+            IORequest *io_request = handler->_write_queue.front();
             assert(NULL != io_request);
             handler->_write_queue.pop();
 
@@ -589,7 +589,7 @@ int Proactor::handle_events(int timeout_ms)
             else
             {
                 assert(!handler->_read_queue.empty());
-                IORequest *io_request = (IORequest*) handler->_read_queue.front();
+                IORequest *io_request = handler->_read_queue.front();
                 assert(NULL != io_request);
                 handler->_read_queue.pop();
 
@@ -605,7 +605,7 @@ int Proactor::handle_events(int timeout_ms)
         if (0 != (events[i].events & EPOLLOUT))
         {
             assert(!handler->_write_queue.empty());
-            IORequest *io_request = (IORequest*) handler->_write_queue.front();
+            IORequest *io_request = handler->_write_queue.front();
             assert(NULL != io_request);
             handler->_write_queue.pop();
 

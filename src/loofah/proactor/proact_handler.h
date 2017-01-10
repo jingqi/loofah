@@ -19,14 +19,16 @@
 namespace loofah
 {
 
-class ProactHandler
+class IORequest;
+
+class LOOFAH_API ProactHandler
 {
     NUT_REF_COUNTABLE
 
 #if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
     int _registered_events = 0; // 用于记录注册状态，参见 Proactor 的实现
     int _request_accept = 0;
-    std::queue<void*> _read_queue, _write_queue;
+    std::queue<IORequest*> _read_queue, _write_queue;
     friend class Proactor;
 #endif
 
@@ -39,8 +41,7 @@ public:
         EXCEPT_MASK = 1 << 3,
     };
 
-    virtual ~ProactHandler()
-    {}
+    virtual ~ProactHandler();
 
     virtual socket_t get_socket() const = 0;
 
