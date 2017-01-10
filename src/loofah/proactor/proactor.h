@@ -19,7 +19,9 @@ namespace loofah
 class LOOFAH_API Proactor : public EventLoopBase
 {
 #if NUT_PLATFORM_OS_WINDOWS
-    HANDLE _iocp = INVALID_HANDLE_VALUE;
+    // NOTE 函数 ::CreateIoCompletionPort() 将 NULL 作为失败返回值, 而不是
+    //      INVALID_HANDLE_VALUE, 所以需要将 NULL 作为无效值
+    HANDLE _iocp = NULL;
 #elif NUT_PLATFORM_OS_MAC
     int _kq = -1;
 #elif NUT_PLATFORM_OS_LINUX
@@ -35,7 +37,10 @@ protected:
 #endif
 
     void register_handler(ProactHandler *handler);
+#if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
+    // NOTE 对于 Windows 下的 IOCP，是无法 unregister_handler() 的
     void unregister_handler(ProactHandler *handler);
+#endif
 
     void launch_accept(ProactHandler *handler);
     void launch_read(ProactHandler *handler, void* const *buf_ptrs,
@@ -50,7 +55,9 @@ public:
     ~Proactor();
 
     void async_register_handler(ProactHandler *handler);
+#if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
     void async_unregister_handler(ProactHandler *handler);
+#endif
 
     void async_launch_accept(ProactHandler *handler);
     void async_launch_read(ProactHandler *handler, void* const *buf_ptrs,

@@ -80,9 +80,8 @@ void PackageChannel::close()
     NUT_DEBUGGING_ASSERT_ALIVE;
 
     assert(NULL != _proactor);
-    _proactor->async_unregister_handler(this);
     _sock_stream.close();
-    handle_close(); // NOTE 这里可能会导致自身被删除，不能再做任何操作了
+    handle_close(); // NOTE 这里可能会导致自身被删除, 放到最后
 }
 
 void PackageChannel::open(socket_t fd)
@@ -103,9 +102,8 @@ void PackageChannel::handle_read_completed(int cb)
     if (0 == cb)
     {
         assert(NULL != _proactor);
-        _proactor->async_unregister_handler(dynamic_cast<ProactHandler*>(this));
         _sock_stream.close();
-        handle_close(); // NOTE 这里可能会导致自身被删除，不能再做任何操作了
+        handle_close(); // NOTE 这里可能会导致自身被删除, 放到最后
         return;
     }
 

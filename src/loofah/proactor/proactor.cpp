@@ -42,7 +42,7 @@ namespace loofah
 Proactor::Proactor()
 {
 #if NUT_PLATFORM_OS_WINDOWS
-    _iocp = ::CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
+    _iocp = ::CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0); // Returns NULL if failed
     if (NULL == _iocp)
         NUT_LOG_E(TAG, "failed to create IOCP handle with errno %d", ::GetLastError());
 #elif NUT_PLATFORM_OS_MAC
@@ -74,7 +74,23 @@ void Proactor::shutdown()
 
 #if NUT_PLATFORM_OS_WINDOWS
     if (NULL != _iocp)
+    {
+        while (true)
+        {
+            DWORD bytes_transfered = 0;
+            void *key = NULL;
+            OVERLAPPED *io_overlapped = NULL;
+            // Get the next asynchronous operation that completes
+            BOOL rs = ::GetQueuedCompletionStatus(_iocp, &bytes_transfered, (PULONG_PTR)&key,
+                                                  &io_overlapped, 0);
+            if (FALSE == rs || NULL == io_overlapped)
+                break;
+            IORequest *io_request = CONTAINING_RECORD(io_overlapped, IORequest, overlapped);
+            assert(NULL != io_request);
+            IORequest::delete_request(io_request);
+        }
         ::CloseHandle(_iocp);
+    }
     _iocp = NULL;
 #elif NUT_PLATFORM_OS_MAC
     if (-1 != _kq)
@@ -93,9 +109,9 @@ void Proactor::register_handler(ProactHandler *handler)
     const socket_t fd = handler->get_socket();
 
 #if NUT_PLATFORM_OS_WINDOWS
-    assert(NULL != _iocp && INVALID_HANDLE_VALUE == handler->_reg_iocp);
-    handler->_reg_iocp = ::CreateIoCompletionPort((HANDLE)fd, _iocp, (ULONG_PTR) handler, 0);
-    if (NULL == handler->_reg_iocp)
+    assert(NULL != _iocp);
+    const HANDLE reg_iocp = ::CreateIoCompletionPort((HANDLE)fd, _iocp, (ULONG_PTR) handler, 0);
+    if (NULL == reg_iocp)
     {
         NUT_LOG_E(TAG, "failed to associate IOCP with errno %d", ::GetLastError());
         return;
@@ -123,16 +139,13 @@ void Proactor::register_handler(ProactHandler *handler)
 #endif
 }
 
+#if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
 void Proactor::unregister_handler(ProactHandler *handler)
 {
     assert(NULL != handler);
     const socket_t fd = handler->get_socket();
 
-#if NUT_PLATFORM_OS_WINDOWS
-    assert(INVALID_HANDLE_VALUE != handler->_reg_iocp);
-    ::CloseHandle(handler->_reg_iocp);
-    handler->_reg_iocp = INVALID_HANDLE_VALUE;
-#elif NUT_PLATFORM_OS_MAC
+#if NUT_PLATFORM_OS_MAC
     struct kevent ev[2];
     EV_SET(ev, fd, EVFILT_READ, EV_DELETE, 0, 0, (void*) handler);
     EV_SET(ev + 1, fd, EVFILT_WRITE, EV_DELETE, 0, 0, (void*) handler);
@@ -153,6 +166,7 @@ void Proactor::unregister_handler(ProactHandler *handler)
     }
 #endif
 }
+#endif
 
 void Proactor::launch_accept(ProactHandler *handler)
 {
@@ -162,10 +176,9 @@ void Proactor::launch_accept(ProactHandler *handler)
 #if NUT_PLATFORM_OS_WINDOWS
     // Create socket
     socket_t accept_socket = ::WSASocket(AF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
-    //socket_t accept_socket = ::socket(AF_INET, SOCK_STREAM, 0);
-    if (INVALID_SOCKET_VALUE == accept_socket)
+    if (INVALID_SOCKET == accept_socket)
     {
-        NUT_LOG_E(TAG, "failed to call ::socket()");
+        NUT_LOG_E(TAG, "failed to call ::WSASocket()");
         return;
     }
 
@@ -415,18 +428,23 @@ int Proactor::handle_events(int timeout_ms)
     DWORD bytes_transfered = 0;
     void *key = NULL;
     OVERLAPPED *io_overlapped = NULL;
+    assert(NULL != _iocp);
     BOOL rs = ::GetQueuedCompletionStatus(_iocp, &bytes_transfered, (PULONG_PTR)&key,
                                           &io_overlapped, timeout_ms);
-    if (FALSE == rs)
+    // NOTE 返回值为 False, 但是返回的 io_overlapped 不为 NULL, 则仅仅说明链接被中断了
+    if (FALSE == rs && NULL == io_overlapped)
     {
         const DWORD errcode = ::GetLastError();
         if (WAIT_TIMEOUT == errcode)
             return 0; // WAIT_TIMEOUT 表示等待超时
+        if (ERROR_SUCCESS == errcode)
+            return 0; // timeout_ms 传入 0, 而无事件可处理, 触发 ERROR_SUCCESS 错误
 
         NUT_LOG_W(TAG, "failed to call ::GetQueuedCompletionStatus() with errno %d",
                   errcode);
         return -1;
     }
+    assert(FALSE != rs || 0 == bytes_transfered);
 
     ProactHandler *handler = (ProactHandler*) key;
     assert(NULL != handler);
@@ -637,6 +655,7 @@ void Proactor::async_register_handler(ProactHandler *handler)
     add_async_task(nut::rc_new<RegisterHandlerTask>(this, handler));
 }
 
+#if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
 void Proactor::async_unregister_handler(ProactHandler *handler)
 {
     assert(NULL != handler);
@@ -666,6 +685,7 @@ void Proactor::async_unregister_handler(ProactHandler *handler)
     };
     add_async_task(nut::rc_new<UnregisterHandlerTask>(this, handler));
 }
+#endif
 
 void Proactor::async_launch_accept(ProactHandler *handler)
 {

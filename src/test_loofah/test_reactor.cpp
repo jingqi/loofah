@@ -46,7 +46,8 @@ public:
         NUT_LOG_D(TAG, "received %d bytes from client: %d", rs, seq);
         if (0 == rs) // 正常结束
         {
-            g_reactor.async_unregister_handler(this);
+            if (Reactor::NEED_UNREGISTER_BEFORE_CLOSE)
+                g_reactor.async_unregister_handler(this);
             _sock_stream.close();
             g_reactor.async_shutdown();
             return;
@@ -91,7 +92,8 @@ public:
         NUT_LOG_D(TAG, "received %d bytes from server: %d", rs, seq);
         if (0 == rs) // 正常结束
         {
-            g_reactor.async_unregister_handler(this);
+            if (Reactor::NEED_UNREGISTER_BEFORE_CLOSE)
+                g_reactor.async_unregister_handler(this);
             _sock_stream.close();
             return;
         }
@@ -102,7 +104,8 @@ public:
 
         if (_counter > 20)
         {
-            g_reactor.async_unregister_handler(this);
+            if (Reactor::NEED_UNREGISTER_BEFORE_CLOSE)
+                g_reactor.async_unregister_handler(this);
             _sock_stream.close();
             return;
         }

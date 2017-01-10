@@ -49,7 +49,6 @@ public:
         NUT_LOG_D(TAG, "received %d bytes from client: %d", cb, _tmp);
         if (0 == cb) // 正常结束
         {
-            g_proactor.async_unregister_handler(this);
             _sock_stream.close();
             g_proactor.async_shutdown();
             return;
@@ -101,7 +100,6 @@ public:
         NUT_LOG_D(TAG, "received %d bytes from server: %d", cb, _tmp);
         if (0 == cb) // 正常结束
         {
-            g_proactor.async_unregister_handler(this);
             _sock_stream.close();
             return;
         }
@@ -112,7 +110,6 @@ public:
 
         if (_counter > 20)
         {
-            g_proactor.async_unregister_handler(this);
             _sock_stream.close();
             return;
         }

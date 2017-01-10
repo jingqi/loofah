@@ -106,6 +106,7 @@ public:
             async_close();
             return;
         }
+
         rc_ptr<Package> new_pkg = rc_new<Package>();
         new_pkg->write(&_counter, sizeof(_counter));
         async_write(new_pkg);

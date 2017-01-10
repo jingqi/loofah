@@ -23,15 +23,12 @@ class ProactHandler
 {
     NUT_REF_COUNTABLE
 
-#if NUT_PLATFORM_OS_WINDOWS
-    HANDLE _reg_iocp = INVALID_HANDLE_VALUE;
-#elif NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
-    int _registered_events = 0;
+#if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
+    int _registered_events = 0; // 用于记录注册状态，参见 Proactor 的实现
     int _request_accept = 0;
     std::queue<void*> _read_queue, _write_queue;
-#endif
-
     friend class Proactor;
+#endif
 
 public:
     enum EventType

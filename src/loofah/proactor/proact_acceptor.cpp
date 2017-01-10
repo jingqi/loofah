@@ -29,18 +29,19 @@ bool ProactAcceptorBase::open(const InetAddr& addr, int listen_num)
     // NOTE 必须使用 ::WSASocket() 创建 socket, 并带上 WSA_FLAG_OVERLAPPED 标记，
     //      以便用于 iocp
     _listener_socket = ::WSASocket(domain, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
-#else
-    _listener_socket = ::socket(domain, SOCK_STREAM, 0);
-#endif
-    if (INVALID_SOCKET_VALUE == _listener_socket)
+    if (INVALID_SOCKET == _listener_socket)
     {
-#if NUT_PLATFORM_OS_WINDOWS
         NUT_LOG_E(TAG, "failed to call ::WSASocket()");
-#else
-        NUT_LOG_E(TAG, "failed to call ::socket()");
-#endif
         return false;
     }
+#else
+    _listener_socket = ::socket(domain, SOCK_STREAM, 0);
+    if (-1 == _listener_socket)
+    {
+        NUT_LOG_E(TAG, "failed to call ::socket()");
+        return false;
+    }
+#endif
 
     // Make port reuseable
     if (!SockOperation::set_reuse_addr(_listener_socket))

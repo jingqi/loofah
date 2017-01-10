@@ -30,6 +30,17 @@ class LOOFAH_API Reactor : public EventLoopBase
 
     bool _closing_or_closed = false;
 
+public:
+    enum
+    {
+        // 关闭 socket 前是否需要 unregister_handler()
+#if NUT_PLATFORM_OS_WINDOWS
+        NEED_UNREGISTER_BEFORE_CLOSE = true,
+#else
+        NEED_UNREGISTER_BEFORE_CLOSE = false,
+#endif
+    };
+
 protected:
     void register_handler(ReactHandler *handler, int mask);
     void unregister_handler(ReactHandler *handler);

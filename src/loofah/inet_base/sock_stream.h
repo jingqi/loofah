@@ -20,6 +20,11 @@ public:
         return _socket_fd;
     }
 
+    bool is_valid() const
+    {
+        return INVALID_SOCKET_VALUE != _socket_fd;
+    }
+
     void open(socket_t fd);
 
     void close()
