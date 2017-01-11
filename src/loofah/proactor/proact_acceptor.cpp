@@ -28,7 +28,7 @@ bool ProactAcceptorBase::open(const InetAddr& addr, int listen_num)
 #if NUT_PLATFORM_OS_WINDOWS
     // NOTE 必须使用 ::WSASocket() 创建 socket, 并带上 WSA_FLAG_OVERLAPPED 标记，
     //      以便用于 iocp
-    _listener_socket = ::WSASocket(domain, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
+    _listener_socket = ::WSASocket(domain, SOCK_STREAM, 0, nullptr, 0, WSA_FLAG_OVERLAPPED);
     if (INVALID_SOCKET == _listener_socket)
     {
         NUT_LOG_E(TAG, "failed to call ::WSASocket()");

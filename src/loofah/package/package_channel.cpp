@@ -26,33 +26,33 @@ PackageChannel::~PackageChannel()
 
     cancel_force_close_timer();
 
-    if (NULL != _read_frag)
+    if (nullptr != _read_frag)
         nut::FragmentBuffer::delete_fragment(_read_frag);
-    _read_frag = NULL;
+    _read_frag = nullptr;
 }
 
 void PackageChannel::set_proactor(Proactor *proactor)
 {
-    assert(NULL != proactor);
+    assert(nullptr != proactor);
     NUT_DEBUGGING_ASSERT_ALIVE;
 
-    assert(NULL == _proactor);
+    assert(nullptr == _proactor);
     _proactor = proactor;
 }
 
 void PackageChannel::set_time_wheel(nut::TimeWheel *time_wheel)
 {
-    assert(NULL != time_wheel);
+    assert(nullptr != time_wheel);
     NUT_DEBUGGING_ASSERT_ALIVE;
 
-    assert(NULL == _time_wheel);
+    assert(nullptr == _time_wheel);
     _time_wheel = time_wheel;
 }
 
 void PackageChannel::open(socket_t fd)
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(NULL != _proactor && _proactor->is_in_loop_thread() &&
+    assert(nullptr != _proactor && _proactor->is_in_loop_thread() &&
            !_sock_stream.is_valid());
 
     ProactChannel::open(fd);
@@ -63,36 +63,33 @@ void PackageChannel::open(socket_t fd)
 
 void PackageChannel::setup_force_close_timer()
 {
-    if (NULL == _time_wheel || NUT_INVALID_TIMER_ID != _force_close_timer || FORCE_CLOSE_DELAY <= 0)
+    if (nullptr == _time_wheel || NUT_INVALID_TIMER_ID != _force_close_timer ||
+        FORCE_CLOSE_DELAY <= 0)
         return;
-    assert(NULL != _proactor && _proactor->is_in_loop_thread());
+
+    assert(nullptr != _proactor && _proactor->is_in_loop_thread());
     _force_close_timer = _time_wheel->add_timer(
-        FORCE_CLOSE_DELAY, 0, &PackageChannel::on_force_close_timer, this);
+        FORCE_CLOSE_DELAY, 0,
+        [=](nut::TimeWheel::timer_id_type id, uint64_t expires)
+        {
+            _force_close_timer = NUT_INVALID_TIMER_ID;
+            force_close();
+        });
 }
 
 void PackageChannel::cancel_force_close_timer()
 {
-    if (NULL == _time_wheel || NUT_INVALID_TIMER_ID == _force_close_timer)
+    if (nullptr == _time_wheel || NUT_INVALID_TIMER_ID == _force_close_timer)
         return;
-    assert(NULL != _proactor && _proactor->is_in_loop_thread());
+    assert(nullptr != _proactor && _proactor->is_in_loop_thread());
     _time_wheel->cancel_timer(_force_close_timer);
     _force_close_timer = NUT_INVALID_TIMER_ID;
-}
-
-void PackageChannel::on_force_close_timer(nut::TimeWheel::timer_id_type id,
-                                          void *arg, uint64_t delta)
-{
-    assert(NULL != arg);
-
-    PackageChannel *pthis = (PackageChannel*) arg;
-    pthis->_force_close_timer = NUT_INVALID_TIMER_ID;
-    pthis->force_close();
 }
 
 void PackageChannel::force_close()
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(NULL != _proactor && _proactor->is_in_loop_thread());
+    assert(nullptr != _proactor && _proactor->is_in_loop_thread());
 
     // 设置关闭标记
     _closing = true;
@@ -116,7 +113,7 @@ void PackageChannel::force_close()
 void PackageChannel::start_closing()
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(NULL != _proactor && _proactor->is_in_loop_thread());
+    assert(nullptr != _proactor && _proactor->is_in_loop_thread());
 
     // 设置关闭标记
     _closing = true;
@@ -142,7 +139,7 @@ void PackageChannel::close_later()
     // 设置关闭标记
     _closing = true;
 
-    assert(NULL != _proactor);
+    assert(nullptr != _proactor);
     if (_proactor->is_in_loop_thread())
     {
         start_closing();
@@ -156,10 +153,10 @@ void PackageChannel::close_later()
 void PackageChannel::launch_read()
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(NULL != _proactor && _proactor->is_in_loop_thread() &&
+    assert(nullptr != _proactor && _proactor->is_in_loop_thread() &&
            _sock_stream.is_valid() && !_sock_stream.is_reading_shutdown());
 
-    if (NULL == _read_frag)
+    if (nullptr == _read_frag)
         _read_frag = nut::FragmentBuffer::new_fragment(READ_BUF_LEN);
     void *buf = _read_frag->buffer;
     _proactor->launch_read_later(this, &buf, &_read_frag->capacity, 1);
@@ -168,7 +165,7 @@ void PackageChannel::launch_read()
 void PackageChannel::launch_write()
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(NULL != _proactor && _proactor->is_in_loop_thread() &&
+    assert(nullptr != _proactor && _proactor->is_in_loop_thread() &&
            _sock_stream.is_valid() && !_sock_stream.is_writing_shutdown());
 
     assert(!_write_queue.empty());
@@ -180,20 +177,20 @@ void PackageChannel::launch_write()
     for (size_t i = 0; i < buf_count; ++i, ++iter)
     {
         Package *pkg = *iter;
-        assert(NULL != pkg);
+        assert(nullptr != pkg);
         bufs[i] = (void*) pkg->readable_data();
         lens[i] = pkg->readable_size();
     }
 
-    assert(NULL != _proactor);
+    assert(nullptr != _proactor);
     _proactor->launch_write_later(this, bufs, lens, buf_count);
 }
 
 void PackageChannel::write(Package *pkg)
 {
-    assert(NULL != pkg);
+    assert(nullptr != pkg);
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(NULL != _proactor && _proactor->is_in_loop_thread() &&
+    assert(nullptr != _proactor && _proactor->is_in_loop_thread() &&
            _sock_stream.is_valid() && !_closing);
 
     uint32_t header = pkg->readable_size();
@@ -205,7 +202,7 @@ void PackageChannel::write(Package *pkg)
 
 void PackageChannel::write_later(Package *pkg)
 {
-    assert(NULL != pkg);
+    assert(nullptr != pkg);
     NUT_DEBUGGING_ASSERT_ALIVE;
 
     if (_closing)
@@ -214,7 +211,7 @@ void PackageChannel::write_later(Package *pkg)
         return;
     }
 
-    assert(NULL != _proactor);
+    assert(nullptr != _proactor);
     if (_proactor->is_in_loop_thread())
     {
         write(pkg);

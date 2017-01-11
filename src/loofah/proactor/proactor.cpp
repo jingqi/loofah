@@ -41,8 +41,8 @@ namespace loofah
 Proactor::Proactor()
 {
 #if NUT_PLATFORM_OS_WINDOWS
-    _iocp = ::CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0); // Returns NULL if failed
-    if (NULL == _iocp)
+    _iocp = ::CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 0); // Returns nullptr if failed
+    if (nullptr == _iocp)
         NUT_LOG_E(TAG, "failed to create IOCP handle with errno %d", ::GetLastError());
 #elif NUT_PLATFORM_OS_MAC
     _kq = ::kqueue();
@@ -72,25 +72,25 @@ void Proactor::shutdown()
     _closing_or_closed = true;
 
 #if NUT_PLATFORM_OS_WINDOWS
-    if (NULL != _iocp)
+    if (nullptr != _iocp)
     {
         while (true)
         {
             DWORD bytes_transfered = 0;
-            void *key = NULL;
-            OVERLAPPED *io_overlapped = NULL;
+            void *key = nullptr;
+            OVERLAPPED *io_overlapped = nullptr;
             // Get the next asynchronous operation that completes
             BOOL rs = ::GetQueuedCompletionStatus(_iocp, &bytes_transfered, (PULONG_PTR)&key,
                                                   &io_overlapped, 0);
-            if (FALSE == rs || NULL == io_overlapped)
+            if (FALSE == rs || nullptr == io_overlapped)
                 break;
             IORequest *io_request = CONTAINING_RECORD(io_overlapped, IORequest, overlapped);
-            assert(NULL != io_request);
+            assert(nullptr != io_request);
             IORequest::delete_request(io_request);
         }
         ::CloseHandle(_iocp);
     }
-    _iocp = NULL;
+    _iocp = nullptr;
 #elif NUT_PLATFORM_OS_MAC
     if (-1 != _kq)
         ::close(_kq);
@@ -104,13 +104,13 @@ void Proactor::shutdown()
 
 void Proactor::register_handler(ProactHandler *handler)
 {
-    assert(NULL != handler);
+    assert(nullptr != handler);
     const socket_t fd = handler->get_socket();
 
 #if NUT_PLATFORM_OS_WINDOWS
-    assert(NULL != _iocp);
+    assert(nullptr != _iocp);
     const HANDLE reg_iocp = ::CreateIoCompletionPort((HANDLE)fd, _iocp, (ULONG_PTR) handler, 0);
-    if (NULL == reg_iocp)
+    if (nullptr == reg_iocp)
     {
         NUT_LOG_E(TAG, "failed to associate IOCP with errno %d", ::GetLastError());
         return;
@@ -119,7 +119,7 @@ void Proactor::register_handler(ProactHandler *handler)
     struct kevent ev[2];
     EV_SET(ev, fd, EVFILT_READ, EV_ADD | EV_DISABLE, 0, 0, (void*) handler);
     EV_SET(ev + 1, fd, EVFILT_WRITE, EV_ADD | EV_DISABLE, 0, 0, (void*) handler);
-    if (0 != ::kevent(_kq, ev, 2, NULL, 0, NULL))
+    if (0 != ::kevent(_kq, ev, 2, nullptr, 0, nullptr))
     {
         NUT_LOG_E(TAG, "failed to call ::kevent() with errno %d: %s", errno,
                   ::strerror(errno));
@@ -141,14 +141,14 @@ void Proactor::register_handler(ProactHandler *handler)
 #if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
 void Proactor::unregister_handler(ProactHandler *handler)
 {
-    assert(NULL != handler);
+    assert(nullptr != handler);
     const socket_t fd = handler->get_socket();
 
 #if NUT_PLATFORM_OS_MAC
     struct kevent ev[2];
     EV_SET(ev, fd, EVFILT_READ, EV_DELETE, 0, 0, (void*) handler);
     EV_SET(ev + 1, fd, EVFILT_WRITE, EV_DELETE, 0, 0, (void*) handler);
-    if (0 != ::kevent(_kq, ev, 2, NULL, 0, NULL))
+    if (0 != ::kevent(_kq, ev, 2, nullptr, 0, nullptr))
     {
         NUT_LOG_E(TAG, "failed to call ::kevent() with errno %d: %s", errno,
                   ::strerror(errno));
@@ -169,12 +169,12 @@ void Proactor::unregister_handler(ProactHandler *handler)
 
 void Proactor::launch_accept(ProactHandler *handler)
 {
-    assert(NULL != handler);
+    assert(nullptr != handler);
     const socket_t listener_socket = handler->get_socket();
 
 #if NUT_PLATFORM_OS_WINDOWS
     // Create socket
-    socket_t accept_socket = ::WSASocket(AF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
+    socket_t accept_socket = ::WSASocket(AF_INET, SOCK_STREAM, 0, nullptr, 0, WSA_FLAG_OVERLAPPED);
     if (INVALID_SOCKET == accept_socket)
     {
         NUT_LOG_E(TAG, "failed to call ::WSASocket()");
@@ -184,14 +184,14 @@ void Proactor::launch_accept(ProactHandler *handler)
     // Call ::AcceptEx()
     IORequest *io_request = IORequest::new_request(ProactHandler::ACCEPT_MASK,
                                                    1, accept_socket);
-    assert(NULL != io_request);
+    assert(nullptr != io_request);
     const size_t buf_len = 2 * (sizeof(struct sockaddr_in) + 16);
     void *buf = ::malloc(2 * (sizeof(struct sockaddr_in) + 16));
-    assert(NULL != buf);
+    assert(nullptr != buf);
     io_request->set_buf(0, buf, buf_len);
 
     DWORD bytes = 0;
-    assert(NULL != func_AcceptEx);
+    assert(nullptr != func_AcceptEx);
     const BOOL rs = func_AcceptEx(listener_socket,
                                   accept_socket,
                                   buf,
@@ -217,7 +217,7 @@ void Proactor::launch_accept(ProactHandler *handler)
     {
         struct kevent ev;
         EV_SET(&ev, listener_socket, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, (void*) handler);
-        if (0 != ::kevent(_kq, &ev, 1, NULL, 0, NULL))
+        if (0 != ::kevent(_kq, &ev, 1, nullptr, 0, nullptr))
         {
             NUT_LOG_E(TAG, "failed to call ::kevent() with errno %d: %s", errno,
                       ::strerror(errno));
@@ -248,7 +248,7 @@ void Proactor::launch_accept(ProactHandler *handler)
 #if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
 void Proactor::enable_handler(ProactHandler *handler, int mask)
 {
-    assert(NULL != handler);
+    assert(nullptr != handler);
     const socket_t fd = handler->get_socket();
 
 #if NUT_PLATFORM_OS_MAC
@@ -268,7 +268,7 @@ void Proactor::enable_handler(ProactHandler *handler, int mask)
         else
             EV_SET(ev + n++, fd, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, (void*) handler);
     }
-    if (0 != ::kevent(_kq, ev, n, NULL, 0, NULL))
+    if (0 != ::kevent(_kq, ev, n, nullptr, 0, nullptr))
     {
         NUT_LOG_E(TAG, "failed to call ::kevent() with errno %d: %s", errno,
                   ::strerror(errno));
@@ -294,7 +294,7 @@ void Proactor::enable_handler(ProactHandler *handler, int mask)
 
 void Proactor::disable_handler(ProactHandler *handler, int mask)
 {
-    assert(NULL != handler);
+    assert(nullptr != handler);
     const socket_t fd = handler->get_socket();
 
 #if NUT_PLATFORM_OS_MAC
@@ -304,7 +304,7 @@ void Proactor::disable_handler(ProactHandler *handler, int mask)
         EV_SET(ev + n++, fd, EVFILT_READ, EV_DISABLE, 0, 0, (void*) handler);
     if (0 != (mask & ProactHandler::WRITE_MASK))
         EV_SET(ev + n++, fd, EVFILT_WRITE, EV_DISABLE, 0, 0, (void*) handler);
-    if (0 != ::kevent(_kq, ev, n, NULL, 0, NULL))
+    if (0 != ::kevent(_kq, ev, n, nullptr, 0, nullptr))
     {
         NUT_LOG_E(TAG, "failed to call ::kevent() with errno %d: %s", errno,
                   ::strerror(errno));
@@ -332,10 +332,10 @@ void Proactor::disable_handler(ProactHandler *handler, int mask)
 void Proactor::launch_read(ProactHandler *handler, void* const *buf_ptrs,
                            const size_t *len_ptrs, size_t buf_count)
 {
-    assert(NULL != handler && NULL != buf_ptrs && NULL != len_ptrs && buf_count > 0);
+    assert(nullptr != handler && nullptr != buf_ptrs && nullptr != len_ptrs && buf_count > 0);
 
     IORequest *io_request = IORequest::new_request(ProactHandler::READ_MASK, buf_count);
-    assert(NULL != io_request);
+    assert(nullptr != io_request);
     io_request->set_bufs(buf_ptrs, len_ptrs);
 
 #if NUT_PLATFORM_OS_WINDOWS
@@ -346,9 +346,9 @@ void Proactor::launch_read(ProactHandler *handler, void* const *buf_ptrs,
                              io_request->wsabufs,
                              buf_count, // wsabuf 的数量
                              &bytes, // 如果接收操作立即完成，这里会返回函数调用所接收到的字节数
-                             &flags, // FIXME 貌似这里设置为 NULL 会导致错误
+                             &flags, // FIXME 貌似这里设置为 nullptr 会导致错误
                              &io_request->overlapped,
-                             NULL);
+                             nullptr);
     if (SOCKET_ERROR == rs)
     {
         const int errcode = ::WSAGetLastError();
@@ -374,10 +374,10 @@ void Proactor::launch_read(ProactHandler *handler, void* const *buf_ptrs,
 void Proactor::launch_write(ProactHandler *handler, void* const *buf_ptrs,
                             const size_t *len_ptrs, size_t buf_count)
 {
-    assert(NULL != handler && NULL != buf_ptrs && NULL != len_ptrs && buf_count > 0);
+    assert(nullptr != handler && nullptr != buf_ptrs && nullptr != len_ptrs && buf_count > 0);
 
     IORequest *io_request = IORequest::new_request(ProactHandler::WRITE_MASK, buf_count);
-    assert(NULL != io_request);
+    assert(nullptr != io_request);
     io_request->set_bufs(buf_ptrs, len_ptrs);
 
 #if NUT_PLATFORM_OS_WINDOWS
@@ -389,7 +389,7 @@ void Proactor::launch_write(ProactHandler *handler, void* const *buf_ptrs,
                              &bytes, // 如果发送操作立即完成，这里会返回函数调用所发送的字节数
                              0,
                              &io_request->overlapped,
-                             NULL);
+                             nullptr);
     if (SOCKET_ERROR == rs)
     {
         const int errcode = ::WSAGetLastError();
@@ -428,13 +428,13 @@ int Proactor::handle_events(int timeout_ms)
 
 #if NUT_PLATFORM_OS_WINDOWS
         DWORD bytes_transfered = 0;
-        void *key = NULL;
-        OVERLAPPED *io_overlapped = NULL;
-        assert(NULL != _iocp);
+        void *key = nullptr;
+        OVERLAPPED *io_overlapped = nullptr;
+        assert(nullptr != _iocp);
         BOOL rs = ::GetQueuedCompletionStatus(_iocp, &bytes_transfered, (PULONG_PTR)&key,
                                               &io_overlapped, timeout_ms);
-        // NOTE 返回值为 False, 但是返回的 io_overlapped 不为 NULL, 则仅仅说明链接被中断了
-        if (FALSE == rs && NULL == io_overlapped)
+        // NOTE 返回值为 False, 但是返回的 io_overlapped 不为 nullptr, 则仅仅说明链接被中断了
+        if (FALSE == rs && nullptr == io_overlapped)
         {
             const DWORD errcode = ::GetLastError();
             // NOTE WAIT_TIMEOUT 表示等待超时;
@@ -451,11 +451,11 @@ int Proactor::handle_events(int timeout_ms)
             assert(FALSE != rs || 0 == bytes_transfered);
 
             ProactHandler *handler = (ProactHandler*) key;
-            assert(NULL != handler);
+            assert(nullptr != handler);
 
-            assert(NULL != io_overlapped);
+            assert(nullptr != io_overlapped);
             IORequest *io_request = CONTAINING_RECORD(io_overlapped, IORequest, overlapped);
-            assert(NULL != io_request);
+            assert(nullptr != io_request);
 
             switch (io_request->event_type)
             {
@@ -463,9 +463,9 @@ int Proactor::handle_events(int timeout_ms)
             {
                 /* Get peer address
                  *
-                struct sockaddr_in *remote_addr = NULL, *local_addr = NULL;
+                struct sockaddr_in *remote_addr = nullptr, *local_addr = nullptr;
                 int remote_len = sizeof(struct sockaddr_in), local_len = sizeof(struct sockaddr_in);
-                assert(NULL != func_GetAcceptExSockaddrs);
+                assert(nullptr != func_GetAcceptExSockaddrs);
                 func_GetAcceptExSockaddrs(io_request->wsabuf.buf,
                                           io_request->wsabuf.len - 2 * (sizeof(struct sockaddr_in) + 16),
                                           sizeof(struct sockaddr_in) + 16,
@@ -475,7 +475,7 @@ int Proactor::handle_events(int timeout_ms)
                                           (LPSOCKADDR*)&remote_addr,
                                           &remote_len);
                  */
-                assert(1 == io_request->buf_count && NULL != io_request->wsabufs[0].buf);
+                assert(1 == io_request->buf_count && nullptr != io_request->wsabufs[0].buf);
                 ::free(io_request->wsabufs[0].buf);
 
                 handler->handle_accept_completed(io_request->accept_socket);
@@ -503,11 +503,11 @@ int Proactor::handle_events(int timeout_ms)
         timeout.tv_nsec = (timeout_ms % 1000) * 1000 * 1000;
         struct kevent active_evs[MAX_ACTIVE_EVENTS];
 
-        int n = ::kevent(_kq, NULL, 0, active_evs, MAX_ACTIVE_EVENTS, &timeout);
+        int n = ::kevent(_kq, nullptr, 0, active_evs, MAX_ACTIVE_EVENTS, &timeout);
         for (int i = 0; i < n; ++i)
         {
             ProactHandler *handler = (ProactHandler*) active_evs[i].udata;
-            assert(NULL != handler);
+            assert(nullptr != handler);
             const socket_t fd = handler->get_socket();
 
             int events = active_evs[i].filter;
@@ -531,7 +531,7 @@ int Proactor::handle_events(int timeout_ms)
                 {
                     assert(!handler->_read_queue.empty());
                     IORequest *io_request = handler->_read_queue.front();
-                    assert(NULL != io_request);
+                    assert(nullptr != io_request);
                     handler->_read_queue.pop();
 
                     if (handler->_read_queue.empty())
@@ -547,7 +547,7 @@ int Proactor::handle_events(int timeout_ms)
             {
                 assert(!handler->_write_queue.empty());
                 IORequest *io_request = handler->_write_queue.front();
-                assert(NULL != io_request);
+                assert(nullptr != io_request);
                 handler->_write_queue.pop();
 
                 if (handler->_write_queue.empty())
@@ -570,7 +570,7 @@ int Proactor::handle_events(int timeout_ms)
         for (int i = 0; i < n; ++i)
         {
             ProactHandler *handler = (ProactHandler*) events[i].data.ptr;
-            assert(NULL != handler);
+            assert(nullptr != handler);
             const socket_t fd = handler->get_socket();
 
             if (0 != (events[i].events & EPOLLIN))
@@ -593,7 +593,7 @@ int Proactor::handle_events(int timeout_ms)
                 {
                     assert(!handler->_read_queue.empty());
                     IORequest *io_request = handler->_read_queue.front();
-                    assert(NULL != io_request);
+                    assert(nullptr != io_request);
                     handler->_read_queue.pop();
 
                     if (handler->_read_queue.empty())
@@ -609,7 +609,7 @@ int Proactor::handle_events(int timeout_ms)
             {
                 assert(!handler->_write_queue.empty());
                 IORequest *io_request = handler->_write_queue.front();
-                assert(NULL != io_request);
+                assert(nullptr != io_request);
                 handler->_write_queue.pop();
 
                 if (handler->_write_queue.empty())
@@ -633,7 +633,7 @@ int Proactor::handle_events(int timeout_ms)
 
 void Proactor::register_handler_later(ProactHandler *handler)
 {
-    assert(NULL != handler);
+    assert(nullptr != handler);
 
     // Synchronize
     if (is_in_loop_thread())
@@ -650,7 +650,7 @@ void Proactor::register_handler_later(ProactHandler *handler)
 #if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
 void Proactor::unregister_handler_later(ProactHandler *handler)
 {
-    assert(NULL != handler);
+    assert(nullptr != handler);
 
     // Synchronize
     if (is_in_loop_thread())
@@ -667,7 +667,7 @@ void Proactor::unregister_handler_later(ProactHandler *handler)
 
 void Proactor::launch_accept_later(ProactHandler *handler)
 {
-    assert(NULL != handler);
+    assert(nullptr != handler);
 
     // Synchronize
     if (is_in_loop_thread())
@@ -713,7 +713,7 @@ public:
 void Proactor::launch_read_later(ProactHandler *handler, void* const *buf_ptrs,
                                  const size_t *len_ptrs, size_t buf_count)
 {
-    assert(NULL != handler && NULL != buf_ptrs && NULL != len_ptrs && buf_count > 0);
+    assert(nullptr != handler && nullptr != buf_ptrs && nullptr != len_ptrs && buf_count > 0);
 
     // Synchronize
     if (is_in_loop_thread())
@@ -731,7 +731,7 @@ void Proactor::launch_read_later(ProactHandler *handler, void* const *buf_ptrs,
 void Proactor::launch_write_later(ProactHandler *handler, void* const *buf_ptrs,
                                   const size_t *len_ptrs, size_t buf_count)
 {
-    assert(NULL != handler && NULL != buf_ptrs && NULL != len_ptrs && buf_count > 0);
+    assert(nullptr != handler && nullptr != buf_ptrs && nullptr != len_ptrs && buf_count > 0);
 
     // Synchronize
     if (is_in_loop_thread())

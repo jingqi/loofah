@@ -40,7 +40,7 @@ public:
 
     virtual void handle_read(Package *pkg) override
     {
-        assert(NULL != pkg);
+        assert(nullptr != pkg);
         NUT_LOG_D(TAG, "received %d bytes from client: %d", pkg->readable_size(), _counter);
 
         assert(pkg->readable_size() == sizeof(int));
@@ -94,7 +94,7 @@ public:
 
     virtual void handle_read(Package *pkg) override
     {
-        assert(NULL != pkg);
+        assert(nullptr != pkg);
         NUT_LOG_D(TAG, "received %d bytes from server: %d", pkg->readable_size(), _counter);
 
         assert(pkg->readable_size() == sizeof(int));

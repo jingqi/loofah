@@ -49,7 +49,7 @@ public:
 
         // Create new handler
         nut::rc_ptr<CHANNEL> channel = nut::rc_new<CHANNEL>();
-        assert(NULL != channel);
+        assert(nullptr != channel);
         channel->initialize();
         channel->open(fd);
         channel->handle_connected();

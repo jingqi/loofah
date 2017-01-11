@@ -143,17 +143,17 @@ bool SockOperation::shutdown_write(socket_t socket_fd)
 
 ssize_t SockOperation::read(socket_t socket_fd, void *buf, size_t len)
 {
-    assert(NULL != buf);
+    assert(nullptr != buf);
     return ::recv(socket_fd, (char*) buf, len, 0);
 }
 
 ssize_t SockOperation::readv(socket_t socket_fd, void* const *buf_ptrs,
                         const size_t *len_ptrs, size_t buf_count)
 {
-    assert(NULL != buf_ptrs && NULL != len_ptrs);
+    assert(nullptr != buf_ptrs && nullptr != len_ptrs);
 
 #if NUT_PLATFORM_OS_WINDOWS
-    WSABUF stack_wsabufs[STACK_ARRAY_SIZE], *wsabufs = NULL;
+    WSABUF stack_wsabufs[STACK_ARRAY_SIZE], *wsabufs = nullptr;
     if (buf_count > STACK_ARRAY_SIZE)
         wsabufs = (WSABUF*) ::malloc(sizeof(WSABUF) * buf_count);
     else
@@ -173,14 +173,14 @@ ssize_t SockOperation::readv(socket_t socket_fd, void* const *buf_ptrs,
                              wsabufs,
                              buf_count, // wsabuf 的数量
                              &bytes, // 如果接收操作立即完成，这里会返回函数调用所接收到的字节数
-                             &flags, // FIXME 貌似这里设置为 NULL 会导致错误
-                             NULL,
-                             NULL);
+                             &flags, // FIXME 貌似这里设置为 nullptr 会导致错误
+                             nullptr,
+                             nullptr);
     if (SOCKET_ERROR == rs)
         return -1;
     return bytes;
 #else
-    struct iovec stack_iovs[STACK_ARRAY_SIZE], *iovs = NULL;
+    struct iovec stack_iovs[STACK_ARRAY_SIZE], *iovs = nullptr;
     if (buf_count > STACK_ARRAY_SIZE)
         iovs = (struct iovec*) ::malloc(sizeof(struct iovec) * buf_count);
     else
@@ -204,17 +204,17 @@ ssize_t SockOperation::readv(socket_t socket_fd, void* const *buf_ptrs,
 
 ssize_t SockOperation::write(socket_t socket_fd, const void *buf, size_t len)
 {
-    assert(NULL != buf);
+    assert(nullptr != buf);
     return ::send(socket_fd, (const char*) buf, len, 0);
 }
 
 ssize_t SockOperation::writev(socket_t socket_fd, const void* const *buf_ptrs,
                          const size_t *len_ptrs, size_t buf_count)
 {
-    assert(NULL != buf_ptrs && NULL != len_ptrs);
+    assert(nullptr != buf_ptrs && nullptr != len_ptrs);
 
 #if NUT_PLATFORM_OS_WINDOWS
-    WSABUF stack_wsabufs[STACK_ARRAY_SIZE], *wsabufs = NULL;
+    WSABUF stack_wsabufs[STACK_ARRAY_SIZE], *wsabufs = nullptr;
     if (buf_count > STACK_ARRAY_SIZE)
         wsabufs = (WSABUF*) ::malloc(sizeof(WSABUF) * buf_count);
     else
@@ -235,13 +235,13 @@ ssize_t SockOperation::writev(socket_t socket_fd, const void* const *buf_ptrs,
                              buf_count, // wsabuf 的数量
                              &bytes, // 如果发送操作立即完成，这里会返回函数调用所发送的字节数
                              0,
-                             NULL,
-                             NULL);
+                             nullptr,
+                             nullptr);
     if (SOCKET_ERROR == rs)
         return -1;
     return bytes;
 #else
-    struct iovec stack_iovs[STACK_ARRAY_SIZE], *iovs = NULL;
+    struct iovec stack_iovs[STACK_ARRAY_SIZE], *iovs = nullptr;
     if (buf_count > STACK_ARRAY_SIZE)
         iovs = (struct iovec*) ::malloc(sizeof(struct iovec) * buf_count);
     else

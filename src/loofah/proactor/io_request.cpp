@@ -35,7 +35,7 @@ IORequest* IORequest::new_request(int event_type, size_t buf_count,
     assert(buf_count > 0);
     IORequest *p = (IORequest*) ::malloc(sizeof(IORequest) +
                                          sizeof(WSABUF) * (buf_count - 1));
-    assert(NULL != p);
+    assert(nullptr != p);
     new (p) IORequest(event_type, buf_count, accept_socket);
     return p;
 }
@@ -45,7 +45,7 @@ IORequest* IORequest::new_request(int event_type, size_t buf_count)
     assert(buf_count > 0);
     IORequest *p = (IORequest*) ::malloc(sizeof(IORequest) +
                                          sizeof(struct iovec) * (buf_count - 1));
-    assert(NULL != p);
+    assert(nullptr != p);
     new (p) IORequest(event_type, buf_count);
     return p;
 }
@@ -53,7 +53,7 @@ IORequest* IORequest::new_request(int event_type, size_t buf_count)
 
 void IORequest::delete_request(IORequest *p)
 {
-    assert(NULL != p);
+    assert(nullptr != p);
     p->~IORequest();
     ::free(p);
 }
@@ -73,7 +73,7 @@ void IORequest::set_buf(size_t index, void *buf, size_t len)
 
 void IORequest::set_bufs(void* const *buf_ptrs, const size_t *len_ptrs)
 {
-    assert(NULL != buf_ptrs && NULL != len_ptrs);
+    assert(nullptr != buf_ptrs && nullptr != len_ptrs);
 
     for (size_t i = 0; i < buf_count; ++i)
     {

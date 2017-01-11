@@ -8,9 +8,9 @@
 
 
 #define VALIDATE_MEMBERS() \
-    assert((NULL == _buffer && 0 == _capacity && PREPEND_LEN == _read_index && \
+    assert((nullptr == _buffer && 0 == _capacity && PREPEND_LEN == _read_index && \
             PREPEND_LEN == _write_index) || \
-           (NULL != _buffer && _read_index <= _write_index && \
+           (nullptr != _buffer && _read_index <= _write_index && \
             _write_index <= _capacity))
 
 namespace loofah
@@ -37,9 +37,9 @@ Package::~Package()
 
 void Package::clear()
 {
-    if (NULL != _buffer)
+    if (nullptr != _buffer)
         ::free(_buffer);
-    _buffer = NULL;
+    _buffer = nullptr;
     _capacity = 0;
     _read_index = PREPEND_LEN;
     _write_index = PREPEND_LEN;
@@ -47,11 +47,11 @@ void Package::clear()
 
 void Package::prepend(const void *header)
 {
-    assert(NULL != header);
+    assert(nullptr != header);
     VALIDATE_MEMBERS();
     assert(_read_index >= PREPEND_LEN); // NOTE A package can only be prepended once
 
-    if (NULL == _buffer)
+    if (nullptr == _buffer)
     {
         _buffer = ::malloc(PREPEND_LEN);
         _capacity = PREPEND_LEN;
@@ -124,8 +124,8 @@ void Package::ensure_writable_size(size_t write_size)
     else
     {
         void *new_buf = ::malloc(new_cap);
-        assert(NULL != new_buf);
-        if (NULL != _buffer)
+        assert(nullptr != new_buf);
+        if (nullptr != _buffer)
         {
             ::memcpy((uint8_t*) new_buf + PREPEND_LEN, (const uint8_t*) _buffer +
                      _read_index, data_sz);
@@ -140,7 +140,7 @@ void Package::ensure_writable_size(size_t write_size)
 
 void Package::write(const void *buf, size_t len)
 {
-    assert(NULL != buf);
+    assert(nullptr != buf);
     ensure_writable_size(len);
     ::memcpy((uint8_t*) _buffer + _write_index, buf, len);
     _write_index += len;

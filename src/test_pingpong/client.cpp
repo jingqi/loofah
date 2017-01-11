@@ -15,7 +15,7 @@ std::vector<rc_ptr<ClientChannel> > g_client_channels;
 
 class ClientChannel : public ProactChannel
 {
-    void *_buf = NULL;
+    void *_buf = nullptr;
 
 public:
     ClientChannel()

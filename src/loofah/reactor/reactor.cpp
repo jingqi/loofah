@@ -83,7 +83,7 @@ void Reactor::shutdown()
 
 void Reactor::register_handler(ReactHandler *handler, int mask)
 {
-    assert(NULL != handler);
+    assert(nullptr != handler);
     const socket_t fd = handler->get_socket();
 
 #if NUT_PLATFORM_OS_WINDOWS
@@ -100,7 +100,7 @@ void Reactor::register_handler(ReactHandler *handler, int mask)
         EV_SET(ev + n++, fd, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, (void*) handler);
     if (0 != (mask & ReactHandler::WRITE_MASK))
         EV_SET(ev + n++, fd, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, (void*) handler);
-    if (0 != ::kevent(_kq, ev, n, NULL, 0, NULL))
+    if (0 != ::kevent(_kq, ev, n, nullptr, 0, nullptr))
     {
         NUT_LOG_E(TAG, "failed to call ::kevent() with errno %d: %s", errno,
                   ::strerror(errno));
@@ -129,7 +129,7 @@ void Reactor::register_handler(ReactHandler *handler, int mask)
 
 void Reactor::unregister_handler(ReactHandler *handler)
 {
-    assert(NULL != handler);
+    assert(nullptr != handler);
     const socket_t fd = handler->get_socket();
 
 #if NUT_PLATFORM_OS_WINDOWS
@@ -144,7 +144,7 @@ void Reactor::unregister_handler(ReactHandler *handler)
     struct kevent ev[2];
     EV_SET(ev, fd, EVFILT_READ, EV_DELETE, 0, 0, (void*) handler);
     EV_SET(ev + 1, fd, EVFILT_WRITE, EV_DELETE, 0, 0, (void*) handler);
-    if (0 != ::kevent(_kq, ev, 2, NULL, 0, NULL))
+    if (0 != ::kevent(_kq, ev, 2, nullptr, 0, nullptr))
     {
         NUT_LOG_E(TAG, "failed to call ::kevent() with errno %d: %s", errno,
                   ::strerror(errno));
@@ -166,7 +166,7 @@ void Reactor::unregister_handler(ReactHandler *handler)
 
 void Reactor::enable_handler(ReactHandler *handler, int mask)
 {
-    assert(NULL != handler);
+    assert(nullptr != handler);
     const socket_t fd = handler->get_socket();
 
 #if NUT_PLATFORM_OS_WINDOWS
@@ -192,7 +192,7 @@ void Reactor::enable_handler(ReactHandler *handler, int mask)
         else
             EV_SET(ev + n++, fd, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, (void*) handler);
     }
-    if (0 != ::kevent(_kq, ev, n, NULL, 0, NULL))
+    if (0 != ::kevent(_kq, ev, n, nullptr, 0, nullptr))
     {
         NUT_LOG_E(TAG, "failed to call ::kevent() with errno %d: %s", errno,
                   ::strerror(errno));
@@ -220,7 +220,7 @@ void Reactor::enable_handler(ReactHandler *handler, int mask)
 
 void Reactor::disable_handler(ReactHandler *handler, int mask)
 {
-    assert(NULL != handler);
+    assert(nullptr != handler);
     const socket_t fd = handler->get_socket();
 
 #if NUT_PLATFORM_OS_WINDOWS
@@ -235,7 +235,7 @@ void Reactor::disable_handler(ReactHandler *handler, int mask)
         EV_SET(ev + n++, fd, EVFILT_READ, EV_DISABLE, 0, 0, (void*) handler);
     if (0 != (mask & ReactHandler::WRITE_MASK))
         EV_SET(ev + n++, fd, EVFILT_WRITE, EV_DISABLE, 0, 0, (void*) handler);
-    if (0 != ::kevent(_kq, ev, n, NULL, 0, NULL))
+    if (0 != ::kevent(_kq, ev, n, nullptr, 0, nullptr))
     {
         NUT_LOG_E(TAG, "failed to call ::kevent() with errno %d: %s", errno,
                   ::strerror(errno));
@@ -276,7 +276,7 @@ int Reactor::handle_events(int timeout_ms)
         HandleEventsGuard g(this);
 
 #if NUT_PLATFORM_OS_WINDOWS
-        struct timeval timeout, *ptimeout = NULL; // NULL 表示无限等待
+        struct timeval timeout, *ptimeout = nullptr; // nullptr 表示无限等待
         if (timeout_ms >= 0)
         {
             timeout.tv_sec = timeout_ms / 1000;
@@ -299,7 +299,7 @@ int Reactor::handle_events(int timeout_ms)
             if (iter == _socket_to_handler.end())
                 continue;
             ReactHandler *handler = iter->second;
-            assert(NULL != handler);
+            assert(nullptr != handler);
             handler->handle_read_ready();
         }
         for (unsigned i = 0; i < write_set.fd_count; ++i)
@@ -309,7 +309,7 @@ int Reactor::handle_events(int timeout_ms)
             if (iter == _socket_to_handler.end())
                 continue;
             ReactHandler *handler = iter->second;
-            assert(NULL != handler);
+            assert(nullptr != handler);
             handler->handle_write_ready();
         }
 #elif NUT_PLATFORM_OS_MAC
@@ -318,11 +318,11 @@ int Reactor::handle_events(int timeout_ms)
         timeout.tv_nsec = (timeout_ms % 1000) * 1000 * 1000;
         struct kevent active_evs[MAX_ACTIVE_EVENTS];
 
-        int n = ::kevent(_kq, NULL, 0, active_evs, MAX_ACTIVE_EVENTS, &timeout);
+        int n = ::kevent(_kq, nullptr, 0, active_evs, MAX_ACTIVE_EVENTS, &timeout);
         for (int i = 0; i < n; ++i)
         {
             ReactHandler *handler = (ReactHandler*) active_evs[i].udata;
-            assert(NULL != handler);
+            assert(nullptr != handler);
 
             int events = active_evs[i].filter;
             if (events == EVFILT_READ)
@@ -345,7 +345,7 @@ int Reactor::handle_events(int timeout_ms)
         for (int i = 0; i < n; ++i)
         {
             ReactHandler *handler = (ReactHandler*) events[i].data.ptr;
-            assert(NULL != handler);
+            assert(nullptr != handler);
 
             if (0 != (events[i].events & EPOLLIN))
                 handler->handle_read_ready();
@@ -364,7 +364,7 @@ int Reactor::handle_events(int timeout_ms)
 
 void Reactor::register_handler_later(ReactHandler *handler, int mask)
 {
-    assert(NULL != handler);
+    assert(nullptr != handler);
 
     // Synchronize
     if (is_in_loop_thread())
@@ -380,7 +380,7 @@ void Reactor::register_handler_later(ReactHandler *handler, int mask)
 
 void Reactor::unregister_handler_later(ReactHandler *handler)
 {
-    assert(NULL != handler);
+    assert(nullptr != handler);
 
     // Synchronize
     if (is_in_loop_thread())
@@ -396,7 +396,7 @@ void Reactor::unregister_handler_later(ReactHandler *handler)
 
 void Reactor::enable_handler_later(ReactHandler *handler, int mask)
 {
-    assert(NULL != handler);
+    assert(nullptr != handler);
 
     // Synchronize
     if (is_in_loop_thread())
@@ -412,7 +412,7 @@ void Reactor::enable_handler_later(ReactHandler *handler, int mask)
 
 void Reactor::disable_handler_later(ReactHandler *handler, int mask)
 {
-    assert(NULL != handler);
+    assert(nullptr != handler);
 
     // Synchronize
     if (is_in_loop_thread())

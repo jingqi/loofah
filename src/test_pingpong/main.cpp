@@ -36,7 +36,7 @@ static void print_help()
 
 static int parse_params(int argc, char *argv[])
 {
-    assert(NULL != argv);
+    assert(nullptr != argv);
     if (argc <= 1)
         return 0;
 
@@ -100,7 +100,7 @@ std::string size_to_str(size_t size)
         return llong_to_str(size);
 
     double value = size;
-    const char *unit = NULL;
+    const char *unit = nullptr;
 
     value /= 1024;
     unit = "KB";
@@ -137,11 +137,6 @@ static void report()
         "bytes per second: " << size_to_str(g_global.server_read_size / g_global.seconds) << endl;
 }
 
-static void timeout(TimeWheel::timer_id_type id, void *arg, uint64_t expires)
-{
-    g_global.proactor.shutdown_later();
-}
-
 int main(int argc, char *argv[])
 {
     const int rs = parse_params(argc, argv);
@@ -159,7 +154,13 @@ int main(int argc, char *argv[])
 
     start_server();
     start_client();
-    g_global.timewheel.add_timer(g_global.seconds * 1000, 0, &timeout, NULL);
+    g_global.timewheel.add_timer(
+        g_global.seconds * 1000, 0, 
+        [=](nut::TimeWheel::timer_id_type id, uint64_t expires)
+        {
+            g_global.proactor.shutdown_later();
+        });
+
     while (true)
     {
         if (g_global.proactor.handle_events(TimeWheel::TICK_GRANULARITY_MS) < 0)

@@ -81,7 +81,7 @@ InetAddr::InetAddr(int port, bool loopback, bool ipv6)
 
 InetAddr::InetAddr(const char *addr, int port, bool ipv6)
 {
-    assert(NULL != addr);
+    assert(nullptr != addr);
     assert(((void*) &_sock_addr) == ((void*) &_sock_addr6));
 
     if (ipv6)
@@ -97,23 +97,23 @@ InetAddr::InetAddr(const char *addr, int port, bool ipv6)
         //      -1 for system error, errno will be set
         if (::inet_pton(AF_INET6, addr, &_sock_addr6.sin6_addr) <= 0)
         {
-            struct addrinfo hint, *answer = NULL;
+            struct addrinfo hint, *answer = nullptr;
             ::memset(&hint, 0, sizeof(hint));
             hint.ai_family = AF_INET6;
             hint.ai_socktype = SOCK_STREAM;
-            if (0 != ::getaddrinfo(addr, NULL, &hint, &answer))
+            if (0 != ::getaddrinfo(addr, nullptr, &hint, &answer))
             {
                 NUT_LOG_E(TAG, "can not resolve addr: \"%s\"", addr);
-                if (NULL != answer)
+                if (nullptr != answer)
                     ::freeaddrinfo(answer);
                 return;
             }
-            for (struct addrinfo *p = answer; NULL != p; p = p->ai_next)
+            for (struct addrinfo *p = answer; nullptr != p; p = p->ai_next)
             {
                 _sock_addr6.sin6_addr = ((struct sockaddr_in6*) (p->ai_addr))->sin6_addr;
                 break;
             }
-            if (NULL != answer)
+            if (nullptr != answer)
                 ::freeaddrinfo(answer);
         }
     }
@@ -133,7 +133,7 @@ InetAddr::InetAddr(const char *addr, int port, bool ipv6)
         {
             // 传入的不是ip字符串，而是主机名，需要查询主机地址
             struct hostent* phostent = ::gethostbyname(addr);
-            if (NULL == phostent)
+            if (nullptr == phostent)
             {
                 NUT_LOG_E(TAG, "can not resolve addr: \"%s\"", addr);
                 return;
@@ -161,7 +161,7 @@ InetAddr::InetAddr(const struct sockaddr_in6& sock_addr)
 
 InetAddr::InetAddr(const struct sockaddr* sock_addr)
 {
-    assert(NULL != sock_addr);
+    assert(nullptr != sock_addr);
     if (AF_INET == sock_addr->sa_family)
         ::memcpy(&_sock_addr, sock_addr, sizeof(_sock_addr));
     else

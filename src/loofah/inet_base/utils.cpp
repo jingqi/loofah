@@ -16,9 +16,9 @@ namespace loofah
 {
 
 #if NUT_PLATFORM_OS_WINDOWS
-LPFN_ACCEPTEX func_AcceptEx = NULL;
-LPFN_CONNECTEX func_ConnectEx = NULL;
-LPFN_GETACCEPTEXSOCKADDRS func_GetAcceptExSockaddrs = NULL;
+LPFN_ACCEPTEX func_AcceptEx = nullptr;
+LPFN_CONNECTEX func_ConnectEx = nullptr;
+LPFN_GETACCEPTEXSOCKADDRS func_GetAcceptExSockaddrs = nullptr;
 #endif
 
 bool init_network()
@@ -36,8 +36,8 @@ bool init_network()
     GUID func_guid = WSAID_ACCEPTEX;
     DWORD bytes = 0;
     ::WSAIoctl(proxy_socket, SIO_GET_EXTENSION_FUNCTION_POINTER, &func_guid, sizeof(func_guid),
-        &func_AcceptEx, sizeof(func_AcceptEx), &bytes, NULL, NULL);
-    if (NULL == func_AcceptEx)
+        &func_AcceptEx, sizeof(func_AcceptEx), &bytes, nullptr, nullptr);
+    if (nullptr == func_AcceptEx)
     {
         ::closesocket(proxy_socket);
         return false;
@@ -46,8 +46,8 @@ bool init_network()
     func_guid = WSAID_CONNECTEX;
     bytes = 0;
     ::WSAIoctl(proxy_socket, SIO_GET_EXTENSION_FUNCTION_POINTER, &func_guid, sizeof(func_guid),
-        &func_ConnectEx, sizeof(func_ConnectEx), &bytes, NULL, NULL);
-    if (NULL == func_ConnectEx)
+        &func_ConnectEx, sizeof(func_ConnectEx), &bytes, nullptr, nullptr);
+    if (nullptr == func_ConnectEx)
     {
         ::closesocket(proxy_socket);
         return false;
@@ -56,8 +56,8 @@ bool init_network()
     func_guid = WSAID_GETACCEPTEXSOCKADDRS;
     bytes = 0;
     ::WSAIoctl(proxy_socket, SIO_GET_EXTENSION_FUNCTION_POINTER, &func_guid, sizeof(func_guid),
-        &func_GetAcceptExSockaddrs, sizeof(func_GetAcceptExSockaddrs), &bytes, NULL, NULL);
-    if (NULL == func_GetAcceptExSockaddrs)
+        &func_GetAcceptExSockaddrs, sizeof(func_GetAcceptExSockaddrs), &bytes, nullptr, nullptr);
+    if (nullptr == func_GetAcceptExSockaddrs)
     {
         ::closesocket(proxy_socket);
         return false;

@@ -1,6 +1,4 @@
 ﻿
-#include <stdlib.h> // for NULL
-
 #include <nut/threading/sync/guard.h>
 #include <nut/logging/logger.h>
 

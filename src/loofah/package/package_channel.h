@@ -19,13 +19,13 @@ namespace loofah
 
 class LOOFAH_API PackageChannel : public ProactChannel
 {
-    Proactor *_proactor = NULL;
-    nut::TimeWheel *_time_wheel = NULL;
+    Proactor *_proactor = nullptr;
+    nut::TimeWheel *_time_wheel = nullptr;
 
     typedef std::list<nut::rc_ptr<Package> > queue_t;
     queue_t _write_queue;
 
-    nut::FragmentBuffer::Fragment *_read_frag = NULL;
+    nut::FragmentBuffer::Fragment *_read_frag = nullptr;
     nut::FragmentBuffer _readed_buffer;
 
     nut::TimeWheel::timer_id_type _force_close_timer = NUT_INVALID_TIMER_ID;
@@ -46,7 +46,6 @@ private:
     // 定时强制关闭
     void setup_force_close_timer();
     void cancel_force_close_timer();
-    static void on_force_close_timer(nut::TimeWheel::timer_id_type id, void *arg, uint64_t delta);
 
 public:
     virtual ~PackageChannel();

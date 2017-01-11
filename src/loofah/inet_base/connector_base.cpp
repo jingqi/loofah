@@ -26,7 +26,7 @@ namespace loofah
 
 bool ConnectorBase::connect(Channel *channel, const InetAddr& address)
 {
-    assert(NULL != channel);
+    assert(nullptr != channel);
 
     // New socket
     const int domain = address.is_ipv6() ? PF_INET6 : PF_INET;

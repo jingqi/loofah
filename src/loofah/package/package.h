@@ -16,7 +16,7 @@ class LOOFAH_API Package
 
     const size_t PREPEND_LEN = sizeof(uint32_t);
 
-    void *_buffer = NULL;
+    void *_buffer = nullptr;
     size_t _capacity = 0;
 
     size_t _read_index = PREPEND_LEN;

@@ -18,7 +18,7 @@ public:
     static nut::rc_ptr<CHANNEL> connect(const InetAddr& address)
     {
         nut::rc_ptr<CHANNEL> channel = nut::rc_new<CHANNEL>();
-        assert(NULL != channel);
+        assert(nullptr != channel);
         channel->initialize();
         if (!ConnectorBase::connect(channel, address))
             channel.set_null();

@@ -19,9 +19,9 @@ namespace loofah
 class LOOFAH_API Proactor : public EventLoopBase
 {
 #if NUT_PLATFORM_OS_WINDOWS
-    // NOTE 函数 ::CreateIoCompletionPort() 将 NULL 作为失败返回值, 而不是
-    //      INVALID_HANDLE_VALUE, 所以需要将 NULL 作为无效值
-    HANDLE _iocp = NULL;
+    // NOTE 函数 ::CreateIoCompletionPort() 将 nullptr 作为失败返回值, 而不是
+    //      INVALID_HANDLE_VALUE, 所以需要将 nullptr 作为无效值
+    HANDLE _iocp = nullptr;
 #elif NUT_PLATFORM_OS_MAC
     int _kq = -1;
 #elif NUT_PLATFORM_OS_LINUX
