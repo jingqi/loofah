@@ -374,23 +374,8 @@ void Reactor::register_handler_later(ReactHandler *handler, int mask)
     }
 
     // Asynchronize
-    class RegisterHandlerTask : public nut::Runnable
-    {
-        Reactor *_reactor;
-        nut::rc_ptr<ReactHandler> _handler;
-        int _mask;
-
-    public:
-        RegisterHandlerTask(Reactor *r, ReactHandler *h, int m)
-            : _reactor(r), _handler(h), _mask(m)
-        {}
-
-        virtual void run() override
-        {
-            _reactor->register_handler(_handler, _mask);
-        }
-    };
-    add_later_task(nut::rc_new<RegisterHandlerTask>(this, handler, mask));
+    nut::rc_ptr<ReactHandler> ref_handler(handler);
+    add_later_task([=] { register_handler(ref_handler, mask); });
 }
 
 void Reactor::unregister_handler_later(ReactHandler *handler)
@@ -405,22 +390,8 @@ void Reactor::unregister_handler_later(ReactHandler *handler)
     }
 
     // Asynchronize
-    class UnregisterHandlerTask : public nut::Runnable
-    {
-        Reactor *_reactor;
-        nut::rc_ptr<ReactHandler> _handler;
-
-    public:
-        UnregisterHandlerTask(Reactor *r, ReactHandler *h)
-            : _reactor(r), _handler(h)
-        {}
-
-        virtual void run() override
-        {
-            _reactor->unregister_handler(_handler);
-        }
-    };
-    add_later_task(nut::rc_new<UnregisterHandlerTask>(this, handler));
+    nut::rc_ptr<ReactHandler> ref_handler(handler);
+    add_later_task([=] { unregister_handler(ref_handler); });
 }
 
 void Reactor::enable_handler_later(ReactHandler *handler, int mask)
@@ -435,23 +406,8 @@ void Reactor::enable_handler_later(ReactHandler *handler, int mask)
     }
 
     // Asynchronize
-    class EnableHandlerTask : public nut::Runnable
-    {
-        Reactor *_reactor;
-        nut::rc_ptr<ReactHandler> _handler;
-        int _mask;
-
-    public:
-        EnableHandlerTask(Reactor *r, ReactHandler *h, int m)
-            : _reactor(r), _handler(h), _mask(m)
-        {}
-
-        virtual void run() override
-        {
-            _reactor->enable_handler(_handler, _mask);
-        }
-    };
-    add_later_task(nut::rc_new<EnableHandlerTask>(this, handler, mask));
+    nut::rc_ptr<ReactHandler> ref_handler(handler);
+    add_later_task([=] { enable_handler(ref_handler, mask); });
 }
 
 void Reactor::disable_handler_later(ReactHandler *handler, int mask)
@@ -466,23 +422,8 @@ void Reactor::disable_handler_later(ReactHandler *handler, int mask)
     }
 
     // Asynchronize
-    class DisableHandlerTask : public nut::Runnable
-    {
-        Reactor *_reactor;
-        nut::rc_ptr<ReactHandler> _handler;
-        int _mask;
-
-    public:
-        DisableHandlerTask(Reactor *r, ReactHandler *h, int m)
-            : _reactor(r), _handler(h), _mask(m)
-        {}
-
-        virtual void run() override
-        {
-            _reactor->disable_handler(_handler, _mask);
-        }
-    };
-    add_later_task(nut::rc_new<DisableHandlerTask>(this, handler, mask));
+    nut::rc_ptr<ReactHandler> ref_handler(handler);
+    add_later_task([=] { disable_handler(ref_handler, mask); });
 }
 
 void Reactor::shutdown_later()

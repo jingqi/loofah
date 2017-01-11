@@ -5,8 +5,8 @@
 #include "../loofah_config.h"
 
 #include <vector>
+#include <functional>
 
-#include <nut/threading/runnable.h>
 #include <nut/threading/thread.h>
 #include <nut/threading/sync/mutex.h>
 
@@ -19,7 +19,7 @@ class LOOFAH_API EventLoopBase
 private:
     nut::Thread::tid_type _loop_tid;
     bool _in_handling_events = false;
-    std::vector<nut::rc_ptr<nut::Runnable> > _later_tasks;
+    std::vector<std::function<void()> > _later_tasks;
     nut::Mutex _mutex;
 
 protected:
@@ -50,7 +50,7 @@ protected:
     /**
      * 添加一个异步任务
      */
-    void add_later_task(nut::Runnable *runnable);
+    void add_later_task(const std::function<void()>& task);
 
 public:
     EventLoopBase();
@@ -71,7 +71,7 @@ public:
     /**
      * 在事件循环线程中运行
      */
-    void run_later(nut::Runnable *runnable);
+    void run_later(const std::function<void()>& task);
 };
 
 }

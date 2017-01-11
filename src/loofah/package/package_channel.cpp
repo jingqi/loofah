@@ -109,21 +109,8 @@ void PackageChannel::force_close()
         return;
     }
 
-    class HandleCloseTask : public nut::Runnable
-    {
-        PackageChannel *_channel;
-
-    public:
-        HandleCloseTask(PackageChannel *c)
-            : _channel(c)
-        {}
-
-        virtual void run() override
-        {
-            _channel->handle_close();
-        }
-    };
-    _proactor->run_later(nut::rc_new<HandleCloseTask>(this));
+    nut::rc_ptr<PackageChannel> ref_this(this);
+    _proactor->run_later([=] { ref_this->handle_close(); });
 }
 
 void PackageChannel::start_closing()
@@ -162,21 +149,8 @@ void PackageChannel::close_later()
         return;
     }
 
-    class StartClosingTask : public nut::Runnable
-    {
-        PackageChannel *_channel;
-
-    public:
-        StartClosingTask(PackageChannel *c)
-            : _channel(c)
-        {}
-
-        virtual void run() override
-        {
-            _channel->start_closing();
-        }
-    };
-    _proactor->run_later(nut::rc_new<StartClosingTask>(this));
+    nut::rc_ptr<PackageChannel> ref_this(this);
+    _proactor->run_later([=] { ref_this->start_closing(); });
 }
 
 void PackageChannel::launch_read()
@@ -247,22 +221,9 @@ void PackageChannel::write_later(Package *pkg)
         return;
     }
 
-    class WriteTask : public nut::Runnable
-    {
-        PackageChannel *_channel;
-        nut::rc_ptr<Package> _pkg;
-
-    public:
-        WriteTask(PackageChannel *c, Package *p)
-            : _channel(c), _pkg(p)
-        {}
-
-        virtual void run() override
-        {
-            _channel->write(_pkg);
-        }
-    };
-    _proactor->run_later(nut::rc_new<WriteTask>(this, pkg));
+    nut::rc_ptr<PackageChannel> ref_this(this);
+    nut::rc_ptr<Package> ref_pkg(pkg);
+    _proactor->run_later([=] { ref_this->write(ref_pkg); });
 }
 
 void PackageChannel::handle_read_completed(int cb)

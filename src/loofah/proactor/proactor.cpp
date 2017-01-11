@@ -643,22 +643,8 @@ void Proactor::register_handler_later(ProactHandler *handler)
     }
 
     // Asynchronize
-    class RegisterHandlerTask : public nut::Runnable
-    {
-        Proactor *_proactor;
-        nut::rc_ptr<ProactHandler> _handler;
-
-    public:
-        RegisterHandlerTask(Proactor *p, ProactHandler *h)
-            : _proactor(p), _handler(h)
-        {}
-
-        virtual void run() override
-        {
-            _proactor->register_handler(_handler);
-        }
-    };
-    add_later_task(nut::rc_new<RegisterHandlerTask>(this, handler));
+    nut::rc_ptr<ProactHandler> ref_handler(handler);
+    add_later_task([=] { register_handler(ref_handler); });
 }
 
 #if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
@@ -674,22 +660,8 @@ void Proactor::unregister_handler_later(ProactHandler *handler)
     }
 
     // Asynchronize
-    class UnregisterHandlerTask : public nut::Runnable
-    {
-        Proactor *_proactor;
-        nut::rc_ptr<ProactHandler> _handler;
-
-    public:
-        UnregisterHandlerTask(Proactor *p, ProactHandler *h)
-            : _proactor(p), _handler(h)
-        {}
-
-        virtual void run() override
-        {
-            _proactor->unregister_handler(_handler);
-        }
-    };
-    add_later_task(nut::rc_new<UnregisterHandlerTask>(this, handler));
+    nut::rc_ptr<ProactHandler> ref_handler(handler);
+    add_later_task([=] { unregister_handler(ref_handler); });
 }
 #endif
 
@@ -705,22 +677,37 @@ void Proactor::launch_accept_later(ProactHandler *handler)
     }
 
     // Asynchronize
-    class LaunchAcceptTask : public nut::Runnable
+    nut::rc_ptr<ProactHandler> ref_handler(handler);
+    add_later_task([=] { launch_accept(ref_handler); });
+}
+
+namespace
+{
+
+class BufferHolder
+{
+    NUT_REF_COUNTABLE
+
+public:
+    void **buf_ptrs;
+    size_t *len_ptrs;
+
+public:
+    BufferHolder(void* const *bp, const size_t *lp, size_t bc)
     {
-        Proactor *_proactor;
-        nut::rc_ptr<ProactHandler> _handler;
+        buf_ptrs = (void**) ::malloc(sizeof(void*) * bc);
+        ::memcpy(buf_ptrs, bp, sizeof(void*) * bc);
+        len_ptrs = (size_t*) ::malloc(sizeof(size_t) * bc);
+        ::memcpy(len_ptrs, lp, sizeof(size_t) * bc);
+    }
 
-    public:
-        LaunchAcceptTask(Proactor *p, ProactHandler *h)
-            : _proactor(p), _handler(h)
-        {}
+    virtual ~BufferHolder()
+    {
+        ::free(buf_ptrs);
+        ::free(len_ptrs);
+    }
+};
 
-        virtual void run() override
-        {
-            _proactor->launch_accept(_handler);
-        }
-    };
-    add_later_task(nut::rc_new<LaunchAcceptTask>(this, handler));
 }
 
 void Proactor::launch_read_later(ProactHandler *handler, void* const *buf_ptrs,
@@ -736,37 +723,9 @@ void Proactor::launch_read_later(ProactHandler *handler, void* const *buf_ptrs,
     }
 
     // Asynchronize
-    class LaunchReadTask : public nut::Runnable
-    {
-        Proactor *_proactor;
-        nut::rc_ptr<ProactHandler> _handler;
-        void **_buf_ptrs;
-        size_t *_len_ptrs;
-        size_t _buf_count;
-
-    public:
-        LaunchReadTask(Proactor *p, ProactHandler *h, void* const *bt,
-                         const size_t *lt, size_t bc)
-            : _proactor(p), _handler(h), _buf_count(bc)
-        {
-            _buf_ptrs = (void**) ::malloc(sizeof(void*) * bc);
-            ::memcpy(_buf_ptrs, bt, sizeof(void*) * bc);
-            _len_ptrs = (size_t*) ::malloc(sizeof(size_t) * bc);
-            ::memcpy(_len_ptrs, lt, sizeof(size_t) * bc);
-        }
-
-        virtual ~LaunchReadTask()
-        {
-            ::free(_buf_ptrs);
-            ::free(_len_ptrs);
-        }
-
-        virtual void run() override
-        {
-            _proactor->launch_read(_handler, _buf_ptrs, _len_ptrs, _buf_count);
-        }
-    };
-    add_later_task(nut::rc_new<LaunchReadTask>(this, handler, buf_ptrs, len_ptrs, buf_count));
+    nut::rc_ptr<ProactHandler> ref_handler(handler);
+    nut::rc_ptr<BufferHolder> buf_holder = nut::rc_new<BufferHolder>(buf_ptrs, len_ptrs, buf_count);
+    add_later_task([=] { launch_read(ref_handler, buf_holder->buf_ptrs, buf_holder->len_ptrs, buf_count); });
 }
 
 void Proactor::launch_write_later(ProactHandler *handler, void* const *buf_ptrs,
@@ -782,37 +741,9 @@ void Proactor::launch_write_later(ProactHandler *handler, void* const *buf_ptrs,
     }
 
     // Asynchronize
-    class LaunchWriteTask : public nut::Runnable
-    {
-        Proactor *_proactor;
-        nut::rc_ptr<ProactHandler> _handler;
-        void **_buf_ptrs;
-        size_t *_len_ptrs;
-        size_t _buf_count;
-
-    public:
-        LaunchWriteTask(Proactor *p, ProactHandler *h, void* const *bt,
-                         const size_t *lt, size_t bc)
-            : _proactor(p), _handler(h), _buf_count(bc)
-        {
-            _buf_ptrs = (void**) ::malloc(sizeof(void*) * bc);
-            ::memcpy(_buf_ptrs, bt, sizeof(void*) * bc);
-            _len_ptrs = (size_t*) ::malloc(sizeof(size_t) * bc);
-            ::memcpy(_len_ptrs, lt, sizeof(size_t) * bc);
-        }
-
-        virtual ~LaunchWriteTask()
-        {
-            ::free(_buf_ptrs);
-            ::free(_len_ptrs);
-        }
-
-        virtual void run() override
-        {
-            _proactor->launch_write(_handler, _buf_ptrs, _len_ptrs, _buf_count);
-        }
-    };
-    add_later_task(nut::rc_new<LaunchWriteTask>(this, handler, buf_ptrs, len_ptrs, buf_count));
+    nut::rc_ptr<ProactHandler> ref_handler(handler);
+    nut::rc_ptr<BufferHolder> buf_holder = nut::rc_new<BufferHolder>(buf_ptrs, len_ptrs, buf_count);
+    add_later_task([=] { launch_write(ref_handler, buf_holder->buf_ptrs, buf_holder->len_ptrs, buf_count); });
 }
 
 void Proactor::shutdown_later()

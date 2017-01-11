@@ -17,11 +17,10 @@ EventLoopBase::EventLoopBase()
     _loop_tid = nut::Thread::current_thread_id();
 }
 
-void EventLoopBase::add_later_task(nut::Runnable *runnable)
+void EventLoopBase::add_later_task(const std::function<void()>& task)
 {
-    assert(NULL != runnable);
     nut::Guard<nut::Mutex> g(&_mutex);
-    _later_tasks.push_back(runnable);
+    _later_tasks.push_back(task);
 }
 
 bool EventLoopBase::is_in_loop_thread() const
@@ -34,7 +33,7 @@ void EventLoopBase::run_later_tasks()
     // NOTE This method can only be called from inside loop thread
     assert(is_in_loop_thread_and_not_handling());
 
-    std::vector<nut::rc_ptr<nut::Runnable> > later_tasks;
+    std::vector<std::function<void()> > later_tasks;
     {
         nut::Guard<nut::Mutex> g(&_mutex);
         later_tasks = _later_tasks;
@@ -42,23 +41,17 @@ void EventLoopBase::run_later_tasks()
     }
 
     for (size_t i = 0, sz = later_tasks.size(); i < sz; ++i)
-    {
-        nut::Runnable *runnable = later_tasks.at(i);
-        assert(NULL != runnable);
-        runnable->run();
-    }
+        later_tasks.at(i)();
 }
 
-void EventLoopBase::run_later(nut::Runnable *runnable)
+void EventLoopBase::run_later(const std::function<void()>& task)
 {
-    assert(NULL != runnable);
-
     if (is_in_loop_thread_and_not_handling())
     {
-        runnable->run();
+        task();
         return;
     }
-    add_later_task(runnable);
+    add_later_task(task);
 }
 
 }
