@@ -12,7 +12,7 @@ class ReactConnector : public ConnectorBase
 {
 private:
     // Invalid methods
-    ReactConnector();
+    ReactConnector() = delete;
 
 public:
     static nut::rc_ptr<CHANNEL> connect(const InetAddr& address)

@@ -207,7 +207,7 @@ void PackageChannel::write_later(Package *pkg)
 
     if (_closing)
     {
-        NUT_LOG_E(TAG, "try to write a closing channel");
+        NUT_LOG_E(TAG, "should not write to a closing channel");
         return;
     }
 

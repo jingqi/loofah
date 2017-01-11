@@ -28,7 +28,7 @@ class LOOFAH_API Reactor : public EventLoopBase
     bool _edge_triggered = false; // level-triggered or edge-triggered
 #endif
 
-    bool _closing_or_closed = false;
+    bool volatile _closing_or_closed = false;
 
 public:
     enum

@@ -25,9 +25,6 @@ IORequest::IORequest(int event_type_, size_t buf_count_)
 }
 #endif
 
-IORequest::~IORequest()
-{}
-
 #if NUT_PLATFORM_OS_WINDOWS
 IORequest* IORequest::new_request(int event_type, size_t buf_count,
                                   socket_t accept_socket)

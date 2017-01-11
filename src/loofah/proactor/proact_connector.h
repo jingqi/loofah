@@ -12,7 +12,7 @@ class ProactConnector : public ConnectorBase
 {
 private:
     // Invalid methods
-    ProactConnector();
+    ProactConnector() = delete;
 
 public:
     static nut::rc_ptr<CHANNEL> connect(const InetAddr& address)

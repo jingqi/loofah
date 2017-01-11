@@ -20,6 +20,11 @@ class ReactHandler
     friend class Reactor;
 #endif
 
+private:
+    // Non-copyable
+    ReactHandler(const ReactHandler&) = delete;
+    ReactHandler& operator=(const ReactHandler&) = delete;
+
 public:
     enum EventType
     {
@@ -28,8 +33,9 @@ public:
         EXCEPT_MASK = 1 << 2,
     };
 
-    virtual ~ReactHandler()
-    {}
+    ReactHandler() = default;
+
+    virtual ~ReactHandler() = default;
 
     virtual socket_t get_socket() const = 0;
 

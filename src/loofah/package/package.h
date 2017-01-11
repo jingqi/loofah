@@ -22,6 +22,11 @@ class LOOFAH_API Package
     size_t _read_index = PREPEND_LEN;
     size_t _write_index = PREPEND_LEN;
 
+private:
+    // Non-copyable
+    Package(const Package&) = delete;
+    Package& operator=(const Package&) = delete;
+
 public:
     explicit Package(size_t init_cap = 16);
     Package(const void *buf, size_t len);

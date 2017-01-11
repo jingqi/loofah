@@ -52,10 +52,11 @@ private:
     IORequest(int event_type_, size_t buf_count_);
 #endif
 
-    IORequest(const IORequest&);
-    IORequest& operator=(const IORequest&);
+    // Non-copyable
+    IORequest(const IORequest&) = delete;
+    IORequest& operator=(const IORequest&) = delete;
 
-    ~IORequest();
+    ~IORequest() = default;
 
 public:
 #if NUT_PLATFORM_OS_WINDOWS

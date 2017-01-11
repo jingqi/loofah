@@ -28,7 +28,7 @@ class LOOFAH_API Proactor : public EventLoopBase
     int _epoll_fd = -1;
 #endif
 
-    bool _closing_or_closed = false;
+    bool volatile _closing_or_closed = false;
 
 protected:
 #if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX

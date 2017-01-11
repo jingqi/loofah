@@ -14,9 +14,14 @@ class Channel
 {
     NUT_REF_COUNTABLE
 
+private:
+    // Non-copyable
+    Channel(const Channel&) = delete;
+    Channel& operator=(const Channel&) = delete;
+
 public:
-    virtual ~Channel()
-    {}
+    Channel() = default;
+    virtual ~Channel() = default;
 
     /**
      * 初始化

@@ -15,8 +15,7 @@ class LOOFAH_API SockOperation
 {
 private:
     // Invalid methods
-    SockOperation();
-    SockOperation(const SockOperation&);
+    SockOperation() = delete;
 
 public: // Common operations
     /**

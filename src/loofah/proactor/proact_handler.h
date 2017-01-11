@@ -32,6 +32,11 @@ class LOOFAH_API ProactHandler
     friend class Proactor;
 #endif
 
+private:
+    // Non-copyable
+    ProactHandler(const ProactHandler&) = delete;
+    ProactHandler& operator=(const ProactHandler&) = delete;
+
 public:
     enum EventType
     {
@@ -40,6 +45,8 @@ public:
         WRITE_MASK = 1 << 2,
         EXCEPT_MASK = 1 << 3,
     };
+
+    ProactHandler() = default;
 
 #if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
     virtual ~ProactHandler();

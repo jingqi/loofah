@@ -1,4 +1,4 @@
-
+﻿
 #ifndef ___HEADFILE_AE9D2E29_0D2B_4441_AEE9_A287CFD2C8AD_
 #define ___HEADFILE_AE9D2E29_0D2B_4441_AEE9_A287CFD2C8AD_
 
@@ -21,6 +21,11 @@ private:
     bool _in_handling_events = false;
     std::vector<std::function<void()> > _later_tasks;
     nut::Mutex _mutex;
+
+private:
+    // Non-copyable
+    EventLoopBase(const EventLoopBase&) = delete;
+    EventLoopBase& operator=(const EventLoopBase&) = delete;
 
 protected:
     class HandleEventsGuard

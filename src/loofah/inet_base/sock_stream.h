@@ -15,7 +15,13 @@ protected:
     socket_t _socket_fd = LOOFAH_INVALID_SOCKET_FD;
     bool _reading_shutdown = false, _writing_shutdown = false;
 
+private:
+    // Non-copyable
+    SockStream(const SockStream&) = delete;
+    SockStream& operator=(const SockStream&) = delete;
+
 public:
+    SockStream() = default;
     ~SockStream();
 
     void open(socket_t fd);
