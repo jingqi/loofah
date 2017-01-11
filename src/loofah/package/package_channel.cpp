@@ -85,6 +85,7 @@ void PackageChannel::on_force_close_timer(nut::TimeWheel::timer_id_type id,
     assert(NULL != arg);
 
     PackageChannel *pthis = (PackageChannel*) arg;
+    pthis->_force_close_timer = NUT_INVALID_TIMER_ID;
     pthis->force_close();
 }
 

@@ -146,6 +146,7 @@
     <ClCompile Include="..\..\..\src\loofah\proactor\proactor.cpp" />
     <ClCompile Include="..\..\..\src\loofah\proactor\proact_acceptor.cpp" />
     <ClCompile Include="..\..\..\src\loofah\proactor\proact_channel.cpp" />
+    <ClCompile Include="..\..\..\src\loofah\proactor\proact_handler.cpp" />
     <ClCompile Include="..\..\..\src\loofah\reactor\reactor.cpp" />
     <ClCompile Include="..\..\..\src\loofah\reactor\react_acceptor.cpp" />
     <ClCompile Include="..\..\..\src\loofah\reactor\react_channel.cpp" />

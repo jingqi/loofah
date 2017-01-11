@@ -6,6 +6,7 @@
 namespace loofah
 {
 
+#if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
 ProactHandler::~ProactHandler()
 {
     while (!_read_queue.empty())
@@ -23,5 +24,6 @@ ProactHandler::~ProactHandler()
         IORequest::delete_request(io_request);
     }
 }
+#endif
 
 }

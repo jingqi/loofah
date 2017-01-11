@@ -68,6 +68,9 @@
     <ClCompile Include="..\..\..\src\loofah\inet_base\sock_operation.cpp">
       <Filter>loofah\inet_base</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\src\loofah\proactor\proact_handler.cpp">
+      <Filter>loofah\proactor</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\src\loofah\proactor\proactor.h">

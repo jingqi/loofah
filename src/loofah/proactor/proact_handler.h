@@ -41,7 +41,9 @@ public:
         EXCEPT_MASK = 1 << 3,
     };
 
+#if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
     virtual ~ProactHandler();
+#endif
 
     virtual socket_t get_socket() const = 0;
 
