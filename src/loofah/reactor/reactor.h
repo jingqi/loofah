@@ -19,11 +19,24 @@ namespace loofah
 class LOOFAH_API Reactor : public EventLoopBase
 {
 #if NUT_PLATFORM_OS_WINDOWS
+#   if WINVER < _WIN32_WINNT_WINBLUE // Windows8.1, 0x0603
+    // Windows 8.1 之前，使用 ::select() 实现
+    // NOTE 默认情况下受限于 FD_SETSIZE = 64 大小限制, 但是可以在包含 winsock2.h 之前
+    //      define 其为更大的值, 参见 https://msdn.microsoft.com/zh-cn/library/windows/desktop/ms740141(v=vs.85).aspx
     FD_SET _read_set, _write_set, _except_set;
     std::map<socket_t, ReactHandler*> _socket_to_handler;
+#   else
+    // Windows 8.1 之后，使用 ::WSAPoll() 实现
+    WSAPOLLFD *_pollfds = nullptr;
+    ReactHandler **_handlers = nullptr;
+    size_t _capacity = 16;
+    size_t _size = 0;
+#   endif
 #elif NUT_PLATFORM_OS_MAC
+    // 使用 ::kqueue() 实现
     int _kq = -1;
 #elif NUT_PLATFORM_OS_LINUX
+    // 使用 ::epoll() 实现
     int _epoll_fd = -1;
     bool _edge_triggered = false; // level-triggered or edge-triggered
 #endif
@@ -42,6 +55,13 @@ public:
     };
 
 protected:
+#if NUT_PLATFORM_OS_WINDOWS
+#   if WINVER >= _WIN32_WINNT_WINBLUE
+    void ensure_capacity(size_t new_size);
+    size_t index_of(ReactHandler *handler);
+#   endif
+#endif
+
     void register_handler(ReactHandler *handler, int mask);
     void unregister_handler(ReactHandler *handler);
 

@@ -35,9 +35,14 @@ namespace loofah
 Reactor::Reactor()
 {
 #if NUT_PLATFORM_OS_WINDOWS
+#   if WINVER < _WIN32_WINNT_WINBLUE
     FD_ZERO(&_read_set);
     FD_ZERO(&_write_set);
     FD_ZERO(&_except_set);
+#   else
+    _pollfds = (WSAPOLLFD*) ::malloc(sizeof(WSAPOLLFD) * _capacity);
+    _handlers = (ReactHandler**) ::malloc(sizeof(ReactHandler*) * _capacity);
+#   endif
 #elif NUT_PLATFORM_OS_MAC
     _kq = ::kqueue();
     if (-1 == _kq)
@@ -59,6 +64,17 @@ Reactor::Reactor()
 Reactor::~Reactor()
 {
     shutdown();
+
+#if NUT_PLATFORM_OS_WINDOWS
+#   if WINVER >= _WIN32_WINNT_WINBLUE
+    if (nullptr != _pollfds)
+        ::free(_pollfds);
+    _pollfds = nullptr;
+    if (nullptr != _handlers)
+        ::free(_handlers);
+    _handlers = nullptr;
+#   endif
+#endif
 }
 
 void Reactor::shutdown()
@@ -66,10 +82,14 @@ void Reactor::shutdown()
     _closing_or_closed = true;
 
 #if NUT_PLATFORM_OS_WINDOWS
+#   if WINVER < _WIN32_WINNT_WINBLUE
     FD_ZERO(&_read_set);
     FD_ZERO(&_write_set);
     FD_ZERO(&_except_set);
     _socket_to_handler.clear();
+#   else
+    _size = 0;
+#   endif
 #elif NUT_PLATFORM_OS_MAC
     if (-1 != _kq)
         ::close(_kq);
@@ -81,17 +101,61 @@ void Reactor::shutdown()
 #endif
 }
 
+#if NUT_PLATFORM_OS_WINDOWS
+#   if WINVER >= _WIN32_WINNT_WINBLUE
+void Reactor::ensure_capacity(size_t new_size)
+{
+    if (new_size <= _capacity)
+        return;
+
+    size_t new_cap = _size * 3 / 2;
+    if (new_cap < new_size)
+        new_cap = new_size;
+
+    WSAPOLLFD *new_pollfds = (WSAPOLLFD*) ::realloc(_pollfds, sizeof(WSAPOLLFD) * new_cap);
+    ReactHandler ** new_handlers = (ReactHandler**) ::realloc(_handlers, sizeof(ReactHandler*) * new_cap);
+    assert(nullptr != new_pollfds && nullptr != new_handlers);
+    _pollfds = new_pollfds;
+    _handlers = new_handlers;
+    _capacity = new_cap;
+}
+
+size_t Reactor::index_of(ReactHandler *handler)
+{
+    for (size_t i = 0; i < _size; ++i)
+    {
+        if (_handlers[i] == handler)
+            return i;
+    }
+    return _size;
+}
+#   endif
+#endif
+
 void Reactor::register_handler(ReactHandler *handler, int mask)
 {
     assert(nullptr != handler);
     const socket_t fd = handler->get_socket();
 
 #if NUT_PLATFORM_OS_WINDOWS
+#   if WINVER < _WIN32_WINNT_WINBLUE
     if (0 != (mask & ReactHandler::READ_MASK))
         FD_SET(fd, &_read_set);
     if (0 != (mask & ReactHandler::WRITE_MASK))
         FD_SET(fd, &_write_set);
     _socket_to_handler.insert(std::pair<socket_t,ReactHandler*>(fd, handler));
+#   else
+    ensure_capacity(_size + 1);
+    _handlers[_size] = handler;
+    _pollfds[_size].fd = fd;
+    _pollfds[_size].events = 0;
+    _pollfds[_size].revents = 0;
+    if (0 != (mask & ReactHandler::READ_MASK))
+        _pollfds[_size].events |= POLLIN;
+    if (0 != (mask & ReactHandler::WRITE_MASK))
+        _pollfds[_size].events |= POLLOUT;
+    ++_size;
+#   endif
 #elif NUT_PLATFORM_OS_MAC
     assert(0 == handler->_registered_events);
     struct kevent ev[2];
@@ -133,6 +197,7 @@ void Reactor::unregister_handler(ReactHandler *handler)
     const socket_t fd = handler->get_socket();
 
 #if NUT_PLATFORM_OS_WINDOWS
+#   if WINVER < _WIN32_WINNT_WINBLUE
     if (FD_ISSET(fd, &_read_set))
         FD_CLR(fd, &_read_set);
     if (FD_ISSET(fd, &_write_set))
@@ -140,6 +205,18 @@ void Reactor::unregister_handler(ReactHandler *handler)
     if (FD_ISSET(fd, &_except_set))
         FD_CLR(fd, &_except_set);
     _socket_to_handler.erase(fd);
+#   else
+    const size_t index = index_of(handler);
+    if (index >= _size)
+        return;
+    if (index + 1 < _size)
+    {
+        // Swap current and last element
+        _pollfds[index] = _pollfds[_size - 1];
+        _handlers[index] = _handlers[_size - 1];
+    }
+    --_size;
+#   endif
 #elif NUT_PLATFORM_OS_MAC
     struct kevent ev[2];
     EV_SET(ev, fd, EVFILT_READ, EV_DELETE, 0, 0, (void*) handler);
@@ -170,11 +247,21 @@ void Reactor::enable_handler(ReactHandler *handler, int mask)
     const socket_t fd = handler->get_socket();
 
 #if NUT_PLATFORM_OS_WINDOWS
+#   if WINVER < _WIN32_WINNT_WINBLUE
     if (0 != (mask & ReactHandler::READ_MASK) && !FD_ISSET(fd, &_read_set))
         FD_SET(fd, &_read_set);
     if (0 != (mask & ReactHandler::WRITE_MASK) && !FD_ISSET(fd, &_write_set))
         FD_SET(fd, &_write_set);
     _socket_to_handler.insert(std::pair<socket_t,ReactHandler*>(fd, handler));
+#   else
+    const size_t index = index_of(handler);
+    if (index >= _size)
+        return;
+    if (0 != (mask & ReactHandler::READ_MASK))
+        _pollfds[index].events |= POLLIN;
+    if (0 != (mask & ReactHandler::WRITE_MASK))
+        _pollfds[index].events |= POLLOUT;
+#   endif
 #elif NUT_PLATFORM_OS_MAC
     struct kevent ev[2];
     int n = 0;
@@ -224,10 +311,20 @@ void Reactor::disable_handler(ReactHandler *handler, int mask)
     const socket_t fd = handler->get_socket();
 
 #if NUT_PLATFORM_OS_WINDOWS
+#   if WINVER < _WIN32_WINNT_WINBLUE
     if (0 != (mask & ReactHandler::READ_MASK) && FD_ISSET(fd, &_read_set))
         FD_CLR(fd, &_read_set);
     if (0 != (mask & ReactHandler::WRITE_MASK) && FD_ISSET(fd, &_write_set))
         FD_CLR(fd, &_write_set);
+#   else
+    const size_t index = index_of(handler);
+    if (index >= _size)
+        return;
+    if (0 != (mask & ReactHandler::READ_MASK))
+        _pollfds[index].events &= ~POLLIN;
+    if (0 != (mask & ReactHandler::WRITE_MASK))
+        _pollfds[index].events &= ~POLLOUT;
+#   endif
 #elif NUT_PLATFORM_OS_MAC
     struct kevent ev[2];
     int n = 0;
@@ -276,6 +373,7 @@ int Reactor::handle_events(int timeout_ms)
         HandleEventsGuard g(this);
 
 #if NUT_PLATFORM_OS_WINDOWS
+#   if WINVER < _WIN32_WINNT_WINBLUE
         struct timeval timeout, *ptimeout = nullptr; // nullptr 表示无限等待
         if (timeout_ms >= 0)
         {
@@ -312,6 +410,45 @@ int Reactor::handle_events(int timeout_ms)
             assert(nullptr != handler);
             handler->handle_write_ready();
         }
+#   else
+        const int rs = ::WSAPoll(_pollfds, _size, timeout_ms);
+        if (SOCKET_ERROR == rs)
+        {
+            NUT_LOG_E(TAG, "failed to call ::WSAPoll() with errorno %d", ::WSAGetLastError());
+            return -1;
+        }
+        int found = 0;
+        for (size_t i = 0; i < _size && found < rs; ++i)
+        {
+            const SHORT revents = _pollfds[i].revents;
+            _pollfds[i].revents = 0;
+            if (0 != revents)
+            {
+                ++found;
+                /**
+                 * POLLERR        错误
+                 * POLLNVAL       无效的 socket fd 被使用
+                 * POLLHUP        面向连接的 socket 被断开或者放弃
+                 * POLLPRI        Not used by Microsoft Winsock
+                 * POLLRDBAND     Priority band (out-of-band) 数据可读
+                 * POLLRDNORM     常规数据可读
+                 * POLLWRNORM     常规数据可写
+                 *
+                 * POLLIN = POLLRDNORM | POLLRDBAND
+                 * POLLOUT = POLLWRNORM
+                 */
+                if (0 != (revents & POLLERR) || 0 != (revents & POLLNVAL))
+                {
+                    NUT_LOG_E(TAG, "error detected with fd %d when calling ::WSAPoll()", _pollfds[i].fd);
+                    return -1;
+                }
+                if (0 != (revents & POLLHUP) || 0 != (revents & POLLIN))
+                    _handlers[i]->handle_read_ready();
+                if (0 != (revents & POLLOUT))
+                    _handlers[i]->handle_write_ready();
+            }
+        }
+#   endif
 #elif NUT_PLATFORM_OS_MAC
         struct timespec timeout;
         timeout.tv_sec = timeout_ms / 1000;
