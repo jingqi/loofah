@@ -5,7 +5,6 @@
 #include "loofah_config.h"
 
 // base
-#include "inet_base/inet_endian.h"
 #include "inet_base/inet_addr.h"
 #include "inet_base/sock_operation.h"
 #include "inet_base/sock_stream.h"

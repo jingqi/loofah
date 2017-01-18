@@ -44,12 +44,13 @@ public:
         NUT_LOG_D(TAG, "received %d bytes from client: %d", pkg->readable_size(), _counter);
 
         assert(pkg->readable_size() == sizeof(int));
-        const int tmp = *(const int*) pkg->readable_data();
+        int tmp = 0;
+        *pkg >> tmp;
         assert(tmp == _counter);
         ++_counter;
 
         rc_ptr<Package> new_pkg = rc_new<Package>();
-        new_pkg->write(&_counter, sizeof(_counter));
+        *new_pkg << _counter;
         write_later(new_pkg);
         ++_counter;
     }
@@ -87,7 +88,7 @@ public:
         NUT_LOG_D(TAG, "client channel connected");
 
         rc_ptr<Package> new_pkg = rc_new<Package>();
-        new_pkg->write(&_counter, sizeof(_counter));
+        *new_pkg << _counter;
         write_later(new_pkg);
         ++_counter;
     }
@@ -98,12 +99,13 @@ public:
         NUT_LOG_D(TAG, "received %d bytes from server: %d", pkg->readable_size(), _counter);
 
         assert(pkg->readable_size() == sizeof(int));
-        const int tmp = *(const int*) pkg->readable_data();
+        int tmp = 0;
+        *pkg >> tmp;
         assert(tmp == _counter);
         ++_counter;
 
         rc_ptr<Package> new_pkg = rc_new<Package>();
-        new_pkg->write(&_counter, sizeof(_counter));
+        *new_pkg << _counter;
         write_later(new_pkg);
         ++_counter;
 
@@ -125,7 +127,7 @@ public:
 
 void test_package_channel()
 {
-    // start server
+    // Start server
     rc_ptr<ProactAcceptor<ServerChannel> > acc = rc_new<ProactAcceptor<ServerChannel> >();
     InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
     acc->open(addr);
@@ -133,11 +135,11 @@ void test_package_channel()
     g_proactor.launch_accept_later(acc);
     NUT_LOG_D(TAG, "listening to %s", addr.to_string().c_str());
 
-    // start client
+    // Start client
     rc_ptr<ClientChannel> client = ProactConnector<ClientChannel>::connect(addr);
     NUT_LOG_D(TAG, "will connect to %s", addr.to_string().c_str());
 
-    // loop
+    // Loop
     while (!g_server_channels.empty() || LOOFAH_INVALID_SOCKET_FD != client->get_socket())
     {
         if (g_proactor.handle_events(TimeWheel::TICK_GRANULARITY_MS) < 0)

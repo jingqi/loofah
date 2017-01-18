@@ -35,6 +35,16 @@ Package::~Package()
     clear();
 }
 
+bool Package::is_little_endian() const
+{
+    return _little_endian;
+}
+
+void Package::set_little_endian(bool le)
+{
+    _little_endian = le;
+}
+
 void Package::clear()
 {
     if (nullptr != _buffer)
@@ -82,6 +92,14 @@ void Package::skip_read(size_t len)
 {
     assert(len <= readable_size());
     _read_index += len;
+}
+
+size_t Package::read(void *buf, size_t len)
+{
+    assert(nullptr != buf);
+    size_t ret = (std::min)(len, readable_size());
+    ::memcpy(buf, readable_data(), ret);
+    return ret;
 }
 
 size_t Package::writable_size() const
@@ -138,12 +156,13 @@ void Package::ensure_writable_size(size_t write_size)
     }
 }
 
-void Package::write(const void *buf, size_t len)
+size_t Package::write(const void *buf, size_t len)
 {
     assert(nullptr != buf);
     ensure_writable_size(len);
     ::memcpy((uint8_t*) _buffer + _write_index, buf, len);
     _write_index += len;
+    return len;
 }
 
 }

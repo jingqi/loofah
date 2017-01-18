@@ -41,12 +41,12 @@
 #   include <netdb.h> // for ::gethostbyname(), ::getaddrinfo()
 #endif
 
-
+#include <nut/platform/portable_endian.h>
 #include <nut/logging/logger.h>
 #include <nut/util/string/to_string.h>
 
 #include "inet_addr.h"
-#include "inet_endian.h"
+
 
 #define TAG "loofah.inet_addr"
 

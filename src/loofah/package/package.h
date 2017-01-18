@@ -4,15 +4,15 @@
 
 #include "../loofah_config.h"
 
-#include <nut/rc/rc_ptr.h>
-
+#include <nut/container/bytestream/input_stream.h>
+#include <nut/container/bytestream/output_stream.h>
 
 namespace loofah
 {
 
-class LOOFAH_API Package
+class LOOFAH_API Package : public nut::InputStream, public nut::OutputStream
 {
-    NUT_REF_COUNTABLE
+    NUT_REF_COUNTABLE_OVERRIDE
 
     const size_t PREPEND_LEN = sizeof(uint32_t);
 
@@ -21,6 +21,8 @@ class LOOFAH_API Package
 
     size_t _read_index = PREPEND_LEN;
     size_t _write_index = PREPEND_LEN;
+
+    bool _little_endian = false;
 
 private:
     // Non-copyable
@@ -32,18 +34,22 @@ public:
     Package(const void *buf, size_t len);
     ~Package();
 
+    virtual bool is_little_endian() const override;
+    virtual void set_little_endian(bool le) override;
+
     void clear();
     void prepend(const void *header);
 
-    size_t readable_size() const;
+    virtual size_t readable_size() const override;
     const void* readable_data() const;
-    void skip_read(size_t len);
+    virtual void skip_read(size_t len) override;
+    virtual size_t read(void *buf, size_t len) override;
 
     size_t writable_size() const;
     void* writable_data();
     void skip_write(size_t len);
     void ensure_writable_size(size_t write_size);
-    void write(const void *buf, size_t len);
+    virtual size_t write(const void *buf, size_t len) override;
 };
 
 }
