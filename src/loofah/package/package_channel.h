@@ -51,7 +51,18 @@ public:
     virtual ~PackageChannel();
 
     void set_proactor(Proactor *proactor);
+
+    Proactor* get_proactor() const
+    {
+        return _proactor;
+    }
+
     void set_time_wheel(nut::TimeWheel *time_wheel);
+
+    nut::TimeWheel* get_time_wheel() const
+    {
+        return _time_wheel;
+    }
 
     virtual void open(socket_t fd) final override;
     virtual void handle_read_completed(int cb) final override;
