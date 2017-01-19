@@ -60,25 +60,26 @@ namespace loofah
 #if NUT_PLATFORM_OS_WINDOWS && NUT_PLATFORM_CC_MINGW
 static int inet_pton(int af, const char *src, void *dst)
 {
+    /* Stupid non-const API */
+    const int maxlen = (std::max)(INET_ADDRSTRLEN, INET6_ADDRSTRLEN); // Include tailing '\0' already
+    char src_copy[maxlen];
+    ::strncpy(src_copy, src, maxlen);
+    src_copy[maxlen - 1] = 0;
+
     struct sockaddr_storage ss;
+    ::memset(&ss, 0, sizeof(ss));
+
     int size = sizeof(ss);
-    char src_copy[INET6_ADDRSTRLEN+1];
-
-    ZeroMemory(&ss, sizeof(ss));
-    /* stupid non-const API */
-    strncpy (src_copy, src, INET6_ADDRSTRLEN+1);
-    src_copy[INET6_ADDRSTRLEN] = 0;
-
-    if (WSAStringToAddressA(src_copy, af, NULL, (struct sockaddr *)&ss, &size) == 0)
+    if (0 == ::WSAStringToAddressA(src_copy, af, nullptr, (struct sockaddr *)&ss, &size))
     {
         switch(af)
         {
         case AF_INET:
-            *(struct in_addr *)dst = ((struct sockaddr_in *)&ss)->sin_addr;
+            *(struct in_addr *) dst = ((struct sockaddr_in *) &ss)->sin_addr;
             return 1;
 
         case AF_INET6:
-            *(struct in6_addr *)dst = ((struct sockaddr_in6 *)&ss)->sin6_addr;
+            *(struct in6_addr *) dst = ((struct sockaddr_in6 *) &ss)->sin6_addr;
             return 1;
         }
     }
@@ -88,9 +89,7 @@ static int inet_pton(int af, const char *src, void *dst)
 static const char* inet_ntop(int af, const void *src, char *dst, socklen_t size)
 {
     struct sockaddr_storage ss;
-    unsigned long s = size;
-
-    ZeroMemory(&ss, sizeof(ss));
+    ::memset(&ss, 0, sizeof(ss));
     ss.ss_family = af;
 
     switch(af)
@@ -104,12 +103,14 @@ static const char* inet_ntop(int af, const void *src, char *dst, socklen_t size)
         break;
 
     default:
-        return NULL;
+        return nullptr;
     }
-    /* cannot direclty use &size because of strict aliasing rules */
-    if (0 == WSAAddressToStringA((struct sockaddr *)&ss, sizeof(ss), NULL, dst, &s))
+
+    /* Cannot direclty use &size because of strict aliasing rules */
+    unsigned long s = size;
+    if (0 == ::WSAAddressToStringA((struct sockaddr *) &ss, sizeof(ss), nullptr, dst, &s))
         return dst;
-    return NULL;
+    return nullptr;
 }
 #endif
 
@@ -246,7 +247,7 @@ bool InetAddr::operator==(const InetAddr& addr) const
 
 std::string InetAddr::get_ip() const
 {
-    const int buflen = (std::max)(INET_ADDRSTRLEN, INET6_ADDRSTRLEN) + 1;
+    const int buflen = (std::max)(INET_ADDRSTRLEN, INET6_ADDRSTRLEN); // Include tailing '\0' already
     char buf[buflen];
     const int domain = is_ipv6() ? AF_INET6 : AF_INET;
 #if NUT_PLATFORM_OS_WINDOWS
