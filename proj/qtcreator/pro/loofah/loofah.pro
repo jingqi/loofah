@@ -7,6 +7,8 @@ include(../global.pri)
 
 QT -= core gui
 
+DEFINES += BUILDING_LOOFAH_DLL
+
 # INCLUDE 路径
 SRC_ROOT = $$PWD/../../../../src/loofah
 INCLUDEPATH += \

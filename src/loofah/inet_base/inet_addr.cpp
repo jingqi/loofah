@@ -34,11 +34,11 @@
 
 #if NUT_PLATFORM_OS_WINDOWS
 #   include <winsock2.h> // NOTE should include winsock2.h before windows.h
-#   include <ws2tcpip.h> // for ::inet_pton(), ::inet_ntop()
+#   include <ws2tcpip.h> // For ::inet_pton(), ::inet_ntop()
 #   include <windows.h>
 #else
-#   include <arpa/inet.h> // for ::inet_aton()
-#   include <netdb.h> // for ::gethostbyname(), ::getaddrinfo()
+#   include <arpa/inet.h> // For ::inet_aton()
+#   include <netdb.h> // For ::gethostbyname(), ::getaddrinfo()
 #endif
 
 #include <nut/platform/portable_endian.h>
@@ -52,6 +52,66 @@
 
 namespace loofah
 {
+
+/**
+ * Windows/Mingw 下缺少 inet_pton() inet_ntop() 函数
+ * See http://stackoverflow.com/questions/15660203/inet-pton-identifier-not-found
+ */
+#if NUT_PLATFORM_OS_WINDOWS && NUT_PLATFORM_CC_MINGW
+static int inet_pton(int af, const char *src, void *dst)
+{
+    struct sockaddr_storage ss;
+    int size = sizeof(ss);
+    char src_copy[INET6_ADDRSTRLEN+1];
+
+    ZeroMemory(&ss, sizeof(ss));
+    /* stupid non-const API */
+    strncpy (src_copy, src, INET6_ADDRSTRLEN+1);
+    src_copy[INET6_ADDRSTRLEN] = 0;
+
+    if (WSAStringToAddressA(src_copy, af, NULL, (struct sockaddr *)&ss, &size) == 0)
+    {
+        switch(af)
+        {
+        case AF_INET:
+            *(struct in_addr *)dst = ((struct sockaddr_in *)&ss)->sin_addr;
+            return 1;
+
+        case AF_INET6:
+            *(struct in6_addr *)dst = ((struct sockaddr_in6 *)&ss)->sin6_addr;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static const char* inet_ntop(int af, const void *src, char *dst, socklen_t size)
+{
+    struct sockaddr_storage ss;
+    unsigned long s = size;
+
+    ZeroMemory(&ss, sizeof(ss));
+    ss.ss_family = af;
+
+    switch(af)
+    {
+    case AF_INET:
+        ((struct sockaddr_in *)&ss)->sin_addr = *(struct in_addr *)src;
+        break;
+
+    case AF_INET6:
+        ((struct sockaddr_in6 *)&ss)->sin6_addr = *(struct in6_addr *)src;
+        break;
+
+    default:
+        return NULL;
+    }
+    /* cannot direclty use &size because of strict aliasing rules */
+    if (0 == WSAAddressToStringA((struct sockaddr *)&ss, sizeof(ss), NULL, dst, &s))
+        return dst;
+    return NULL;
+}
+#endif
 
 InetAddr::InetAddr(int port, bool loopback, bool ipv6)
 {
@@ -95,7 +155,7 @@ InetAddr::InetAddr(const char *addr, int port, bool ipv6)
         //      1 for successed
         //      0 for wrong address format
         //      -1 for system error, errno will be set
-        if (::inet_pton(AF_INET6, addr, &_sock_addr6.sin6_addr) <= 0)
+        if (inet_pton(AF_INET6, addr, &_sock_addr6.sin6_addr) <= 0)
         {
             struct addrinfo hint, *answer = nullptr;
             ::memset(&hint, 0, sizeof(hint));
@@ -190,7 +250,7 @@ std::string InetAddr::get_ip() const
     char buf[buflen];
     const int domain = is_ipv6() ? AF_INET6 : AF_INET;
 #if NUT_PLATFORM_OS_WINDOWS
-    ::inet_ntop(domain, (void*) cast_to_sockaddr(), buf, buflen);
+    inet_ntop(domain, (void*) cast_to_sockaddr(), buf, buflen);
 #else
     ::inet_ntop(domain, cast_to_sockaddr(), buf, buflen);
 #endif

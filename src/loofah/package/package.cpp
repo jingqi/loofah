@@ -2,7 +2,8 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <string.h> // for ::memcpy()
+#include <string.h> // For ::memcpy()
+#include <algorithm> // For std::min()
 
 #include "package.h"
 

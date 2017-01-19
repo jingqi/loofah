@@ -1,7 +1,7 @@
 
 TEMPLATE = subdirs
 
-NUT_PROJ = ../../../lib/nut.git/proj/qtcreator/pro/nut/nut.pro
+NUT_PROJ = ../../../lib/nut.git/proj/qtcreator/pro/nut
 SUBDIRS += \
     $${NUT_PROJ} \
     loofah \
