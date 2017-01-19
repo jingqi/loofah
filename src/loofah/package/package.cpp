@@ -99,7 +99,8 @@ size_t Package::read(void *buf, size_t len)
 {
     assert(nullptr != buf);
     size_t ret = (std::min)(len, readable_size());
-    ::memcpy(buf, readable_data(), ret);
+    ::memcpy(buf, (const uint8_t*) _buffer + _read_index, ret);
+    _read_index += ret;
     return ret;
 }
 
