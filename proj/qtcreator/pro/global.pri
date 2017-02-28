@@ -1,10 +1,7 @@
 
 # 这里貌似是qmake的一个bug，不会主动添加 _DEBUG/NDEBUG 宏
-CONFIG(debug, debug|release) {
-    DEFINES += _DEBUG
-} else {
-    DEFINES += NDEBUG
-}
+CONFIG(debug, debug|release): DEFINES += _DEBUG
+else: DEFINES += NDEBUG
 
 # C++11 支持
 QMAKE_CXXFLAGS += -std=c++11
