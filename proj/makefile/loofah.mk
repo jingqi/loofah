@@ -8,11 +8,7 @@ NUT_MAKEFILE_DIR = $(CURDIR)/../../lib/nut.git/proj/makefile
 include ${NUT_MAKEFILE_DIR}/preface_rules.mk
 
 # variables
-ifeq (${DEBUG}, 1)
-	NUT_OUT_DIR = ${NUT_MAKEFILE_DIR}/debug
-else
-	NUT_OUT_DIR = ${NUT_MAKEFILE_DIR}/release
-endif
+NUT_OUT_DIR = ${NUT_MAKEFILE_DIR}/${OUT_DIR_NAME}
 
 # INC
 INC += -I../../lib/nut.git/src -I${SRC_ROOT}/..
@@ -24,14 +20,12 @@ DEF += -DBUILD_LOOFAH_DLL
 CXX_FLAGS += -std=c++11
 
 # LIB LIB_DEPS
-ifeq (${HOST}, Darwin)
-	LIB_NUT += ${NUT_OUT_DIR}/libnut.dylib
-	LIB_NUT_DUP += ${OUT_DIR}/libnut.dylib
-else
+ifeq (${HOST}, Linux)
 	LIB += -lpthread
-	LIB_NUT += ${NUT_OUT_DIR}/libnut.so
-	LIB_NUT_DUP += ${OUT_DIR}/libnut.so
+
 endif
+LIB_NUT += ${NUT_OUT_DIR}/libnut.${DL_SUFFIX}
+LIB_NUT_DUP += ${OUT_DIR}/libnut.${DL_SUFFIX}
 LIB += -L${OUT_DIR} -lnut
 LIB_DEPS += ${LIB_NUT_DUP}
 
@@ -39,11 +33,8 @@ LIB_DEPS += ${LIB_NUT_DUP}
 LD_FLAGS +=
 
 # TARGET
-ifeq (${HOST}, Darwin)
-	TARGET = ${OUT_DIR}/lib${TARGET_NAME}.dylib
-else
-	TARGET = ${OUT_DIR}/lib${TARGET_NAME}.so
-endif
+TARGET = ${OUT_DIR}/lib${TARGET_NAME}.${DL_SUFFIX}
+
 
 .PHONY: all clean rebuild
 

@@ -8,11 +8,8 @@ NUT_MAKEFILE_DIR = $(CURDIR)/../../lib/nut.git/proj/makefile
 include ${NUT_MAKEFILE_DIR}/preface_rules.mk
 
 # variables
-ifeq (${DEBUG}, 1)
-	NUT_OUT_DIR = ${NUT_MAKEFILE_DIR}/debug
-else
-	NUT_OUT_DIR = ${NUT_MAKEFILE_DIR}/release
-endif
+NUT_OUT_DIR = ${NUT_MAKEFILE_DIR}/${OUT_DIR_NAME}
+
 
 # INC
 INC += -I../../lib/nut.git/src -I${SRC_ROOT}/..
@@ -24,16 +21,12 @@ DEF +=
 CXX_FLAGS += -std=c++11
 
 # LIB
-ifeq (${HOST}, Darwin)
-	LIB_NUT = ${NUT_OUT_DIR}/libnut.dylib
-	LIB_NUT_DUP = ${OUT_DIR}/libnut.dylib
-	LIB_LOOFAH = ${OUT_DIR}/libloofah.dylib
-else
+ifeq (${HOST}, Linux)
 	LIB += -lpthread
-	LIB_NUT = ${NUT_OUT_DIR}/libnut.so
-	LIB_NUT_DUP = ${OUT_DIR}/libnut.so
-	LIB_LOOFAH = ${OUT_DIR}/libloofah.so
 endif
+LIB_NUT = ${NUT_OUT_DIR}/libnut.${DL_SUFFIX}
+LIB_NUT_DUP = ${OUT_DIR}/libnut.${DL_SUFFIX}
+LIB_LOOFAH = ${OUT_DIR}/libloofah.${DL_SUFFIX}
 LIB += -L${OUT_DIR} -lnut -lloofah
 LIB_DEPS += ${LIB_NUT_DUP} ${LIB_LOOFAH}
 
