@@ -4,15 +4,10 @@ TARGET_NAME = test_pingpong
 SRC_ROOT = ../../src/${TARGET_NAME}
 
 # preface rules
-NUT_MAKEFILE_DIR = $(CURDIR)/../../lib/nut.git/proj/makefile
-include ${NUT_MAKEFILE_DIR}/preface_rules.mk
-
-# variables
-NUT_OUT_DIR = ${NUT_MAKEFILE_DIR}/${OUT_DIR_NAME}
-
+include ${NUT_DIR}/proj/makefile/preface_rules.mk
 
 # INC
-INC += -I../../lib/nut.git/src -I${SRC_ROOT}/..
+INC += -I${SRC_ROOT}/.. -I${NUT_DIR}/src
 
 # DEF
 DEF +=
@@ -24,11 +19,9 @@ CXX_FLAGS += -std=c++11
 ifeq (${HOST}, Linux)
 	LIB += -lpthread
 endif
-LIB_NUT = ${NUT_OUT_DIR}/libnut.${DL_SUFFIX}
-LIB_NUT_DUP = ${OUT_DIR}/libnut.${DL_SUFFIX}
-LIB_LOOFAH = ${OUT_DIR}/libloofah.${DL_SUFFIX}
 LIB += -L${OUT_DIR} -lnut -lloofah
-LIB_DEPS += ${LIB_NUT_DUP} ${LIB_LOOFAH}
+LIB_DEPS += ${OUT_DIR}/libnut.${DL_SUFFIX} \
+			${OUT_DIR}/libloofah.${DL_SUFFIX}
 
 # LD_FLAGS
 LD_FLAGS +=
@@ -41,7 +34,6 @@ TARGET = ${OUT_DIR}/${TARGET_NAME}
 all: ${TARGET}
 
 clean:
-	$(MAKE) -f loofah.mk clean
 	rm -rf ${OBJS}
 	rm -rf ${DEPS}
 	rm -rf ${TARGET}
@@ -50,15 +42,13 @@ rebuild:
 	$(MAKE) -f test_pingpong.mk clean
 	$(MAKE) -f test_pingpong.mk all
 
-${LIB_NUT_DUP}: ${LIB_NUT}
-	cp -f $< $@
+${OUT_DIR}/libnut.${DL_SUFFIX}:
+	cd ${NUT_DIR}/proj/makefile ; $(MAKE) -f nut.mk
+	cp -f ${NUT_DIR}/proj/makefile/${OUT_DIR_NAME}/libnut.${DL_SUFFIX} $@
 
-${LIB_NUT}: FORCE
-	cd ${NUT_MAKEFILE_DIR} ; $(MAKE) -f nut.mk
-
-${LIB_LOOFAH}: ${LIB_NUT_DUP} FORCE
+${OUT_DIR}/libloofah.${DL_SUFFIX}:
 	$(MAKE) -f loofah.mk
 
 # rules
-include ${NUT_MAKEFILE_DIR}/common_rules.mk
-include ${NUT_MAKEFILE_DIR}/app_rules.mk
+include ${NUT_DIR}/proj/makefile/common_rules.mk
+include ${NUT_DIR}/proj/makefile/app_rules.mk

@@ -4,14 +4,10 @@ TARGET_NAME = loofah
 SRC_ROOT = ../../src/${TARGET_NAME}
 
 # preface rules
-NUT_MAKEFILE_DIR = $(CURDIR)/../../lib/nut.git/proj/makefile
-include ${NUT_MAKEFILE_DIR}/preface_rules.mk
-
-# variables
-NUT_OUT_DIR = ${NUT_MAKEFILE_DIR}/${OUT_DIR_NAME}
+include ${NUT_DIR}/proj/makefile/preface_rules.mk
 
 # INC
-INC += -I../../lib/nut.git/src -I${SRC_ROOT}/..
+INC += -I${SRC_ROOT}/.. -I${NUT_DIR}/src
 
 # DEF
 DEF += -DBUILD_LOOFAH_DLL
@@ -22,12 +18,9 @@ CXX_FLAGS += -std=c++11
 # LIB LIB_DEPS
 ifeq (${HOST}, Linux)
 	LIB += -lpthread
-
 endif
-LIB_NUT += ${NUT_OUT_DIR}/libnut.${DL_SUFFIX}
-LIB_NUT_DUP += ${OUT_DIR}/libnut.${DL_SUFFIX}
 LIB += -L${OUT_DIR} -lnut
-LIB_DEPS += ${LIB_NUT_DUP}
+LIB_DEPS += ${OUT_DIR}/libnut.${DL_SUFFIX}
 
 # LD_FLAGS
 LD_FLAGS +=
@@ -41,7 +34,6 @@ TARGET = ${OUT_DIR}/lib${TARGET_NAME}.${DL_SUFFIX}
 all: ${TARGET}
 
 clean:
-	cd ${NUT_MAKEFILE_DIR} ; $(MAKE) -f nut.mk clean
 	rm -rf ${OBJS}
 	rm -rf ${DEPS}
 	rm -rf ${TARGET}
@@ -50,12 +42,10 @@ rebuild:
 	$(MAKE) -f loofah.mk clean
 	$(MAKE) -f loofah.mk all
 
-${LIB_NUT_DUP}: ${LIB_NUT}
-	cp -f $< $@
-
-${LIB_NUT}: FORCE
-	cd ${NUT_MAKEFILE_DIR} ; $(MAKE) -f nut.mk
+${OUT_DIR}/libnut.${DL_SUFFIX}:
+	cd ${NUT_DIR}/proj/makefile ; $(MAKE) -f nut.mk
+	cp -f ${NUT_DIR}/proj/makefile/${OUT_DIR_NAME}/libnut.${DL_SUFFIX} $@
 
 # rules
-include ${NUT_MAKEFILE_DIR}/common_rules.mk
-include ${NUT_MAKEFILE_DIR}/shared_lib_rules.mk
+include ${NUT_DIR}/proj/makefile/common_rules.mk
+include ${NUT_DIR}/proj/makefile/shared_lib_rules.mk
