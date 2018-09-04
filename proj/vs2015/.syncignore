@@ -6,6 +6,7 @@
 *.opensdf
 *.opendb
 *.sdf
+*.VC.db
 
 /Debug
 /Release
