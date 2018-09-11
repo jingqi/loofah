@@ -27,10 +27,10 @@ mac {
 }
 
 # dylib 安装路径
-mac:contains(TEMPLATE, lib):!contains(CONFIG, staticlib) {
+mac: contains(TEMPLATE, lib): !contains(CONFIG, staticlib) {
     QMAKE_LFLAGS_SONAME = -Wl,-install_name,@rpath/
 }
-mac:contains(TEMPLATE, app) {
+mac: contains(TEMPLATE, app) {
     QMAKE_LFLAGS += -Wl,-rpath,@executable_path -Wl,-rpath,@executable_path/../Frameworks
     QMAKE_LFLAGS_RPATH =
 }

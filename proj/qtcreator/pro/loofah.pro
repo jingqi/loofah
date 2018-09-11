@@ -1,13 +1,12 @@
 
 TEMPLATE = subdirs
 
-NUT_PROJ = ../../../lib/nut.git/proj/qtcreator/pro/nut
 SUBDIRS += \
-    $${NUT_PROJ} \
+    nut \
     loofah \
     test_loofah \
     test_pingpong
 
-loofah.depends = $${NUT_PROJ}
-test_loofah.depends = $${NUT_PROJ} loofah
-test_pingpong.depends = $${NUT_PROJ} loofah
+loofah.depends = nut
+test_loofah.depends = nut loofah
+test_pingpong.depends = nut loofah
