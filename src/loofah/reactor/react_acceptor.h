@@ -11,30 +11,26 @@
 #include "react_handler.h"
 #include "../inet_base/inet_addr.h"
 
+
 namespace loofah
 {
 
 class LOOFAH_API ReactAcceptorBase : public ReactHandler
 {
-    socket_t _listener_socket = LOOFAH_INVALID_SOCKET_FD;
-
 public:
     /**
      * @param listen_num 在 windows 下, 可以使用 'SOMAXCONN' 表示最大允许链接数
      */
     bool open(const InetAddr& addr, int listen_num = 2048);
 
-    virtual socket_t get_socket() const override
-    {
-        return _listener_socket;
-    }
+    virtual socket_t get_socket() const override;
 
     static socket_t handle_accept(socket_t listener_socket);
 
-    virtual void handle_write_ready() final override
-    {
-        // Dummy for an acceptor
-    }
+    virtual void handle_write_ready() final override;
+
+private:
+    socket_t _listener_socket = LOOFAH_INVALID_SOCKET_FD;
 };
 
 template <typename CHANNEL>

@@ -29,10 +29,12 @@
 
 #include <assert.h>
 #include <string.h>
+#include <algorithm> // for std::max()
 
 #include <nut/platform/platform.h>
 
 #if NUT_PLATFORM_OS_WINDOWS
+    // NOTE winsock2.h 必须放在 windows.h 之前
 #   include <winsock2.h> // NOTE should include winsock2.h before windows.h
 #   include <ws2tcpip.h> // For ::inet_pton(), ::inet_ntop()
 #   include <windows.h>
@@ -243,6 +245,36 @@ bool InetAddr::operator==(const InetAddr& addr) const
                           sizeof(_sock_addr6.sin6_addr));
     }
     return false;
+}
+
+bool InetAddr::operator!=(const InetAddr& addr) const
+{
+    return !(*this == addr);
+}
+
+bool InetAddr::is_ipv6() const
+{
+    return AF_INET6 == _sock_addr6.sin6_family;
+}
+
+struct sockaddr* InetAddr::cast_to_sockaddr()
+{
+    return (struct sockaddr*) &_sock_addr;
+}
+
+const struct sockaddr* InetAddr::cast_to_sockaddr() const
+{
+    return (const struct sockaddr*) &_sock_addr;
+}
+
+size_t InetAddr::get_max_sockaddr_size() const
+{
+    return (std::max)(sizeof(_sock_addr), sizeof(_sock_addr6));
+}
+
+size_t InetAddr::get_sockaddr_size() const
+{
+    return (AF_INET == _sock_addr.sin_family ? sizeof(_sock_addr) : sizeof(_sock_addr6));
 }
 
 std::string InetAddr::get_ip() const

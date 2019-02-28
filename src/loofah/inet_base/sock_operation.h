@@ -1,4 +1,4 @@
-
+﻿
 #ifndef ___HEADFILE_9092C70E_21B8_4084_AB7B_A802D642D26A_
 #define ___HEADFILE_9092C70E_21B8_4084_AB7B_A802D642D26A_
 
@@ -8,16 +8,16 @@
 
 #include "inet_addr.h"
 
+
 namespace loofah
 {
 
 class LOOFAH_API SockOperation
 {
-private:
-    // Invalid methods
-    SockOperation() = delete;
+public:
+    ////////////////////////////////////////////////////////////////////////////
+    // Common operations
 
-public: // Common operations
     /**
      * 设置非阻塞
      */
@@ -33,7 +33,9 @@ public: // Common operations
      */
     static void close(socket_t socket_fd);
 
-public: // Listener socket operations
+    ////////////////////////////////////////////////////////////////////////////
+    // Listener socket operations
+
     /**
      * 让监听的端口可以被复用
      * NOTE 必须在 bind() 之前调用
@@ -41,8 +43,9 @@ public: // Listener socket operations
     static bool set_reuse_addr(socket_t listener_socket_fd);
     static bool set_reuse_port(socket_t listener_socket_fd);
 
+    ////////////////////////////////////////////////////////////////////////////
+    // Socket connection operations
 
-public: // Socket connection operations
     static bool shutdown_read(socket_t socket_fd);
     static bool shutdown_write(socket_t socket_fd);
 
@@ -81,6 +84,9 @@ public: // Socket connection operations
     static bool set_tcp_nodelay(socket_t socket_fd, bool no_delay = true);
 
     static bool set_keep_alive(socket_t socket_fd, bool keep_alive = true);
+
+private:
+    SockOperation() = delete;
 };
 
 }

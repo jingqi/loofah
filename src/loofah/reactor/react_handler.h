@@ -14,17 +14,6 @@ class ReactHandler
 {
     NUT_REF_COUNTABLE
 
-#if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
-    // 用于记录注册状态，参见 Reactor 的实现
-    int _registered_events = 0;
-    friend class Reactor;
-#endif
-
-private:
-    // Non-copyable
-    ReactHandler(const ReactHandler&) = delete;
-    ReactHandler& operator=(const ReactHandler&) = delete;
-
 public:
     enum EventType
     {
@@ -33,6 +22,7 @@ public:
         EXCEPT_MASK = 1 << 2,
     };
 
+public:
     ReactHandler() = default;
 
     virtual ~ReactHandler() = default;
@@ -48,6 +38,17 @@ public:
      * channel 发送数据
      */
     virtual void handle_write_ready() = 0;
+
+private:
+    ReactHandler(const ReactHandler&) = delete;
+    ReactHandler& operator=(const ReactHandler&) = delete;
+
+private:
+#if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
+    // 用于记录注册状态，参见 Reactor 的实现
+    int _registered_events = 0;
+    friend class Reactor;
+#endif
 };
 
 }

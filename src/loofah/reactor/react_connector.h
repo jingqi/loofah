@@ -10,10 +10,6 @@ namespace loofah
 template <typename CHANNEL>
 class ReactConnector : public ConnectorBase
 {
-private:
-    // Invalid methods
-    ReactConnector() = delete;
-
 public:
     static nut::rc_ptr<CHANNEL> connect(const InetAddr& address)
     {
@@ -24,6 +20,9 @@ public:
             channel.set_null();
         return channel;
     }
+
+private:
+    ReactConnector() = delete;
 };
 
 }

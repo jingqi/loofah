@@ -8,7 +8,7 @@
 #include <string.h>
 
 #include <nut/threading/thread_pool.h>
-#include <nut/util/time/time_wheel.h>
+#include <nut/time/time_wheel.h>
 
 #include <loofah/proactor/proactor.h>
 

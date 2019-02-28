@@ -7,31 +7,36 @@
 #include <list>
 
 #include <nut/container/rwbuffer/fragment_buffer.h>
-#include <nut/util/time/time_wheel.h>
+#include <nut/time/time_wheel.h>
 #include <nut/debugging/destroy_checker.h>
 
 #include "../proactor/proact_channel.h"
 #include "../proactor/proactor.h"
 #include "package.h"
 
+
 namespace loofah
 {
 
 class LOOFAH_API PackageChannel : public ProactChannel
 {
-    Proactor *_proactor = nullptr;
-    nut::TimeWheel *_time_wheel = nullptr;
+public:
+    virtual ~PackageChannel();
 
-    typedef std::list<nut::rc_ptr<Package> > queue_t;
-    queue_t _write_queue;
+    void set_proactor(Proactor *proactor);
+    Proactor* get_proactor() const;
 
-    nut::FragmentBuffer::Fragment *_read_frag = nullptr;
-    nut::FragmentBuffer _readed_buffer;
+    void set_time_wheel(nut::TimeWheel *time_wheel);
+    nut::TimeWheel* get_time_wheel() const;
 
-    nut::TimeWheel::timer_id_type _force_close_timer = NUT_INVALID_TIMER_ID;
-    bool _closing = false; // 是否等待关闭
+    virtual void open(socket_t fd) final override;
+    virtual void handle_read_completed(int cb) final override;
+    virtual void handle_write_completed(int cb) final override;
 
-    NUT_DEBUGGING_DESTROY_CHECKER
+    virtual void handle_read(Package *pkg) = 0;
+    virtual void handle_close() = 0;
+    void write_later(Package *pkg);
+    void close_later();
 
 private:
     void launch_read();
@@ -47,31 +52,20 @@ private:
     void setup_force_close_timer();
     void cancel_force_close_timer();
 
-public:
-    virtual ~PackageChannel();
+private:
+    Proactor *_proactor = nullptr;
+    nut::TimeWheel *_time_wheel = nullptr;
 
-    void set_proactor(Proactor *proactor);
+    typedef std::list<nut::rc_ptr<Package> > queue_t;
+    queue_t _write_queue;
 
-    Proactor* get_proactor() const
-    {
-        return _proactor;
-    }
+    nut::FragmentBuffer::Fragment *_read_frag = nullptr;
+    nut::FragmentBuffer _readed_buffer;
 
-    void set_time_wheel(nut::TimeWheel *time_wheel);
+    nut::TimeWheel::timer_id_type _force_close_timer = NUT_INVALID_TIMER_ID;
+    bool _closing = false; // 是否等待关闭
 
-    nut::TimeWheel* get_time_wheel() const
-    {
-        return _time_wheel;
-    }
-
-    virtual void open(socket_t fd) final override;
-    virtual void handle_read_completed(int cb) final override;
-    virtual void handle_write_completed(int cb) final override;
-
-    virtual void handle_read(Package *pkg) = 0;
-    virtual void handle_close() = 0;
-    void write_later(Package *pkg);
-    void close_later();
+    NUT_DEBUGGING_DESTROY_CHECKER
 };
 
 }

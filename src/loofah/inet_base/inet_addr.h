@@ -17,8 +17,6 @@
 #   include <netinet/in.h> // for struct sockaddr_in
 #endif
 
-#include <algorithm> // for std::max()
-
 
 namespace loofah
 {
@@ -28,12 +26,6 @@ namespace loofah
  */
 class LOOFAH_API InetAddr
 {
-    union
-    {
-        struct sockaddr_in _sock_addr; // for IPv4
-        struct sockaddr_in6 _sock_addr6; // for IPv6
-    };
-
 public:
     explicit InetAddr(int port = 0, bool loopback = false, bool ipv6 = false);
     InetAddr(const char *addr, int port, bool ipv6 = false);
@@ -48,40 +40,27 @@ public:
     InetAddr(const struct sockaddr* sock_addr);
 
     bool operator==(const InetAddr& addr) const;
+    bool operator!=(const InetAddr& addr) const;
 
-    bool operator!=(const InetAddr& addr) const
-    {
-        return !(*this == addr);
-    }
+    bool is_ipv6() const;
 
-    bool is_ipv6() const
-    {
-        return AF_INET6 == _sock_addr6.sin6_family;
-    }
+    struct sockaddr* cast_to_sockaddr();
+    const struct sockaddr* cast_to_sockaddr() const;
 
-    struct sockaddr* cast_to_sockaddr()
-    {
-        return (struct sockaddr*) &_sock_addr;
-    }
+    size_t get_max_sockaddr_size() const;
 
-    const struct sockaddr* cast_to_sockaddr() const
-    {
-        return (const struct sockaddr*) &_sock_addr;
-    }
-
-    size_t get_max_sockaddr_size() const
-    {
-        return (std::max)(sizeof(_sock_addr), sizeof(_sock_addr6));
-    }
-
-    size_t get_sockaddr_size() const
-    {
-        return (AF_INET == _sock_addr.sin_family ? sizeof(_sock_addr) : sizeof(_sock_addr6));
-    }
+    size_t get_sockaddr_size() const;
 
     std::string get_ip() const;
     int get_port() const;
     std::string to_string() const;
+
+private:
+    union
+    {
+        struct sockaddr_in _sock_addr; // for IPv4
+        struct sockaddr_in6 _sock_addr6; // for IPv6
+    };
 };
 
 }

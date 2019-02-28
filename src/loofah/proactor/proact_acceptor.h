@@ -10,33 +10,26 @@
 #include "proact_handler.h"
 #include "../inet_base/inet_addr.h"
 
+
 namespace loofah
 {
 
 class LOOFAH_API ProactAcceptorBase : public ProactHandler
 {
-    socket_t _listener_socket = LOOFAH_INVALID_SOCKET_FD;
-
 public:
     /**
      * @param listen_num 在 windows 下, 可以使用 'SOMAXCONN' 表示最大允许链接数
      */
     bool open(const InetAddr& addr, int listen_num = 2048);
 
-    virtual socket_t get_socket() const override
-    {
-        return _listener_socket;
-    }
+    virtual socket_t get_socket() const override;
 
-    virtual void handle_read_completed(int cb) final override
-    {
-        // Dummy for an acceptor
-    }
+    virtual void handle_read_completed(int cb) final override;
 
-    virtual void handle_write_completed(int cb) final override
-    {
-        // Dummy for an acceptor
-    }
+    virtual void handle_write_completed(int cb) final override;
+
+private:
+    socket_t _listener_socket = LOOFAH_INVALID_SOCKET_FD;
 };
 
 template <typename CHANNEL>

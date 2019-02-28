@@ -12,7 +12,6 @@
 #   include <windows.h>
 #endif
 
-#include <nut/threading/sync/mutex.h>
 #include <nut/rc/rc_ptr.h>
 
 
@@ -25,17 +24,7 @@ class LOOFAH_API ProactHandler
 {
     NUT_REF_COUNTABLE
 
-#if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
-    int _registered_events = 0; // 用于记录注册状态，参见 Proactor 的实现
-    int _request_accept = 0;
-    std::queue<IORequest*> _read_queue, _write_queue;
     friend class Proactor;
-#endif
-
-private:
-    // Non-copyable
-    ProactHandler(const ProactHandler&) = delete;
-    ProactHandler& operator=(const ProactHandler&) = delete;
 
 public:
     enum EventType
@@ -46,6 +35,7 @@ public:
         EXCEPT_MASK = 1 << 3,
     };
 
+public:
     ProactHandler() = default;
 
 #if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
@@ -68,6 +58,17 @@ public:
      * channel 发送数据
      */
     virtual void handle_write_completed(int cb) = 0;
+
+private:
+    ProactHandler(const ProactHandler&) = delete;
+    ProactHandler& operator=(const ProactHandler&) = delete;
+
+private:
+#if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
+    int _registered_events = 0; // 用于记录注册状态，参见 Proactor 的实现
+    int _request_accept = 0;
+    std::queue<IORequest*> _read_queue, _write_queue;
+#endif
 };
 
 }

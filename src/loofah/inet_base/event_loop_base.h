@@ -6,9 +6,8 @@
 
 #include <vector>
 #include <functional>
-
-#include <nut/threading/thread.h>
-#include <nut/threading/sync/mutex.h>
+#include <mutex>
+#include <thread>
 
 
 namespace loofah
@@ -16,18 +15,37 @@ namespace loofah
 
 class LOOFAH_API EventLoopBase
 {
-private:
-    nut::Thread::tid_type _loop_tid;
-    bool _in_handling_events = false;
-    std::vector<std::function<void()> > _later_tasks;
-    nut::Mutex _mutex;
+public:
+    EventLoopBase();
 
-private:
-    // Non-copyable
-    EventLoopBase(const EventLoopBase&) = delete;
-    EventLoopBase& operator=(const EventLoopBase&) = delete;
+    /**
+     * 当前是否在事件处理线程中
+     */
+    bool is_in_loop_thread() const;
+
+    /**
+     * 当前线程是否是事件循环线程
+     */
+    bool is_in_loop_thread_and_not_handling() const;
+
+    /**
+     * 在事件循环线程中运行
+     */
+    void run_later(const std::function<void()>& task);
 
 protected:
+    /**
+     * 运行并清空所有异步任务
+     *
+     * NOTE This method can only be called from inside loop thread
+     */
+    void run_later_tasks();
+
+    /**
+     * 添加一个异步任务
+     */
+    void add_later_task(const std::function<void()>& task);
+
     class HandleEventsGuard
     {
         EventLoopBase *_loop;
@@ -45,38 +63,15 @@ protected:
         }
     };
 
-    /**
-     * 运行并清空所有异步任务
-     *
-     * NOTE This method can only be called from inside loop thread
-     */
-    void run_later_tasks();
+private:
+    EventLoopBase(const EventLoopBase&) = delete;
+    EventLoopBase& operator=(const EventLoopBase&) = delete;
 
-    /**
-     * 添加一个异步任务
-     */
-    void add_later_task(const std::function<void()>& task);
-
-public:
-    EventLoopBase();
-
-    /**
-     * 当前是否在事件处理线程中
-     */
-    bool is_in_loop_thread() const;
-
-    /**
-     * 当前线程是否是事件循环线程
-     */
-    bool is_in_loop_thread_and_not_handling() const
-    {
-        return !_in_handling_events && is_in_loop_thread();
-    }
-
-    /**
-     * 在事件循环线程中运行
-     */
-    void run_later(const std::function<void()>& task);
+private:
+    std::thread::id _loop_tid;
+    bool _in_handling_events = false;
+    std::vector<std::function<void()> > _later_tasks;
+    std::mutex _mutex;
 };
 
 }

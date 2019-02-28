@@ -6,6 +6,7 @@
 #include "../inet_base/channel.h"
 #include "../inet_base/sock_stream.h"
 
+
 namespace loofah
 {
 
@@ -13,29 +14,17 @@ class LOOFAH_API ProactChannel : public Channel, public ProactHandler
 {
     NUT_REF_COUNTABLE_OVERRIDE
 
+public:
+    virtual void open(socket_t fd) override;
+
+    virtual socket_t get_socket() const override;
+
+    SockStream& get_sock_stream();
+
+    virtual void handle_accept_completed(socket_t fd) final override;
+
 protected:
     SockStream _sock_stream;
-
-public:
-    virtual void open(socket_t fd) override
-    {
-        _sock_stream.open(fd);
-    }
-
-    virtual socket_t get_socket() const override
-    {
-        return _sock_stream.get_socket();
-    }
-
-    SockStream& get_sock_stream()
-    {
-        return _sock_stream;
-    }
-
-    virtual void handle_accept_completed(socket_t fd) final override
-    {
-        // Dummy for a channel
-    }
 };
 
 }

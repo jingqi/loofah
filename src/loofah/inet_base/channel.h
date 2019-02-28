@@ -14,11 +14,6 @@ class Channel
 {
     NUT_REF_COUNTABLE
 
-private:
-    // Non-copyable
-    Channel(const Channel&) = delete;
-    Channel& operator=(const Channel&) = delete;
-
 public:
     Channel() = default;
     virtual ~Channel() = default;
@@ -37,6 +32,10 @@ public:
      * 链接已经建立
      */
     virtual void handle_connected() = 0;
+
+private:
+    Channel(const Channel&) = delete;
+    Channel& operator=(const Channel&) = delete;
 };
 
 }

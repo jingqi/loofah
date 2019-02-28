@@ -17,6 +17,7 @@
 #include "../inet_base/utils.h"
 #include "../inet_base/sock_operation.h"
 
+
 #define TAG "loofah.react_acceptor"
 
 namespace loofah
@@ -64,6 +65,11 @@ bool ReactAcceptorBase::open(const InetAddr& addr, int listen_num)
     return true;
 }
 
+socket_t ReactAcceptorBase::get_socket() const
+{
+    return _listener_socket;
+}
+
 socket_t ReactAcceptorBase::handle_accept(socket_t listener_socket)
 {
     InetAddr peer_addr;
@@ -95,6 +101,11 @@ socket_t ReactAcceptorBase::handle_accept(socket_t listener_socket)
         NUT_LOG_W(TAG, "failed to make socket nonblocking, socketfd %d", fd);
 
     return fd;
+}
+
+void ReactAcceptorBase::handle_write_ready()
+{
+    // Dummy for an acceptor
 }
 
 }

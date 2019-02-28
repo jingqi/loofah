@@ -82,4 +82,19 @@ bool ProactAcceptorBase::open(const InetAddr& addr, int listen_num)
     return true;
 }
 
+socket_t ProactAcceptorBase::get_socket() const
+{
+    return _listener_socket;
+}
+
+void ProactAcceptorBase::handle_read_completed(int cb)
+{
+    // Dummy for an acceptor
+}
+
+void ProactAcceptorBase::handle_write_completed(int cb)
+{
+    // Dummy for an acceptor
+}
+
 }

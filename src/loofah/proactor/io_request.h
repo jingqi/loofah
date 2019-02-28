@@ -23,6 +23,32 @@ class IORequest
 {
 public:
 #if NUT_PLATFORM_OS_WINDOWS
+    static IORequest* new_request(int event_type, size_t buf_count,
+                                  socket_t accept_socket = LOOFAH_INVALID_SOCKET_FD);
+#else
+    static IORequest* new_request(int event_type, size_t buf_count);
+#endif
+
+    static void delete_request(IORequest *p);
+
+    void set_buf(size_t index, void *buf, size_t len);
+    void set_bufs(void* const *buf_ptrs, const size_t *len_ptrs);
+
+private:
+#if NUT_PLATFORM_OS_WINDOWS
+    IORequest(int event_type_, size_t buf_count_, socket_t accept_socket_);
+#else
+    IORequest(int event_type_, size_t buf_count_);
+#endif
+
+    // Non-copyable
+    IORequest(const IORequest&) = delete;
+    IORequest& operator=(const IORequest&) = delete;
+
+    ~IORequest() = default;
+
+public:
+#if NUT_PLATFORM_OS_WINDOWS
     // NOTE OVERLAPPED 必须放在首位
     OVERLAPPED overlapped;
 
@@ -44,32 +70,6 @@ public:
     // NOTE 这一部分是变长的，应该作为最后一个成员
     struct iovec iovs[1];
 #endif
-
-private:
-#if NUT_PLATFORM_OS_WINDOWS
-    IORequest(int event_type_, size_t buf_count_, socket_t accept_socket_);
-#else
-    IORequest(int event_type_, size_t buf_count_);
-#endif
-
-    // Non-copyable
-    IORequest(const IORequest&) = delete;
-    IORequest& operator=(const IORequest&) = delete;
-
-    ~IORequest() = default;
-
-public:
-#if NUT_PLATFORM_OS_WINDOWS
-    static IORequest* new_request(int event_type, size_t buf_count,
-                                  socket_t accept_socket = LOOFAH_INVALID_SOCKET_FD);
-#else
-    static IORequest* new_request(int event_type, size_t buf_count);
-#endif
-
-    static void delete_request(IORequest *p);
-
-    void set_buf(size_t index, void *buf, size_t len);
-    void set_bufs(void* const *buf_ptrs, const size_t *len_ptrs);
 };
 
 }

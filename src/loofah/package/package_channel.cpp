@@ -40,6 +40,11 @@ void PackageChannel::set_proactor(Proactor *proactor)
     _proactor = proactor;
 }
 
+Proactor* PackageChannel::get_proactor() const
+{
+    return _proactor;
+}
+
 void PackageChannel::set_time_wheel(nut::TimeWheel *time_wheel)
 {
     assert(nullptr != time_wheel);
@@ -47,6 +52,11 @@ void PackageChannel::set_time_wheel(nut::TimeWheel *time_wheel)
 
     assert(nullptr == _time_wheel);
     _time_wheel = time_wheel;
+}
+
+nut::TimeWheel* PackageChannel::get_time_wheel() const
+{
+    return _time_wheel;
 }
 
 void PackageChannel::open(socket_t fd)

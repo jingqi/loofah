@@ -1,5 +1,4 @@
 ﻿
-#include <nut/threading/sync/guard.h>
 #include <nut/logging/logger.h>
 
 #include "event_loop_base.h"
@@ -12,18 +11,23 @@ namespace loofah
 
 EventLoopBase::EventLoopBase()
 {
-    _loop_tid = nut::Thread::current_thread_id();
+    _loop_tid = std::this_thread::get_id();
 }
 
 void EventLoopBase::add_later_task(const std::function<void()>& task)
 {
-    nut::Guard<nut::Mutex> g(&_mutex);
+    std::lock_guard<std::mutex> guard(_mutex);
     _later_tasks.push_back(task);
 }
 
 bool EventLoopBase::is_in_loop_thread() const
 {
-    return nut::Thread::tid_equals(_loop_tid, nut::Thread::current_thread_id());
+    return _loop_tid == std::this_thread::get_id();
+}
+
+bool EventLoopBase::is_in_loop_thread_and_not_handling() const
+{
+    return !_in_handling_events && is_in_loop_thread();
 }
 
 void EventLoopBase::run_later_tasks()
@@ -31,9 +35,9 @@ void EventLoopBase::run_later_tasks()
     // NOTE This method can only be called from inside loop thread
     assert(is_in_loop_thread_and_not_handling());
 
-    std::vector<std::function<void()> > later_tasks;
+    std::vector<std::function<void()>> later_tasks;
     {
-        nut::Guard<nut::Mutex> g(&_mutex);
+        std::lock_guard<std::mutex> guard(_mutex);
         later_tasks = _later_tasks;
         _later_tasks.clear();
     }

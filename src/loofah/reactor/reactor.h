@@ -18,6 +18,54 @@ namespace loofah
 
 class LOOFAH_API Reactor : public EventLoopBase
 {
+public:
+    enum
+    {
+        // 关闭 socket 前是否需要 unregister_handler()
+#if NUT_PLATFORM_OS_WINDOWS
+        NEED_UNREGISTER_BEFORE_CLOSE = true,
+#else
+        NEED_UNREGISTER_BEFORE_CLOSE = false,
+#endif
+    };
+
+public:
+    Reactor();
+    ~Reactor();
+
+    void register_handler_later(ReactHandler *handler, int mask);
+    void unregister_handler_later(ReactHandler *handler);
+
+    void enable_handler_later(ReactHandler *handler, int mask);
+    void disable_handler_later(ReactHandler *handler, int mask);
+
+    /**
+     * 关闭 reactor
+     */
+    void shutdown_later();
+
+    /**
+     * @return <0 出错
+     */
+    int handle_events(int timeout_ms = 1000);
+
+protected:
+#if NUT_PLATFORM_OS_WINDOWS
+#   if WINVER >= _WIN32_WINNT_WINBLUE
+    void ensure_capacity(size_t new_size);
+    size_t index_of(ReactHandler *handler);
+#   endif
+#endif
+
+    void register_handler(ReactHandler *handler, int mask);
+    void unregister_handler(ReactHandler *handler);
+
+    void enable_handler(ReactHandler *handler, int mask);
+    void disable_handler(ReactHandler *handler, int mask);
+
+    void shutdown();
+
+private:
 #if NUT_PLATFORM_OS_WINDOWS
 #   if WINVER < _WIN32_WINNT_WINBLUE // Windows8.1, 0x0603
     // Windows 8.1 之前，使用 ::select() 实现
@@ -42,53 +90,6 @@ class LOOFAH_API Reactor : public EventLoopBase
 #endif
 
     bool volatile _closing_or_closed = false;
-
-public:
-    enum
-    {
-        // 关闭 socket 前是否需要 unregister_handler()
-#if NUT_PLATFORM_OS_WINDOWS
-        NEED_UNREGISTER_BEFORE_CLOSE = true,
-#else
-        NEED_UNREGISTER_BEFORE_CLOSE = false,
-#endif
-    };
-
-protected:
-#if NUT_PLATFORM_OS_WINDOWS
-#   if WINVER >= _WIN32_WINNT_WINBLUE
-    void ensure_capacity(size_t new_size);
-    size_t index_of(ReactHandler *handler);
-#   endif
-#endif
-
-    void register_handler(ReactHandler *handler, int mask);
-    void unregister_handler(ReactHandler *handler);
-
-    void enable_handler(ReactHandler *handler, int mask);
-    void disable_handler(ReactHandler *handler, int mask);
-
-    void shutdown();
-
-public:
-    Reactor();
-    ~Reactor();
-
-    void register_handler_later(ReactHandler *handler, int mask);
-    void unregister_handler_later(ReactHandler *handler);
-
-    void enable_handler_later(ReactHandler *handler, int mask);
-    void disable_handler_later(ReactHandler *handler, int mask);
-
-    /**
-     * 关闭 reactor
-     */
-    void shutdown_later();
-
-    /**
-     * @return <0 出错
-     */
-    int handle_events(int timeout_ms = 1000);
 };
 
 }

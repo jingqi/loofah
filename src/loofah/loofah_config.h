@@ -10,7 +10,7 @@
 #   include <windows.h>
 #endif
 
-#if defined(BUILDING_LOOFAH_DLL)
+#if defined(BUILDING_LOOFAH)
 #   define LOOFAH_API DLL_EXPORT
 #else
 #   define LOOFAH_API DLL_IMPORT

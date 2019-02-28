@@ -7,27 +7,13 @@
 #include <nut/container/bytestream/input_stream.h>
 #include <nut/container/bytestream/output_stream.h>
 
+
 namespace loofah
 {
 
 class LOOFAH_API Package : public nut::InputStream, public nut::OutputStream
 {
     NUT_REF_COUNTABLE_OVERRIDE
-
-    const size_t PREPEND_LEN = sizeof(uint32_t);
-
-    void *_buffer = nullptr;
-    size_t _capacity = 0;
-
-    size_t _read_index = PREPEND_LEN;
-    size_t _write_index = PREPEND_LEN;
-
-    bool _little_endian = false;
-
-private:
-    // Non-copyable
-    Package(const Package&) = delete;
-    Package& operator=(const Package&) = delete;
 
 public:
     explicit Package(size_t init_cap = 16);
@@ -50,6 +36,21 @@ public:
     void skip_write(size_t len);
     void ensure_writable_size(size_t write_size);
     virtual size_t write(const void *buf, size_t len) override;
+
+private:
+    Package(const Package&) = delete;
+    Package& operator=(const Package&) = delete;
+
+private:
+    const size_t PREPEND_LEN = sizeof(uint32_t);
+
+    void *_buffer = nullptr;
+    size_t _capacity = 0;
+
+    size_t _read_index = PREPEND_LEN;
+    size_t _write_index = PREPEND_LEN;
+
+    bool _little_endian = false;
 };
 
 }
