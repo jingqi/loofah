@@ -16,6 +16,13 @@
 #   define LOOFAH_API DLL_IMPORT
 #endif
 
+/**
+ * POSIX 规定 socklen_t 需要保持与 int 等长，但是 windows 下 API 是直接使用 int
+ */
+#if NUT_PLATFORM_OS_WINDOWS
+typedef int socklen_t;
+#endif
+
 namespace loofah
 {
 

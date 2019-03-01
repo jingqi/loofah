@@ -63,7 +63,7 @@ namespace loofah
 static int inet_pton(int af, const char *src, void *dst)
 {
     /* Stupid non-const API */
-    const int maxlen = (std::max)(INET_ADDRSTRLEN, INET6_ADDRSTRLEN); // Include tailing '\0' already
+    const size_t maxlen = (std::max)(INET_ADDRSTRLEN, INET6_ADDRSTRLEN); // Include tailing '\0' already
     char src_copy[maxlen];
     ::strncpy(src_copy, src, maxlen);
     src_copy[maxlen - 1] = 0;
@@ -71,7 +71,7 @@ static int inet_pton(int af, const char *src, void *dst)
     struct sockaddr_storage ss;
     ::memset(&ss, 0, sizeof(ss));
 
-    int size = sizeof(ss);
+    int size = (int) sizeof(ss);
     if (0 == ::WSAStringToAddressA(src_copy, af, nullptr, (struct sockaddr *)&ss, &size))
     {
         switch(af)
@@ -267,12 +267,12 @@ const struct sockaddr* InetAddr::cast_to_sockaddr() const
     return (const struct sockaddr*) &_sock_addr;
 }
 
-size_t InetAddr::get_max_sockaddr_size() const
+socklen_t InetAddr::get_max_sockaddr_size() const
 {
     return (std::max)(sizeof(_sock_addr), sizeof(_sock_addr6));
 }
 
-size_t InetAddr::get_sockaddr_size() const
+socklen_t InetAddr::get_sockaddr_size() const
 {
     return (AF_INET == _sock_addr.sin_family ? sizeof(_sock_addr) : sizeof(_sock_addr6));
 }

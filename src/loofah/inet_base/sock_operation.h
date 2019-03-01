@@ -63,7 +63,7 @@ public:
     /**
      * 写
      *
-     * @return >0 写成功, 返回写入的字节数
+     * @return >=0 写成功, 返回写入的字节数
      *         <0 出错
      */
     static ssize_t write(socket_t socket_fd, const void *buf, size_t len);

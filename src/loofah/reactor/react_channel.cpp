@@ -1,4 +1,6 @@
 ﻿
+#include "../loofah_config.h"
+
 #include <nut/platform/platform.h>
 #include <nut/logging/logger.h>
 

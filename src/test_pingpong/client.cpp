@@ -40,7 +40,7 @@ public:
         g_global.proactor.launch_write_later(this, &_buf, &g_global.block_size, 1);
     }
 
-    virtual void handle_read_completed(int cb) override
+    virtual void handle_read_completed(ssize_t cb) override
     {
         //NUT_LOG_D(TAG, "received %d bytes from server: %d", cb, _tmp);
         if (0 == cb) // 正常结束
@@ -56,7 +56,7 @@ public:
         g_global.proactor.launch_write_later(this, &_buf, &g_global.block_size, 1);
     }
 
-    virtual void handle_write_completed(int cb) override
+    virtual void handle_write_completed(ssize_t cb) override
     {
         assert(cb == g_global.block_size);
         g_global.proactor.launch_read_later(this, &_buf, &g_global.block_size, 1);

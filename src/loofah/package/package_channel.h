@@ -30,8 +30,8 @@ public:
     nut::TimeWheel* get_time_wheel() const;
 
     virtual void open(socket_t fd) final override;
-    virtual void handle_read_completed(int cb) final override;
-    virtual void handle_write_completed(int cb) final override;
+    virtual void handle_read_completed(ssize_t cb) final override;
+    virtual void handle_write_completed(ssize_t cb) final override;
 
     virtual void handle_read(Package *pkg) = 0;
     virtual void handle_close() = 0;

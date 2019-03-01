@@ -31,7 +31,7 @@ bool ConnectorBase::connect(Channel *channel, const InetAddr& address)
     // New socket
     const int domain = address.is_ipv6() ? PF_INET6 : PF_INET;
     socket_t fd = ::socket(domain, SOCK_STREAM, 0);
-    if (-1 == fd)
+    if (LOOFAH_INVALID_SOCKET_FD == fd)
     {
         NUT_LOG_E(TAG, "failed to call ::socket()");
         return false;
@@ -39,7 +39,11 @@ bool ConnectorBase::connect(Channel *channel, const InetAddr& address)
 
     // Connect
     const int status = ::connect(fd, address.cast_to_sockaddr(), address.get_sockaddr_size());
+#if NUT_PLATFORM_OS_WINDOWS
+    if (SOCKET_ERROR == status)
+#else
     if (-1 == status)
+#endif
     {
         NUT_LOG_E(TAG, "failed to call ::connect(), socketfd %d, errno %d", fd, errno);
         int save_errno = errno;

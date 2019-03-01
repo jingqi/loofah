@@ -1,4 +1,6 @@
 ﻿
+#include "../loofah_config.h"
+
 #include <nut/logging/logger.h>
 
 #include "event_loop_base.h"

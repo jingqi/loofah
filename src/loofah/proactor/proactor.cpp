@@ -537,7 +537,7 @@ int Proactor::handle_events(int timeout_ms)
                     if (handler->_read_queue.empty())
                         disable_handler(handler, ProactHandler::READ_MASK);
 
-                    const int readed = ::readv(fd, io_request->iovs, io_request->buf_count);
+                    const ssize_t readed = ::readv(fd, io_request->iovs, io_request->buf_count);
                     handler->handle_read_completed(readed);
 
                     IORequest::delete_request(io_request);
@@ -553,7 +553,7 @@ int Proactor::handle_events(int timeout_ms)
                 if (handler->_write_queue.empty())
                     disable_handler(handler, ProactHandler::WRITE_MASK);
 
-                const int wrote = ::writev(fd, io_request->iovs, io_request->buf_count);
+                const ssize_t wrote = ::writev(fd, io_request->iovs, io_request->buf_count);
                 handler->handle_write_completed(wrote);
 
                 IORequest::delete_request(io_request);
@@ -599,7 +599,7 @@ int Proactor::handle_events(int timeout_ms)
                     if (handler->_read_queue.empty())
                         disable_handler(handler, ProactHandler::READ_MASK);
 
-                    const int readed = ::readv(fd, io_request->iovs, io_request->buf_count);
+                    const ssize_t readed = ::readv(fd, io_request->iovs, io_request->buf_count);
                     handler->handle_read_completed(readed);
 
                     IORequest::delete_request(io_request);
@@ -615,7 +615,7 @@ int Proactor::handle_events(int timeout_ms)
                 if (handler->_write_queue.empty())
                     disable_handler(handler, ProactHandler::WRITE_MASK);
 
-                const int wrote = ::writev(fd, io_request->iovs, io_request->buf_count);
+                const ssize_t wrote = ::writev(fd, io_request->iovs, io_request->buf_count);
                 handler->handle_write_completed(wrote);
 
                 IORequest::delete_request(io_request);

@@ -74,12 +74,12 @@ bool SockStream::is_writing_shutdown() const
     return _writing_shutdown;
 }
 
-int SockStream::read(void *buf, unsigned max_len)
+ssize_t SockStream::read(void *buf, size_t max_len)
 {
     return SockOperation::read(_socket_fd, buf, max_len);
 }
 
-int SockStream::write(const void *buf, unsigned max_len)
+ssize_t SockStream::write(const void *buf, size_t max_len)
 {
     return SockOperation::write(_socket_fd, buf, max_len);
 }

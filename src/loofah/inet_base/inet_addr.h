@@ -47,9 +47,9 @@ public:
     struct sockaddr* cast_to_sockaddr();
     const struct sockaddr* cast_to_sockaddr() const;
 
-    size_t get_max_sockaddr_size() const;
+    socklen_t get_max_sockaddr_size() const;
 
-    size_t get_sockaddr_size() const;
+    socklen_t get_sockaddr_size() const;
 
     std::string get_ip() const;
     int get_port() const;

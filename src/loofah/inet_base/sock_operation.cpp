@@ -22,7 +22,7 @@
 
 
 #define TAG "loofah.sock_operation"
-#define STACK_ARRAY_SIZE 10
+#define STACK_ARRAY_SIZE 16
 
 namespace loofah
 {
@@ -148,7 +148,7 @@ ssize_t SockOperation::read(socket_t socket_fd, void *buf, size_t len)
 }
 
 ssize_t SockOperation::readv(socket_t socket_fd, void* const *buf_ptrs,
-                        const size_t *len_ptrs, size_t buf_count)
+                             const size_t *len_ptrs, size_t buf_count)
 {
     assert(nullptr != buf_ptrs && nullptr != len_ptrs);
 
@@ -266,11 +266,7 @@ ssize_t SockOperation::writev(socket_t socket_fd, const void* const *buf_ptrs,
 InetAddr SockOperation::get_local_addr(socket_t socket_fd)
 {
     InetAddr ret;
-#if NUT_PLATFORM_OS_WINDOWS
-    int plen = ret.get_max_sockaddr_size();
-#else
     socklen_t plen = ret.get_max_sockaddr_size();
-#endif
     if (::getsockname(socket_fd, ret.cast_to_sockaddr(), &plen) < 0)
     {
         NUT_LOG_E(TAG, "failed to call ::getsockname(), socketfd %d", socket_fd);
@@ -282,11 +278,7 @@ InetAddr SockOperation::get_local_addr(socket_t socket_fd)
 InetAddr SockOperation::get_peer_addr(socket_t socket_fd)
 {
     InetAddr ret;
-#if NUT_PLATFORM_OS_WINDOWS
-    int plen = ret.get_max_sockaddr_size();
-#else
     socklen_t plen = ret.get_max_sockaddr_size();
-#endif
     if (::getpeername(socket_fd, ret.cast_to_sockaddr(), &plen) < 0)
     {
         NUT_LOG_E(TAG, "failed to call ::getpeername(), socketfd %d", socket_fd);

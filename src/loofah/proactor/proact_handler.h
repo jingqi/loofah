@@ -52,12 +52,12 @@ public:
     /**
      * channel 收到数据
      */
-    virtual void handle_read_completed(int cb) = 0;
+    virtual void handle_read_completed(ssize_t cb) = 0;
 
     /**
      * channel 发送数据
      */
-    virtual void handle_write_completed(int cb) = 0;
+    virtual void handle_write_completed(ssize_t cb) = 0;
 
 private:
     ProactHandler(const ProactHandler&) = delete;

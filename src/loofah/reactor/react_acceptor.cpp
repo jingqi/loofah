@@ -73,11 +73,7 @@ socket_t ReactAcceptorBase::get_socket() const
 socket_t ReactAcceptorBase::handle_accept(socket_t listener_socket)
 {
     InetAddr peer_addr;
-#if NUT_PLATFORM_OS_WINDOWS
-    int rsz = peer_addr.get_max_sockaddr_size();
-#else
     socklen_t rsz = peer_addr.get_max_sockaddr_size();
-#endif
     socket_t fd = ::accept(listener_socket, peer_addr.cast_to_sockaddr(), &rsz);
     if (LOOFAH_INVALID_SOCKET_FD == fd)
     {

@@ -44,7 +44,7 @@ public:
         g_proactor.launch_read_later(this, &buf, &len, 1);
     }
 
-    virtual void handle_read_completed(int cb) override
+    virtual void handle_read_completed(ssize_t cb) override
     {
         NUT_LOG_D(TAG, "received %d bytes from client: %d", cb, _tmp);
         if (0 == cb) // 正常结束
@@ -71,7 +71,7 @@ public:
         g_proactor.launch_write_later(this, &buf, &len, 1);
     }
 
-    virtual void handle_write_completed(int cb) override
+    virtual void handle_write_completed(ssize_t cb) override
     {
         NUT_LOG_D(TAG, "send %d bytes to client: %d", cb, _counter);
         assert(cb == sizeof(_counter));
@@ -103,7 +103,7 @@ public:
         g_proactor.launch_write_later(this, &buf, &len, 1);
     }
 
-    virtual void handle_read_completed(int cb) override
+    virtual void handle_read_completed(ssize_t cb) override
     {
         NUT_LOG_D(TAG, "received %d bytes from server: %d", cb, _tmp);
         if (0 == cb) // 正常结束
@@ -127,7 +127,7 @@ public:
         g_proactor.launch_write_later(this, &buf, &len, 1);
     }
 
-    virtual void handle_write_completed(int cb) override
+    virtual void handle_write_completed(ssize_t cb) override
     {
         NUT_LOG_D(TAG, "send %d bytes to server: %d", cb, _counter);
         assert(cb == sizeof(_counter));

@@ -1,4 +1,6 @@
 ﻿
+#include "../loofah_config.h"
+
 #include <assert.h>
 #include <algorithm> // for std::min()
 
@@ -233,7 +235,7 @@ void PackageChannel::write_later(Package *pkg)
     _proactor->run_later([=] { ref_this->write(ref_pkg); });
 }
 
-void PackageChannel::handle_read_completed(int cb)
+void PackageChannel::handle_read_completed(ssize_t cb)
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
 
@@ -256,7 +258,7 @@ void PackageChannel::handle_read_completed(int cb)
         return;
 
     // Cache to buffer
-    assert(cb <= _read_frag->capacity);
+    assert(cb <= (ssize_t) _read_frag->capacity);
     _read_frag->size = cb;
     _read_frag = _readed_buffer.write_fragment(_read_frag);
     launch_read();
@@ -281,7 +283,7 @@ void PackageChannel::handle_read_completed(int cb)
     handle_read(pkg);
 }
 
-void PackageChannel::handle_write_completed(int cb)
+void PackageChannel::handle_write_completed(ssize_t cb)
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
 
@@ -291,7 +293,7 @@ void PackageChannel::handle_write_completed(int cb)
     {
         nut::rc_ptr<Package> pkg = _write_queue.front();
         const size_t readable = pkg->readable_size();
-        if (cb >= readable)
+        if (cb >= (ssize_t) readable)
         {
             _write_queue.pop_front();
             cb -= readable;

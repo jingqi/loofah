@@ -33,16 +33,19 @@ public:
     /**
      * 读(阻塞)
      *
-     * @return >0 读成功
-     *         =0 已经关闭
+     * @return >0 读成功，返回读取到的字节数
+     *         =0 对方关闭了链接, 或者对方关闭了写通道, 或者己方关闭了读通道
      *         <0 出错
      */
-    int read(void *buf, unsigned max_len);
+    ssize_t read(void *buf, size_t max_len);
 
     /**
      * 写(阻塞)
+     *
+     * @return >=0 写成功, 返回写入的字节数
+     *         <0 出错
      */
-    int write(const void *buf, unsigned max_len);
+    ssize_t write(const void *buf, size_t max_len);
 
     InetAddr get_local_addr() const;
     InetAddr get_peer_addr() const;
