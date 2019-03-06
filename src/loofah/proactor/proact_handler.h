@@ -12,6 +12,7 @@
 #   include <windows.h>
 #endif
 
+#include <nut/platform/int_type.h> /* for ssize_t */
 #include <nut/rc/rc_ptr.h>
 
 
@@ -29,10 +30,10 @@ class LOOFAH_API ProactHandler
 public:
     enum EventType
     {
-        ACCEPT_MASK = 1,
-        READ_MASK = 1 << 1,
-        WRITE_MASK = 1 << 2,
-        EXCEPT_MASK = 1 << 3,
+        ACCEPT_MASK = 0x01,
+        READ_MASK = 0x02,
+        WRITE_MASK = 0x04,
+        EXCEPT_MASK = 0x08,
     };
 
 public:

@@ -1,4 +1,4 @@
 
-NUT_DIR = $$PWD/../../../../lib/nut.git
+NUT_PATH = $$PWD/../../../../lib/nut.git
 
 include(loofah.pri)

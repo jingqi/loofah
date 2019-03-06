@@ -5,9 +5,9 @@ VERSION = 1.0.0
 
 include(../loofah_common.pri)
 
-QT -= core gui
+QT -= qt
 
-DEFINES += BUILDING_LOOFAH_DLL
+DEFINES += BUILDING_LOOFAH
 
 # INCLUDE 路径
 SRC_ROOT = $$PWD/../../../../src/loofah
@@ -20,7 +20,7 @@ HEADERS += $$files($${SRC_ROOT}/*.h*, true)
 SOURCES += $$files($${SRC_ROOT}/*.c*, true)
 
 # nut
-INCLUDEPATH += $${NUT_DIR}/src
+INCLUDEPATH += $${NUT_PATH}/src
 LIBS += -L$$OUT_PWD/../nut$${OUT_TAIL}
 win32: LIBS += -lnut1
 else: LIBS += -lnut

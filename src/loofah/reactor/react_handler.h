@@ -14,12 +14,16 @@ class ReactHandler
 {
     NUT_REF_COUNTABLE
 
+#if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
+    friend class Reactor;
+#endif
+
 public:
     enum EventType
     {
-        READ_MASK = 1,
-        WRITE_MASK = 1 << 1,
-        EXCEPT_MASK = 1 << 2,
+        READ_MASK = 0x01,
+        WRITE_MASK = 0x02,
+        EXCEPT_MASK = 0x04,
     };
 
 public:
@@ -47,7 +51,6 @@ private:
 #if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
     // 用于记录注册状态，参见 Reactor 的实现
     int _registered_events = 0;
-    friend class Reactor;
 #endif
 };
 

@@ -3,16 +3,17 @@
 TARGET_NAME = test_loofah
 SRC_ROOT = ../../src/${TARGET_NAME}
 
-# preface rules
-include ${NUT_DIR}/proj/makefile/preface_rules.mk
+# Preface rules
+include ${NUT_PATH}/proj/makefile/preface_rules.mk
 
 # Includes
-CPPFLAGS += -I${SRC_ROOT}/.. -I${NUT_DIR}/src
+CPPFLAGS += -I${SRC_ROOT}/.. -I${NUT_PATH}/src
 
 # Defines
 CPPFLAGS +=
 
-# C++ standard
+# C/C++ standard
+CFLAGS += -std=c11
 CXXFLAGS += -std=c++11
 
 # Libraries
@@ -31,23 +32,21 @@ TARGET = ${OUT_DIR}/${TARGET_NAME}
 all: ${TARGET}
 
 clean:
-	rm -rf ${OBJS}
-	rm -rf ${DEPS}
-	rm -rf ${TARGET}
+	rm -rf ${OBJS} ${DEPS} ${TARGET}
 
 rebuild:
 	$(MAKE) -f test_loofah.mk clean
 	$(MAKE) -f test_loofah.mk all
 
-${NUT_DIR}/proj/makefile/${OUT_DIR_NAME}/libnut.${DL_SUFFIX}:
-	cd ${NUT_DIR}/proj/makefile ; $(MAKE) -f nut.mk
+${NUT_PATH}/proj/makefile/${OUT_DIR_NAME}/libnut.${DL_SUFFIX}:
+	cd ${NUT_PATH}/proj/makefile ; $(MAKE) -f nut.mk
 
-${OUT_DIR}/libnut.${DL_SUFFIX}: ${NUT_DIR}/proj/makefile/${OUT_DIR_NAME}/libnut.${DL_SUFFIX}
+${OUT_DIR}/libnut.${DL_SUFFIX}: ${NUT_PATH}/proj/makefile/${OUT_DIR_NAME}/libnut.${DL_SUFFIX}
 	cp -f $< $@
 
 ${OUT_DIR}/libloofah.${DL_SUFFIX}:
 	$(MAKE) -f loofah.mk
 
-# rules
-include ${NUT_DIR}/proj/makefile/common_rules.mk
-include ${NUT_DIR}/proj/makefile/app_rules.mk
+# Rules
+include ${NUT_PATH}/proj/makefile/common_rules.mk
+include ${NUT_PATH}/proj/makefile/app_rules.mk

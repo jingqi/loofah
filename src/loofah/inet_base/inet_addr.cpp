@@ -43,7 +43,7 @@
 #   include <netdb.h> // For ::gethostbyname(), ::getaddrinfo()
 #endif
 
-#include <nut/platform/portable_endian.h>
+#include <nut/platform/endian.h>
 #include <nut/logging/logger.h>
 #include <nut/util/string/to_string.h>
 

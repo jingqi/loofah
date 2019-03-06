@@ -16,6 +16,9 @@ namespace loofah
 class LOOFAH_API EventLoopBase
 {
 public:
+    typedef std::function<void()> task_type;
+
+public:
     EventLoopBase();
 
     /**
@@ -31,7 +34,8 @@ public:
     /**
      * 在事件循环线程中运行
      */
-    void run_later(const std::function<void()>& task);
+    void run_later(task_type&& task);
+    void run_later(const task_type& task);
 
 protected:
     /**
@@ -44,7 +48,8 @@ protected:
     /**
      * 添加一个异步任务
      */
-    void add_later_task(const std::function<void()>& task);
+    void add_later_task(task_type&& task);
+    void add_later_task(const task_type& task);
 
     class HandleEventsGuard
     {
@@ -61,6 +66,10 @@ protected:
         {
             _loop->_in_handling_events = false;
         }
+
+    private:
+        HandleEventsGuard(const HandleEventsGuard&) = delete;
+        HandleEventsGuard& operator=(const HandleEventsGuard&) = delete;
     };
 
 private:
@@ -70,7 +79,7 @@ private:
 private:
     std::thread::id _loop_tid;
     bool _in_handling_events = false;
-    std::vector<std::function<void()> > _later_tasks;
+    std::vector<task_type> _later_tasks;
     std::mutex _mutex;
 };
 

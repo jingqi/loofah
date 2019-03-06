@@ -27,3 +27,4 @@ ns.add_dep('@run', 'test_pingpong|@run')
 def clean(target):
     file_utils.remove_any(join(CWD, out_dir))
 ns.set_recipe('@clean', clean)
+ns.add_dep('@clean', 'nut|@clean')
