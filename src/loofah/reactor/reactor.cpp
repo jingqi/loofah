@@ -27,7 +27,6 @@
 
 
 #define TAG "loofah.reactor"
-#define MAX_ACTIVE_EVENTS 32
 
 namespace loofah
 {
@@ -52,7 +51,9 @@ Reactor::Reactor()
         return;
     }
 #elif NUT_PLATFORM_OS_LINUX
-    _epoll_fd = ::epoll_create(MAX_ACTIVE_EVENTS);
+    // NOTE 自从 Linux2.6.8 版本以后，epoll_create() 参数值其实是没什么用的, 只
+    //      需要大于 0
+    _epoll_fd = ::epoll_create(2048);
     if (-1 == _epoll_fd)
     {
         NUT_LOG_E(TAG, "failed to call ::epoll_create()");
@@ -77,8 +78,15 @@ Reactor::~Reactor()
 #endif
 }
 
+void Reactor::shutdown_later()
+{
+    _closing_or_closed = true;
+}
+
 void Reactor::shutdown()
 {
+    assert(is_in_loop_thread());
+
     _closing_or_closed = true;
 
 #if NUT_PLATFORM_OS_WINDOWS
@@ -101,8 +109,7 @@ void Reactor::shutdown()
 #endif
 }
 
-#if NUT_PLATFORM_OS_WINDOWS
-#   if WINVER >= _WIN32_WINNT_WINBLUE
+#if NUT_PLATFORM_OS_WINDOWS && WINVER >= _WIN32_WINNT_WINBLUE
 void Reactor::ensure_capacity(size_t new_size)
 {
     if (new_size <= _capacity)
@@ -129,12 +136,30 @@ size_t Reactor::index_of(ReactHandler *handler)
     }
     return _size;
 }
-#   endif
 #endif
+
+void Reactor::register_handler_later(ReactHandler *handler, int mask)
+{
+    assert(nullptr != handler);
+
+    if (is_in_loop_thread())
+    {
+        // Synchronize
+        register_handler(handler, mask);
+    }
+    else
+    {
+        // Asynchronize
+        nut::rc_ptr<ReactHandler> ref_handler(handler);
+        add_later_task([=] { register_handler(ref_handler, mask); });
+    }
+}
 
 void Reactor::register_handler(ReactHandler *handler, int mask)
 {
     assert(nullptr != handler);
+    assert(is_in_loop_thread());
+
     const socket_t fd = handler->get_socket();
 
 #if NUT_PLATFORM_OS_WINDOWS
@@ -191,9 +216,28 @@ void Reactor::register_handler(ReactHandler *handler, int mask)
 #endif
 }
 
+void Reactor::unregister_handler_later(ReactHandler *handler)
+{
+    assert(nullptr != handler);
+
+    if (is_in_loop_thread())
+    {
+        // Synchronize
+        unregister_handler(handler);
+    }
+    else
+    {
+        // Asynchronize
+        nut::rc_ptr<ReactHandler> ref_handler(handler);
+        add_later_task([=] { unregister_handler(ref_handler); });
+    }
+}
+
 void Reactor::unregister_handler(ReactHandler *handler)
 {
     assert(nullptr != handler);
+    assert(is_in_loop_thread());
+
     const socket_t fd = handler->get_socket();
 
 #if NUT_PLATFORM_OS_WINDOWS
@@ -241,9 +285,28 @@ void Reactor::unregister_handler(ReactHandler *handler)
 #endif
 }
 
+void Reactor::enable_handler_later(ReactHandler *handler, int mask)
+{
+    assert(nullptr != handler);
+
+    if (is_in_loop_thread())
+    {
+        // Synchronize
+        enable_handler(handler, mask);
+    }
+    else
+    {
+        // Asynchronize
+        nut::rc_ptr<ReactHandler> ref_handler(handler);
+        add_later_task([=] { enable_handler(ref_handler, mask); });
+    }
+}
+
 void Reactor::enable_handler(ReactHandler *handler, int mask)
 {
     assert(nullptr != handler);
+    assert(is_in_loop_thread());
+
     const socket_t fd = handler->get_socket();
 
 #if NUT_PLATFORM_OS_WINDOWS
@@ -305,9 +368,28 @@ void Reactor::enable_handler(ReactHandler *handler, int mask)
 #endif
 }
 
+void Reactor::disable_handler_later(ReactHandler *handler, int mask)
+{
+    assert(nullptr != handler);
+
+    if (is_in_loop_thread())
+    {
+        // Synchronize
+        disable_handler(handler, mask);
+    }
+    else
+    {
+        // Asynchronize
+        nut::rc_ptr<ReactHandler> ref_handler(handler);
+        add_later_task([=] { disable_handler(ref_handler, mask); });
+    }
+}
+
 void Reactor::disable_handler(ReactHandler *handler, int mask)
 {
     assert(nullptr != handler);
+    assert(is_in_loop_thread());
+
     const socket_t fd = handler->get_socket();
 
 #if NUT_PLATFORM_OS_WINDOWS
@@ -393,7 +475,7 @@ int Reactor::handle_events(int timeout_ms)
         for (unsigned i = 0; i < read_set.fd_count; ++i)
         {
             socket_t fd = read_set.fd_array[i];
-            std::map<socket_t, ReactHandler*>::const_iterator iter = _socket_to_handler.find(fd);
+            std::unordered_map<socket_t, ReactHandler*>::const_iterator iter = _socket_to_handler.find(fd);
             if (iter == _socket_to_handler.end())
                 continue;
             ReactHandler *handler = iter->second;
@@ -403,7 +485,7 @@ int Reactor::handle_events(int timeout_ms)
         for (unsigned i = 0; i < write_set.fd_count; ++i)
         {
             socket_t fd = write_set.fd_array[i];
-            std::map<socket_t, ReactHandler*>::const_iterator iter = _socket_to_handler.find(fd);
+            std::unordered_map<socket_t, ReactHandler*>::const_iterator iter = _socket_to_handler.find(fd);
             if (iter == _socket_to_handler.end())
                 continue;
             ReactHandler *handler = iter->second;
@@ -453,9 +535,9 @@ int Reactor::handle_events(int timeout_ms)
         struct timespec timeout;
         timeout.tv_sec = timeout_ms / 1000;
         timeout.tv_nsec = (timeout_ms % 1000) * 1000 * 1000;
-        struct kevent active_evs[MAX_ACTIVE_EVENTS];
+        struct kevent active_evs[LOOFAH_MAX_ACTIVE_EVENTS];
 
-        int n = ::kevent(_kq, nullptr, 0, active_evs, MAX_ACTIVE_EVENTS, &timeout);
+        int n = ::kevent(_kq, nullptr, 0, active_evs, LOOFAH_MAX_ACTIVE_EVENTS, &timeout);
         for (int i = 0; i < n; ++i)
         {
             ReactHandler *handler = (ReactHandler*) active_evs[i].udata;
@@ -477,8 +559,8 @@ int Reactor::handle_events(int timeout_ms)
             }
         }
 #elif NUT_PLATFORM_OS_LINUX
-        struct epoll_event events[MAX_ACTIVE_EVENTS];
-        const int n = ::epoll_wait(_epoll_fd, events, MAX_ACTIVE_EVENTS, timeout_ms);
+        struct epoll_event events[LOOFAH_MAX_ACTIVE_EVENTS];
+        const int n = ::epoll_wait(_epoll_fd, events, LOOFAH_MAX_ACTIVE_EVENTS, timeout_ms);
         for (int i = 0; i < n; ++i)
         {
             ReactHandler *handler = (ReactHandler*) events[i].data.ptr;
@@ -497,75 +579,6 @@ int Reactor::handle_events(int timeout_ms)
     run_later_tasks();
 
     return 0;
-}
-
-void Reactor::register_handler_later(ReactHandler *handler, int mask)
-{
-    assert(nullptr != handler);
-
-    // Synchronize
-    if (is_in_loop_thread())
-    {
-        register_handler(handler, mask);
-        return;
-    }
-
-    // Asynchronize
-    nut::rc_ptr<ReactHandler> ref_handler(handler);
-    add_later_task([=] { register_handler(ref_handler, mask); });
-}
-
-void Reactor::unregister_handler_later(ReactHandler *handler)
-{
-    assert(nullptr != handler);
-
-    // Synchronize
-    if (is_in_loop_thread())
-    {
-        unregister_handler(handler);
-        return;
-    }
-
-    // Asynchronize
-    nut::rc_ptr<ReactHandler> ref_handler(handler);
-    add_later_task([=] { unregister_handler(ref_handler); });
-}
-
-void Reactor::enable_handler_later(ReactHandler *handler, int mask)
-{
-    assert(nullptr != handler);
-
-    // Synchronize
-    if (is_in_loop_thread())
-    {
-        enable_handler(handler, mask);
-        return;
-    }
-
-    // Asynchronize
-    nut::rc_ptr<ReactHandler> ref_handler(handler);
-    add_later_task([=] { enable_handler(ref_handler, mask); });
-}
-
-void Reactor::disable_handler_later(ReactHandler *handler, int mask)
-{
-    assert(nullptr != handler);
-
-    // Synchronize
-    if (is_in_loop_thread())
-    {
-        disable_handler(handler, mask);
-        return;
-    }
-
-    // Asynchronize
-    nut::rc_ptr<ReactHandler> ref_handler(handler);
-    add_later_task([=] { disable_handler(ref_handler, mask); });
-}
-
-void Reactor::shutdown_later()
-{
-    _closing_or_closed = true;
 }
 
 }

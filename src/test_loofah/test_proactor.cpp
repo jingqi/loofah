@@ -35,20 +35,22 @@ public:
 
     virtual void handle_connected() override
     {
-        NUT_LOG_D(TAG, "server channel connected");
+        NUT_LOG_D(TAG, "server got a connection");
 
-        g_proactor.register_handler_later(this);
+        g_proactor.register_handler(this);
 
         void *buf = &_tmp;
         size_t len = sizeof(_tmp);
-        g_proactor.launch_read_later(this, &buf, &len, 1);
+        g_proactor.launch_read(this, &buf, &len, 1);
     }
 
     virtual void handle_read_completed(ssize_t cb) override
     {
-        NUT_LOG_D(TAG, "received %d bytes from client: %d", cb, _tmp);
+        NUT_LOG_D(TAG, "server received %d bytes: %d", cb, _tmp);
         if (0 == cb) // 正常结束
         {
+            NUT_LOG_D(TAG, "server will close");
+            g_proactor.unregister_handler(this);
             _sock_stream.close();
             for (size_t i = 0, sz = g_server_channels.size(); i < sz; ++i)
             {
@@ -68,18 +70,18 @@ public:
 
         void *buf = &_counter;
         size_t len = sizeof(_counter);
-        g_proactor.launch_write_later(this, &buf, &len, 1);
+        g_proactor.launch_write(this, &buf, &len, 1);
     }
 
     virtual void handle_write_completed(ssize_t cb) override
     {
-        NUT_LOG_D(TAG, "send %d bytes to client: %d", cb, _counter);
+        NUT_LOG_D(TAG, "server send %d bytes: %d", cb, _counter);
         assert(cb == sizeof(_counter));
         ++_counter;
 
         void *buf = &_tmp;
         size_t len = sizeof(_tmp);
-        g_proactor.launch_read_later(this, &buf, &len, 1);
+        g_proactor.launch_read(this, &buf, &len, 1);
     }
 };
 
@@ -94,20 +96,22 @@ public:
 
     virtual void handle_connected() override
     {
-        NUT_LOG_D(TAG, "client channel connected");
+        NUT_LOG_D(TAG, "client make a connection");
 
-        g_proactor.register_handler_later(this);
+        g_proactor.register_handler(this);
 
         void *buf = &_counter;
         size_t len = sizeof(_counter);
-        g_proactor.launch_write_later(this, &buf, &len, 1);
+        g_proactor.launch_write(this, &buf, &len, 1);
     }
 
     virtual void handle_read_completed(ssize_t cb) override
     {
-        NUT_LOG_D(TAG, "received %d bytes from server: %d", cb, _tmp);
+        NUT_LOG_D(TAG, "client received %d bytes: %d", cb, _tmp);
         if (0 == cb) // 正常结束
         {
+            NUT_LOG_D(TAG, "client will close");
+            g_proactor.unregister_handler(this);
             _sock_stream.close();
             return;
         }
@@ -118,24 +122,26 @@ public:
 
         if (_counter > 20)
         {
+            NUT_LOG_D(TAG, "client will close");
+            g_proactor.unregister_handler(this);
             _sock_stream.close();
             return;
         }
 
         void *buf = &_counter;
         size_t len = sizeof(_counter);
-        g_proactor.launch_write_later(this, &buf, &len, 1);
+        g_proactor.launch_write(this, &buf, &len, 1);
     }
 
     virtual void handle_write_completed(ssize_t cb) override
     {
-        NUT_LOG_D(TAG, "send %d bytes to server: %d", cb, _counter);
+        NUT_LOG_D(TAG, "client send %d bytes: %d", cb, _counter);
         assert(cb == sizeof(_counter));
         ++_counter;
 
         void *buf = &_tmp;
         size_t len = sizeof(_tmp);
-        g_proactor.launch_read_later(this, &buf, &len, 1);
+        g_proactor.launch_read(this, &buf, &len, 1);
     }
 };
 
@@ -144,16 +150,16 @@ public:
 void test_proactor()
 {
     // start server
-    rc_ptr<ProactAcceptor<ServerChannel> > acc = rc_new<ProactAcceptor<ServerChannel> >();
+    rc_ptr<ProactAcceptor<ServerChannel>> acc = rc_new<ProactAcceptor<ServerChannel>>();
     InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
     acc->open(addr);
     g_proactor.register_handler_later(acc);
     g_proactor.launch_accept_later(acc);
-    NUT_LOG_D(TAG, "listening to %s", addr.to_string().c_str());
+    NUT_LOG_D(TAG, "server listening at %s", addr.to_string().c_str());
 
     // start client
+    NUT_LOG_D(TAG, "client will connect to %s", addr.to_string().c_str());
     rc_ptr<ClientChannel> client = ProactConnector<ClientChannel>::connect(addr);
-    NUT_LOG_D(TAG, "will connect to %s", addr.to_string().c_str());
 
     // loop
     while (!g_server_channels.empty() || LOOFAH_INVALID_SOCKET_FD != client->get_socket())

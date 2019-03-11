@@ -1,11 +1,10 @@
 ﻿
-
 #ifndef ___HEADFILE_29BEE4A7_4FDA_4FAB_ABC2_3FC8E8A22FD4_
 #define ___HEADFILE_29BEE4A7_4FDA_4FAB_ABC2_3FC8E8A22FD4_
 
 #include "../loofah_config.h"
 
-#include <map>
+#include <unordered_map>
 
 #include <nut/platform/platform.h>
 
@@ -19,24 +18,19 @@ namespace loofah
 class LOOFAH_API Reactor : public EventLoopBase
 {
 public:
-    enum
-    {
-        // 关闭 socket 前是否需要 unregister_handler()
-#if NUT_PLATFORM_OS_WINDOWS
-        NEED_UNREGISTER_BEFORE_CLOSE = true,
-#else
-        NEED_UNREGISTER_BEFORE_CLOSE = false,
-#endif
-    };
-
-public:
     Reactor();
     ~Reactor();
 
+    void register_handler(ReactHandler *handler, int mask);
     void register_handler_later(ReactHandler *handler, int mask);
+
+    void unregister_handler(ReactHandler *handler);
     void unregister_handler_later(ReactHandler *handler);
 
+    void enable_handler(ReactHandler *handler, int mask);
     void enable_handler_later(ReactHandler *handler, int mask);
+
+    void disable_handler(ReactHandler *handler, int mask);
     void disable_handler_later(ReactHandler *handler, int mask);
 
     /**
@@ -50,18 +44,10 @@ public:
     int handle_events(int timeout_ms = 1000);
 
 protected:
-#if NUT_PLATFORM_OS_WINDOWS
-#   if WINVER >= _WIN32_WINNT_WINBLUE
+#if NUT_PLATFORM_OS_WINDOWS && WINVER >= _WIN32_WINNT_WINBLUE
     void ensure_capacity(size_t new_size);
     size_t index_of(ReactHandler *handler);
-#   endif
 #endif
-
-    void register_handler(ReactHandler *handler, int mask);
-    void unregister_handler(ReactHandler *handler);
-
-    void enable_handler(ReactHandler *handler, int mask);
-    void disable_handler(ReactHandler *handler, int mask);
 
     void shutdown();
 
@@ -72,7 +58,7 @@ private:
     // NOTE 默认情况下受限于 FD_SETSIZE = 64 大小限制, 但是可以在包含 winsock2.h 之前
     //      define 其为更大的值, 参见 https://msdn.microsoft.com/zh-cn/library/windows/desktop/ms740141(v=vs.85).aspx
     FD_SET _read_set, _write_set, _except_set;
-    std::map<socket_t, ReactHandler*> _socket_to_handler;
+    std::unordered_map<socket_t, ReactHandler*> _socket_to_handler;
 #   else
     // Windows 8.1 之后，使用 ::WSAPoll() 实现
     WSAPOLLFD *_pollfds = nullptr;

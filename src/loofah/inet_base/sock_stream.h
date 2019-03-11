@@ -31,21 +31,27 @@ public:
     bool is_writing_shutdown() const;
 
     /**
-     * 读(阻塞)
+     * 读
      *
-     * @return >0 读成功，返回读取到的字节数
-     *         =0 对方关闭了链接, 或者对方关闭了写通道, 或者己方关闭了读通道
-     *         <0 出错
+     * @return >0 读成功, 返回读取到的字节数(Windows 下 readv() 返回值不可靠)
+     *          0 EOF, 读通道已经正常关闭;
+     *            或者传入的 len==0
+     *         -1 错误
+     *         -2 非阻塞 socket 读操作将会阻塞;
+     *            或者设置过读超时, 而读超时被触发
      */
     ssize_t read(void *buf, size_t max_len);
+    ssize_t readv(void* const *buf_ptrs, const size_t *len_ptrs, size_t buf_count);
 
     /**
-     * 写(阻塞)
+     * 写
      *
-     * @return >=0 写成功, 返回写入的字节数
-     *         <0 出错
+     * @return >=0 写成功, 返回写入的字节数(Windows 下 writev() 返回值不可靠)
+     *          -1 错误
+     *          -2 非阻塞 socket 写操作将会阻塞
      */
     ssize_t write(const void *buf, size_t max_len);
+    ssize_t writev(const void* const *buf_ptrs, const size_t *len_ptrs, size_t buf_count);
 
     InetAddr get_local_addr() const;
     InetAddr get_peer_addr() const;

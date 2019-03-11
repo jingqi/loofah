@@ -34,12 +34,13 @@ public:
     virtual socket_t get_socket() const = 0;
 
     /**
-     * acceptor 接受链接, channel 接收数据
+     * acceptor 可接受链接;
+     * channel 可接收数据; 如果读到数据长度为 0, 则是读通道关闭事件
      */
     virtual void handle_read_ready() = 0;
 
     /**
-     * channel 发送数据
+     * channel 可发送数据
      */
     virtual void handle_write_ready() = 0;
 

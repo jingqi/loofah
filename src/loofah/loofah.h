@@ -29,6 +29,7 @@
 
 // package channel
 #include "package/package.h"
-#include "package/package_channel.h"
+#include "package/react_package_channel.h"
+#include "package/proact_package_channel.h"
 
 #endif

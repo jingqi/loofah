@@ -52,9 +52,12 @@ public:
     /**
      * 读
      *
-     * @return >0 读成功, 返回读取到的字节数
-     *         =0 对方关闭了链接, 或者对方关闭了写通道, 或者己方关闭了读通道
-     *         <0 出错
+     * @return >0 读成功, 返回读取到的字节数(Windows 下 readv() 返回值不可靠)
+     *          0 EOF, 读通道已经正常关闭;
+     *            或者传入的 len==0
+     *         -1 错误
+     *         -2 非阻塞 socket 读操作将会阻塞;
+     *            或者设置过读超时, 而读超时被触发
      */
     static ssize_t read(socket_t socket_fd, void *buf, size_t len);
     static ssize_t readv(socket_t socket_fd, void* const *buf_ptrs,
@@ -63,8 +66,9 @@ public:
     /**
      * 写
      *
-     * @return >=0 写成功, 返回写入的字节数
-     *         <0 出错
+     * @return >=0 写成功, 返回写入的字节数(Windows 下 writev() 返回值不可靠)
+     *          -1 错误
+     *          -2 非阻塞 socket 写操作将会阻塞
      */
     static ssize_t write(socket_t socket_fd, const void *buf, size_t len);
     static ssize_t writev(socket_t socket_fd, const void* const *buf_ptrs,

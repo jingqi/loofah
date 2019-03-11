@@ -51,12 +51,19 @@ public:
     virtual void handle_accept_completed(socket_t fd) = 0;
 
     /**
-     * channel 收到数据
+     * channel 收到数据; 如果 cb==0, 则是读通道关闭事件
+     *
+     * @param cb >0 收到的字节数
+     *            0 读通道关闭
+     *           <0 错误
      */
     virtual void handle_read_completed(ssize_t cb) = 0;
 
     /**
      * channel 发送数据
+     *
+     * @param cb >=0 写入的字节数
+     *            <0 错误
      */
     virtual void handle_write_completed(ssize_t cb) = 0;
 

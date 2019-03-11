@@ -22,17 +22,30 @@ public:
     EventLoopBase();
 
     /**
-     * 当前是否在事件处理线程中
+     * 当前是否运行在事件循环线程中
+     *
+     * reactor 的下列操作需要放到满足该条件:
+     *   register_handler()
+     *   unregister_handler()
+     *   enable_handler()
+     *   disable_handler()
+     *
+     * proactor 的下列操作需要放到满足该条件:
+     *   register_handler()
+     *   unregister_handler()
+     *   launch_accept()
+     *   launch_read()
+     *   launch_write()
      */
     bool is_in_loop_thread() const;
 
     /**
-     * 当前线程是否是事件循环线程
+     * 当前是否运行在事件循环线程中, 并且处于事件循环间隔
      */
     bool is_in_loop_thread_and_not_handling() const;
 
     /**
-     * 在事件循环线程中运行
+     * 在事件循环线程且事件处理间隔中运行
      */
     void run_later(task_type&& task);
     void run_later(const task_type& task);

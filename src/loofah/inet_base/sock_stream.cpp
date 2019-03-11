@@ -79,9 +79,19 @@ ssize_t SockStream::read(void *buf, size_t max_len)
     return SockOperation::read(_socket_fd, buf, max_len);
 }
 
+ssize_t SockStream::readv(void* const *buf_ptrs, const size_t *len_ptrs, size_t buf_count)
+{
+    return SockOperation::readv(_socket_fd, buf_ptrs, len_ptrs, buf_count);
+}
+
 ssize_t SockStream::write(const void *buf, size_t max_len)
 {
     return SockOperation::write(_socket_fd, buf, max_len);
+}
+
+ssize_t SockStream::writev(const void* const *buf_ptrs, const size_t *len_ptrs, size_t buf_count)
+{
+    return SockOperation::writev(_socket_fd, buf_ptrs, len_ptrs, buf_count);
 }
 
 InetAddr SockStream::get_local_addr() const

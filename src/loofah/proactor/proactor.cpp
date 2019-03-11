@@ -33,7 +33,39 @@
 
 
 #define TAG "loofah.proactor"
-#define MAX_ACTIVE_EVENTS 32
+
+namespace
+{
+
+class BufferHolder
+{
+    NUT_REF_COUNTABLE
+
+public:
+    BufferHolder(void* const *bp, const size_t *lp, size_t bc)
+    {
+        buf_ptrs = (void**) ::malloc(sizeof(void*) * bc);
+        ::memcpy(buf_ptrs, bp, sizeof(void*) * bc);
+        len_ptrs = (size_t*) ::malloc(sizeof(size_t) * bc);
+        ::memcpy(len_ptrs, lp, sizeof(size_t) * bc);
+    }
+
+    virtual ~BufferHolder()
+    {
+        ::free(buf_ptrs);
+        ::free(len_ptrs);
+    }
+
+private:
+    BufferHolder(const BufferHolder&) = delete;
+    BufferHolder& operator=(const BufferHolder&) = delete;
+
+public:
+    void **buf_ptrs;
+    size_t *len_ptrs;
+};
+
+}
 
 namespace loofah
 {
@@ -53,7 +85,9 @@ Proactor::Proactor()
         return;
     }
 #elif NUT_PLATFORM_OS_LINUX
-    _epoll_fd = ::epoll_create(MAX_ACTIVE_EVENTS);
+    // NOTE 自从 Linux2.6.8 版本以后，epoll_create() 参数值其实是没什么用的, 只
+    //      需要大于 0
+    _epoll_fd = ::epoll_create(2048);
     if (-1 == _epoll_fd)
     {
         NUT_LOG_E(TAG, "failed to call ::epoll_create()");
@@ -67,8 +101,15 @@ Proactor::~Proactor()
     shutdown();
 }
 
+void Proactor::shutdown_later()
+{
+    _closing_or_closed = true;
+}
+
 void Proactor::shutdown()
 {
+    assert(is_in_loop_thread());
+
     _closing_or_closed = true;
 
 #if NUT_PLATFORM_OS_WINDOWS
@@ -80,8 +121,8 @@ void Proactor::shutdown()
             void *key = nullptr;
             OVERLAPPED *io_overlapped = nullptr;
             // Get the next asynchronous operation that completes
-            BOOL rs = ::GetQueuedCompletionStatus(_iocp, &bytes_transfered, (PULONG_PTR)&key,
-                                                  &io_overlapped, 0);
+            const BOOL rs = ::GetQueuedCompletionStatus(
+                _iocp, &bytes_transfered, (PULONG_PTR)&key, &io_overlapped, 0);
             if (FALSE == rs || nullptr == io_overlapped)
                 break;
             IORequest *io_request = CONTAINING_RECORD(io_overlapped, IORequest, overlapped);
@@ -102,19 +143,39 @@ void Proactor::shutdown()
 #endif
 }
 
+void Proactor::register_handler_later(ProactHandler *handler)
+{
+    assert(nullptr != handler);
+
+    if (is_in_loop_thread())
+    {
+        // Synchronize
+        register_handler(handler);
+    }
+    else
+    {
+        // Asynchronize
+        nut::rc_ptr<ProactHandler> ref_handler(handler);
+        add_later_task([=] { register_handler(ref_handler); });
+    }
+}
+
 void Proactor::register_handler(ProactHandler *handler)
 {
     assert(nullptr != handler);
+    assert(is_in_loop_thread());
+
     const socket_t fd = handler->get_socket();
 
 #if NUT_PLATFORM_OS_WINDOWS
     assert(nullptr != _iocp);
-    const HANDLE reg_iocp = ::CreateIoCompletionPort((HANDLE)fd, _iocp, (ULONG_PTR) handler, 0);
-    if (nullptr == reg_iocp)
+    const HANDLE rs = ::CreateIoCompletionPort((HANDLE) fd, _iocp, (ULONG_PTR) handler, 0);
+    if (nullptr == rs)
     {
         NUT_LOG_E(TAG, "failed to associate IOCP with errno %d", ::GetLastError());
         return;
     }
+    assert(rs == _iocp);
 #elif NUT_PLATFORM_OS_MAC
     struct kevent ev[2];
     EV_SET(ev, fd, EVFILT_READ, EV_ADD | EV_DISABLE, 0, 0, (void*) handler);
@@ -138,13 +199,36 @@ void Proactor::register_handler(ProactHandler *handler)
 #endif
 }
 
-#if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
+void Proactor::unregister_handler_later(ProactHandler *handler)
+{
+    assert(nullptr != handler);
+
+#if NUT_PLATFORM_OS_WINDOWS
+    // NOTE 对于 Windows 下的 IOCP，是无法 unregister_handler() 的
+#else
+    if (is_in_loop_thread())
+    {
+        // Synchronize
+        unregister_handler(handler);
+    }
+    else
+    {
+        // Asynchronize
+        nut::rc_ptr<ProactHandler> ref_handler(handler);
+        add_later_task([=] { unregister_handler(ref_handler); });
+    }
+#endif
+}
+
 void Proactor::unregister_handler(ProactHandler *handler)
 {
     assert(nullptr != handler);
-    const socket_t fd = handler->get_socket();
+    assert(is_in_loop_thread());
 
-#if NUT_PLATFORM_OS_MAC
+#if NUT_PLATFORM_OS_WINDOWS
+    // NOTE 对于 Windows 下的 IOCP，是无法 unregister_handler() 的
+#elif NUT_PLATFORM_OS_MAC
+    const socket_t fd = handler->get_socket();
     struct kevent ev[2];
     EV_SET(ev, fd, EVFILT_READ, EV_DELETE, 0, 0, (void*) handler);
     EV_SET(ev + 1, fd, EVFILT_WRITE, EV_DELETE, 0, 0, (void*) handler);
@@ -155,6 +239,7 @@ void Proactor::unregister_handler(ProactHandler *handler)
         return;
     }
 #elif NUT_PLATFORM_OS_LINUX
+    const socket_t fd = handler->get_socket();
     struct epoll_event epv;
     ::memset(&epv, 0, sizeof(epv));
     epv.data.ptr = (void*) handler;
@@ -165,11 +250,29 @@ void Proactor::unregister_handler(ProactHandler *handler)
     }
 #endif
 }
-#endif
+
+void Proactor::launch_accept_later(ProactHandler *handler)
+{
+    assert(nullptr != handler);
+
+    if (is_in_loop_thread())
+    {
+        // Synchronize
+        launch_accept(handler);
+    }
+    else
+    {
+        // Asynchronize
+        nut::rc_ptr<ProactHandler> ref_handler(handler);
+        add_later_task([=] { launch_accept(ref_handler); });
+    }
+}
 
 void Proactor::launch_accept(ProactHandler *handler)
 {
     assert(nullptr != handler);
+    assert(is_in_loop_thread());
+
     const socket_t listener_socket = handler->get_socket();
 
 #if NUT_PLATFORM_OS_WINDOWS
@@ -245,10 +348,135 @@ void Proactor::launch_accept(ProactHandler *handler)
 #endif
 }
 
+void Proactor::launch_read_later(ProactHandler *handler, void* const *buf_ptrs,
+                                 const size_t *len_ptrs, size_t buf_count)
+{
+    assert(nullptr != handler && nullptr != buf_ptrs && nullptr != len_ptrs && buf_count > 0);
+
+    if (is_in_loop_thread())
+    {
+        // Synchronize
+        launch_read(handler, buf_ptrs, len_ptrs, buf_count);
+    }
+    else
+    {
+        // Asynchronize
+        nut::rc_ptr<ProactHandler> ref_handler(handler);
+        nut::rc_ptr<BufferHolder> buf_holder = nut::rc_new<BufferHolder>(buf_ptrs, len_ptrs, buf_count);
+        add_later_task([=] { launch_read(ref_handler, buf_holder->buf_ptrs, buf_holder->len_ptrs, buf_count); });
+    }
+}
+
+void Proactor::launch_read(ProactHandler *handler, void* const *buf_ptrs,
+                           const size_t *len_ptrs, size_t buf_count)
+{
+    assert(nullptr != handler && nullptr != buf_ptrs && nullptr != len_ptrs && buf_count > 0);
+    assert(is_in_loop_thread());
+
+    IORequest *io_request = IORequest::new_request(ProactHandler::READ_MASK, buf_count);
+    assert(nullptr != io_request);
+    io_request->set_bufs(buf_ptrs, len_ptrs);
+
+#if NUT_PLATFORM_OS_WINDOWS
+    const socket_t fd = handler->get_socket();
+
+    DWORD bytes = 0, flags = 0;
+    const int rs = ::WSARecv(fd,
+                             io_request->wsabufs,
+                             buf_count, // wsabuf 的数量
+                             &bytes, // 如果接收操作立即完成，这里会返回函数调用所接收到的字节数
+                             &flags, // FIXME 貌似这里设置为 nullptr 会导致错误
+                             &io_request->overlapped,
+                             nullptr);
+    if (SOCKET_ERROR == rs)
+    {
+        const int errcode = ::WSAGetLastError();
+        if (ERROR_IO_PENDING != errcode)
+        {
+            NUT_LOG_E(TAG, "failed to call ::WSARecv() with errno %d", errcode);
+            return;
+        }
+    }
+#elif NUT_PLATFORM_OS_MAC
+    handler->_read_queue.push(io_request);
+
+    if (0 == (handler->_registered_events & ProactHandler::READ_MASK))
+        enable_handler(handler, ProactHandler::READ_MASK);
+#elif NUT_PLATFORM_OS_LINUX
+    handler->_read_queue.push(io_request);
+
+    if (0 == (handler->_registered_events & ProactHandler::READ_MASK))
+        enable_handler(handler, ProactHandler::READ_MASK);
+#endif
+}
+
+void Proactor::launch_write_later(ProactHandler *handler, void* const *buf_ptrs,
+                                  const size_t *len_ptrs, size_t buf_count)
+{
+    assert(nullptr != handler && nullptr != buf_ptrs && nullptr != len_ptrs && buf_count > 0);
+
+    if (is_in_loop_thread())
+    {
+        // Synchronize
+        launch_write(handler, buf_ptrs, len_ptrs, buf_count);
+    }
+    else
+    {
+        // Asynchronize
+        nut::rc_ptr<ProactHandler> ref_handler(handler);
+        nut::rc_ptr<BufferHolder> buf_holder = nut::rc_new<BufferHolder>(buf_ptrs, len_ptrs, buf_count);
+        add_later_task([=] { launch_write(ref_handler, buf_holder->buf_ptrs, buf_holder->len_ptrs, buf_count); });
+    }
+}
+
+void Proactor::launch_write(ProactHandler *handler, void* const *buf_ptrs,
+                            const size_t *len_ptrs, size_t buf_count)
+{
+    assert(nullptr != handler && nullptr != buf_ptrs && nullptr != len_ptrs && buf_count > 0);
+    assert(is_in_loop_thread());
+
+    IORequest *io_request = IORequest::new_request(ProactHandler::WRITE_MASK, buf_count);
+    assert(nullptr != io_request);
+    io_request->set_bufs(buf_ptrs, len_ptrs);
+
+#if NUT_PLATFORM_OS_WINDOWS
+    const socket_t fd = handler->get_socket();
+    DWORD bytes = 0;
+    const int rs = ::WSASend(fd,
+                             io_request->wsabufs,
+                             buf_count, // wsabuf 的数量
+                             &bytes, // 如果发送操作立即完成，这里会返回函数调用所发送的字节数
+                             0,
+                             &io_request->overlapped,
+                             nullptr);
+    if (SOCKET_ERROR == rs)
+    {
+        const int errcode = ::WSAGetLastError();
+        if (ERROR_IO_PENDING != errcode)
+        {
+            NUT_LOG_E(TAG, "failed to call ::WSASend() with errno %d", errcode);
+            return;
+        }
+    }
+#elif NUT_PLATFORM_OS_MAC
+    handler->_write_queue.push(io_request);
+
+    if (0 == (handler->_registered_events & ProactHandler::WRITE_MASK))
+        enable_handler(handler, ProactHandler::WRITE_MASK);
+#elif NUT_PLATFORM_OS_LINUX
+    handler->_write_queue.push(io_request);
+
+    if (0 == (handler->_registered_events & ProactHandler::WRITE_MASK))
+        enable_handler(handler, ProactHandler::WRITE_MASK);
+#endif
+}
+
 #if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
 void Proactor::enable_handler(ProactHandler *handler, int mask)
 {
     assert(nullptr != handler);
+    assert(is_in_loop_thread());
+
     const socket_t fd = handler->get_socket();
 
 #if NUT_PLATFORM_OS_MAC
@@ -295,6 +523,8 @@ void Proactor::enable_handler(ProactHandler *handler, int mask)
 void Proactor::disable_handler(ProactHandler *handler, int mask)
 {
     assert(nullptr != handler);
+    assert(is_in_loop_thread());
+
     const socket_t fd = handler->get_socket();
 
 #if NUT_PLATFORM_OS_MAC
@@ -328,89 +558,6 @@ void Proactor::disable_handler(ProactHandler *handler, int mask)
     handler->_registered_events &= ~mask;
 }
 #endif
-
-void Proactor::launch_read(ProactHandler *handler, void* const *buf_ptrs,
-                           const size_t *len_ptrs, size_t buf_count)
-{
-    assert(nullptr != handler && nullptr != buf_ptrs && nullptr != len_ptrs && buf_count > 0);
-
-    IORequest *io_request = IORequest::new_request(ProactHandler::READ_MASK, buf_count);
-    assert(nullptr != io_request);
-    io_request->set_bufs(buf_ptrs, len_ptrs);
-
-#if NUT_PLATFORM_OS_WINDOWS
-    const socket_t fd = handler->get_socket();
-
-    DWORD bytes = 0, flags = 0;
-    const int rs = ::WSARecv(fd,
-                             io_request->wsabufs,
-                             buf_count, // wsabuf 的数量
-                             &bytes, // 如果接收操作立即完成，这里会返回函数调用所接收到的字节数
-                             &flags, // FIXME 貌似这里设置为 nullptr 会导致错误
-                             &io_request->overlapped,
-                             nullptr);
-    if (SOCKET_ERROR == rs)
-    {
-        const int errcode = ::WSAGetLastError();
-        if (ERROR_IO_PENDING != errcode)
-        {
-            NUT_LOG_E(TAG, "failed to call ::WSARecv() with errno %d", errcode);
-            return;
-        }
-    }
-#elif NUT_PLATFORM_OS_MAC
-    handler->_read_queue.push(io_request);
-
-    if (0 == (handler->_registered_events & ProactHandler::READ_MASK))
-        enable_handler(handler, ProactHandler::READ_MASK);
-#elif NUT_PLATFORM_OS_LINUX
-    handler->_read_queue.push(io_request);
-
-    if (0 == (handler->_registered_events & ProactHandler::READ_MASK))
-        enable_handler(handler, ProactHandler::READ_MASK);
-#endif
-}
-
-void Proactor::launch_write(ProactHandler *handler, void* const *buf_ptrs,
-                            const size_t *len_ptrs, size_t buf_count)
-{
-    assert(nullptr != handler && nullptr != buf_ptrs && nullptr != len_ptrs && buf_count > 0);
-
-    IORequest *io_request = IORequest::new_request(ProactHandler::WRITE_MASK, buf_count);
-    assert(nullptr != io_request);
-    io_request->set_bufs(buf_ptrs, len_ptrs);
-
-#if NUT_PLATFORM_OS_WINDOWS
-    const socket_t fd = handler->get_socket();
-    DWORD bytes = 0;
-    const int rs = ::WSASend(fd,
-                             io_request->wsabufs,
-                             buf_count, // wsabuf 的数量
-                             &bytes, // 如果发送操作立即完成，这里会返回函数调用所发送的字节数
-                             0,
-                             &io_request->overlapped,
-                             nullptr);
-    if (SOCKET_ERROR == rs)
-    {
-        const int errcode = ::WSAGetLastError();
-        if (ERROR_IO_PENDING != errcode)
-        {
-            NUT_LOG_E(TAG, "failed to call ::WSASend() with errno %d", errcode);
-            return;
-        }
-    }
-#elif NUT_PLATFORM_OS_MAC
-    handler->_write_queue.push(io_request);
-
-    if (0 == (handler->_registered_events & ProactHandler::WRITE_MASK))
-        enable_handler(handler, ProactHandler::WRITE_MASK);
-#elif NUT_PLATFORM_OS_LINUX
-    handler->_write_queue.push(io_request);
-
-    if (0 == (handler->_registered_events & ProactHandler::WRITE_MASK))
-        enable_handler(handler, ProactHandler::WRITE_MASK);
-#endif
-}
 
 int Proactor::handle_events(int timeout_ms)
 {
@@ -501,9 +648,9 @@ int Proactor::handle_events(int timeout_ms)
         struct timespec timeout;
         timeout.tv_sec = timeout_ms / 1000;
         timeout.tv_nsec = (timeout_ms % 1000) * 1000 * 1000;
-        struct kevent active_evs[MAX_ACTIVE_EVENTS];
+        struct kevent active_evs[LOOFAH_MAX_ACTIVE_EVENTS];
 
-        int n = ::kevent(_kq, nullptr, 0, active_evs, MAX_ACTIVE_EVENTS, &timeout);
+        int n = ::kevent(_kq, nullptr, 0, active_evs, LOOFAH_MAX_ACTIVE_EVENTS, &timeout);
         for (int i = 0; i < n; ++i)
         {
             ProactHandler *handler = (ProactHandler*) active_evs[i].udata;
@@ -565,8 +712,8 @@ int Proactor::handle_events(int timeout_ms)
             }
         }
 #elif NUT_PLATFORM_OS_LINUX
-        struct epoll_event events[MAX_ACTIVE_EVENTS];
-        const int n = ::epoll_wait(_epoll_fd, events, MAX_ACTIVE_EVENTS, timeout_ms);
+        struct epoll_event events[LOOFAH_MAX_ACTIVE_EVENTS];
+        const int n = ::epoll_wait(_epoll_fd, events, LOOFAH_MAX_ACTIVE_EVENTS, timeout_ms);
         for (int i = 0; i < n; ++i)
         {
             ProactHandler *handler = (ProactHandler*) events[i].data.ptr;
@@ -629,126 +776,6 @@ int Proactor::handle_events(int timeout_ms)
     run_later_tasks();
 
     return 0;
-}
-
-void Proactor::register_handler_later(ProactHandler *handler)
-{
-    assert(nullptr != handler);
-
-    // Synchronize
-    if (is_in_loop_thread())
-    {
-        register_handler(handler);
-        return;
-    }
-
-    // Asynchronize
-    nut::rc_ptr<ProactHandler> ref_handler(handler);
-    add_later_task([=] { register_handler(ref_handler); });
-}
-
-#if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
-void Proactor::unregister_handler_later(ProactHandler *handler)
-{
-    assert(nullptr != handler);
-
-    // Synchronize
-    if (is_in_loop_thread())
-    {
-        unregister_handler(handler);
-        return;
-    }
-
-    // Asynchronize
-    nut::rc_ptr<ProactHandler> ref_handler(handler);
-    add_later_task([=] { unregister_handler(ref_handler); });
-}
-#endif
-
-void Proactor::launch_accept_later(ProactHandler *handler)
-{
-    assert(nullptr != handler);
-
-    // Synchronize
-    if (is_in_loop_thread())
-    {
-        launch_accept(handler);
-        return;
-    }
-
-    // Asynchronize
-    nut::rc_ptr<ProactHandler> ref_handler(handler);
-    add_later_task([=] { launch_accept(ref_handler); });
-}
-
-namespace
-{
-
-class BufferHolder
-{
-    NUT_REF_COUNTABLE
-
-public:
-    void **buf_ptrs;
-    size_t *len_ptrs;
-
-public:
-    BufferHolder(void* const *bp, const size_t *lp, size_t bc)
-    {
-        buf_ptrs = (void**) ::malloc(sizeof(void*) * bc);
-        ::memcpy(buf_ptrs, bp, sizeof(void*) * bc);
-        len_ptrs = (size_t*) ::malloc(sizeof(size_t) * bc);
-        ::memcpy(len_ptrs, lp, sizeof(size_t) * bc);
-    }
-
-    virtual ~BufferHolder()
-    {
-        ::free(buf_ptrs);
-        ::free(len_ptrs);
-    }
-};
-
-}
-
-void Proactor::launch_read_later(ProactHandler *handler, void* const *buf_ptrs,
-                                 const size_t *len_ptrs, size_t buf_count)
-{
-    assert(nullptr != handler && nullptr != buf_ptrs && nullptr != len_ptrs && buf_count > 0);
-
-    // Synchronize
-    if (is_in_loop_thread())
-    {
-        launch_read(handler, buf_ptrs, len_ptrs, buf_count);
-        return;
-    }
-
-    // Asynchronize
-    nut::rc_ptr<ProactHandler> ref_handler(handler);
-    nut::rc_ptr<BufferHolder> buf_holder = nut::rc_new<BufferHolder>(buf_ptrs, len_ptrs, buf_count);
-    add_later_task([=] { launch_read(ref_handler, buf_holder->buf_ptrs, buf_holder->len_ptrs, buf_count); });
-}
-
-void Proactor::launch_write_later(ProactHandler *handler, void* const *buf_ptrs,
-                                  const size_t *len_ptrs, size_t buf_count)
-{
-    assert(nullptr != handler && nullptr != buf_ptrs && nullptr != len_ptrs && buf_count > 0);
-
-    // Synchronize
-    if (is_in_loop_thread())
-    {
-        launch_write(handler, buf_ptrs, len_ptrs, buf_count);
-        return;
-    }
-
-    // Asynchronize
-    nut::rc_ptr<ProactHandler> ref_handler(handler);
-    nut::rc_ptr<BufferHolder> buf_holder = nut::rc_new<BufferHolder>(buf_ptrs, len_ptrs, buf_count);
-    add_later_task([=] { launch_write(ref_handler, buf_holder->buf_ptrs, buf_holder->len_ptrs, buf_count); });
-}
-
-void Proactor::shutdown_later()
-{
-    _closing_or_closed = true;
 }
 
 }

@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <iostream>
 
 #if NUT_PLATFORM_OS_WINDOWS
 #   include <windows.h>
@@ -16,12 +17,14 @@
 #endif
 
 using namespace nut;
+using namespace std;
 
 #define TAG "main"
 
 void test_reactor();
 void test_proactor();
-void test_package_channel();
+void test_react_package_channel();
+void test_proact_package_channel();
 
 static void setup_std_logger()
 {
@@ -43,9 +46,15 @@ int main(int argc, char **argv)
         return -1;
     }
 
+    const char *split = "----------------------------";
+    cout << split << " test reactor " << split << endl;
     test_reactor();
+    cout << split << " test proactor " << split << endl;
     test_proactor();
-    test_package_channel();
+    cout << split << " test react package " << split << endl;
+    test_react_package_channel();
+    cout << split << " test proact package " << split << endl;
+    test_proact_package_channel();
 
     loofah::shutdown_network();
 

@@ -22,14 +22,22 @@ public:
     Proactor();
     ~Proactor();
 
+    void register_handler(ProactHandler *handler);
     void register_handler_later(ProactHandler *handler);
-#if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
-    void unregister_handler_later(ProactHandler *handler);
-#endif
 
+    void unregister_handler(ProactHandler *handler);
+    void unregister_handler_later(ProactHandler *handler);
+
+    void launch_accept(ProactHandler *handler);
     void launch_accept_later(ProactHandler *handler);
+
+    void launch_read(ProactHandler *handler, void* const *buf_ptrs,
+                     const size_t *len_ptrs, size_t buf_count);
     void launch_read_later(ProactHandler *handler, void* const *buf_ptrs,
                            const size_t *len_ptrs, size_t buf_count);
+
+    void launch_write(ProactHandler *handler, void* const *buf_ptrs,
+                      const size_t *len_ptrs, size_t buf_count);
     void launch_write_later(ProactHandler *handler, void* const *buf_ptrs,
                             const size_t *len_ptrs, size_t buf_count);
 
@@ -49,18 +57,6 @@ protected:
     void enable_handler(ProactHandler *handler, int mask);
     void disable_handler(ProactHandler *handler, int mask);
 #endif
-
-    void register_handler(ProactHandler *handler);
-#if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
-    // NOTE 对于 Windows 下的 IOCP，是无法 unregister_handler() 的
-    void unregister_handler(ProactHandler *handler);
-#endif
-
-    void launch_accept(ProactHandler *handler);
-    void launch_read(ProactHandler *handler, void* const *buf_ptrs,
-                     const size_t *len_ptrs, size_t buf_count);
-    void launch_write(ProactHandler *handler, void* const *buf_ptrs,
-                      const size_t *len_ptrs, size_t buf_count);
 
     void shutdown();
 

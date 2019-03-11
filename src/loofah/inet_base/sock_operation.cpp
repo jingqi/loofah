@@ -144,7 +144,38 @@ bool SockOperation::shutdown_write(socket_t socket_fd)
 ssize_t SockOperation::read(socket_t socket_fd, void *buf, size_t len)
 {
     assert(nullptr != buf);
-    return ::recv(socket_fd, (char*) buf, len, 0);
+
+    /*
+     * recv() 返回:
+     *   >0 读取的字节数
+     *    0 读通道已经正常关闭(end-of-file)，或者传入的参数 len == 0
+     *   -1 出错, errno 被设置
+     *
+     * errno 值:
+     *   EAGAIN / EWOULDBLOCK 非阻塞 socket 读操作将会阻塞; 或者设置过读超时, 而
+     *       读超时被触发
+     *
+     * WSAGetLastError() 返回:
+     *   WSAESHUTDOWN   读通道已经关闭
+     *   WSAEWOULDBLOCK 套接口被标志为非阻塞，但是操作不能立即完成
+     */
+    const ssize_t rs = ::recv(socket_fd, (char*) buf, len, 0);
+    if (rs >= 0)
+        return rs;
+
+#if NUT_PLATFORM_OS_WINDOWS
+    const int err = ::WSAGetLastError();
+    if (WSAESHUTDOWN == err)
+        return 0;
+    else if (WSAEWOULDBLOCK == err)
+        return -2;
+	// NUT_LOG_E(TAG, "recv() return %d, WSAGetLastError() %d", rs, err);
+#else
+    if (EAGAIN == errno || EWOULDBLOCK == errno)
+        return -2;
+	// NUT_LOG_E(TAG, "recv() return %d, errno %d", rs, errno);
+#endif
+    return -1;
 }
 
 ssize_t SockOperation::readv(socket_t socket_fd, void* const *buf_ptrs,
@@ -159,15 +190,34 @@ ssize_t SockOperation::readv(socket_t socket_fd, void* const *buf_ptrs,
     else
         wsabufs = stack_wsabufs;
 
+    size_t total_bytes = 0;
     for (size_t i = 0; i < buf_count; ++i)
     {
         wsabufs[i].buf = (char*) *buf_ptrs;
         wsabufs[i].len = *len_ptrs;
+        total_bytes += *len_ptrs;
 
         ++buf_ptrs;
         ++len_ptrs;
     }
 
+    /*
+     * WSARecv() 返回:
+     *   非重叠(非异步)操作:
+     *      >0 成功，读取到的字节数
+     *       0 连接中断
+     *      -1 SOCKET_ERROR, 错误
+     *   重叠(异步)操作:
+     *       0 成功并立即完成
+     *      -1 SOCKET_ERROR, 需要查询 WSAGetLastError()
+     *
+     * WSAGetLastError() 返回:
+     *   WSA_IO_PENDING 重叠操作成功启动，过后将有完成指示
+     *   WSAESHUTDOWN   读通道已经关闭
+     *   WSAEDISCON     远端优雅的结束了连接
+     *   WSAEWOULDBLOCK 重叠套接口：太多重叠的输入/输出请求
+     *                  非重叠套接口：套接口被标志为非阻塞，但是操作不能立即完成
+     */
     DWORD bytes = 0, flags = 0;
     const int rs = ::WSARecv(socket_fd,
                              wsabufs,
@@ -176,9 +226,17 @@ ssize_t SockOperation::readv(socket_t socket_fd, void* const *buf_ptrs,
                              &flags, // FIXME 貌似这里设置为 nullptr 会导致错误
                              nullptr,
                              nullptr);
-    if (SOCKET_ERROR == rs)
-        return -1;
-    return bytes;
+    if (SOCKET_ERROR != rs)
+        return bytes;
+
+    const int err = ::WSAGetLastError();
+    if (WSA_IO_PENDING == err)
+        return total_bytes; // FIXME 重叠操作再次启动后也不一定保证全部完成
+    else if (WSAESHUTDOWN == err || WSAEDISCON == err)
+        return 0;
+    else if (WSAEWOULDBLOCK == err)
+        return -2;
+    return -1;
 #else
     struct iovec stack_iovs[STACK_ARRAY_SIZE], *iovs = nullptr;
     if (buf_count > STACK_ARRAY_SIZE)
@@ -198,14 +256,45 @@ ssize_t SockOperation::readv(socket_t socket_fd, void* const *buf_ptrs,
     const ssize_t rs = ::readv(socket_fd, iovs, buf_count);
     if (buf_count > STACK_ARRAY_SIZE)
         ::free(iovs);
-    return rs;
+
+    if (rs >= 0)
+        return rs;
+    else if (EAGAIN == errno || EWOULDBLOCK == errno)
+        return -2;
+    return -1;
 #endif
 }
 
 ssize_t SockOperation::write(socket_t socket_fd, const void *buf, size_t len)
 {
     assert(nullptr != buf);
-    return ::send(socket_fd, (const char*) buf, len, 0);
+
+    /*
+     * recv() 返回:
+     *   >=0 发送的字节数
+     *    -1 出错, errno 被设置
+     *
+     * errno 值:
+     *   EAGAIN / EWOULDBLOCK 非阻塞 socket 读操作将会阻塞
+     *
+     * WSAGetLastError() 返回:
+     *   WSAESHUTDOWN   读通道已经关闭
+     *   WSAEWOULDBLOCK 套接口被标志为非阻塞，但是操作不能立即完成
+     */
+    const ssize_t rs = ::send(socket_fd, (const char*) buf, len, 0);
+    if (rs >= 0)
+        return rs;
+
+#if NUT_PLATFORM_OS_WINDOWS
+    const int err = ::WSAGetLastError();
+    if (WSAEWOULDBLOCK == err)
+        return -2;
+#else
+    if (EAGAIN == errno || EWOULDBLOCK == errno)
+        return -2;
+	// NUT_LOG_E(TAG, "send() return %d, errno %d", rs, errno);
+#endif
+    return -1;
 }
 
 ssize_t SockOperation::writev(socket_t socket_fd, const void* const *buf_ptrs,
@@ -220,15 +309,28 @@ ssize_t SockOperation::writev(socket_t socket_fd, const void* const *buf_ptrs,
     else
         wsabufs = stack_wsabufs;
 
+    size_t total_bytes = 0;
     for (size_t i = 0; i < buf_count; ++i)
     {
         wsabufs[i].buf = (char*) *buf_ptrs;
         wsabufs[i].len = *len_ptrs;
+        total_bytes += *len_ptrs;
 
         ++buf_ptrs;
         ++len_ptrs;
     }
 
+    /*
+     * WSASend() 返回:
+     *    0 成功并立即完成
+     *   -1 SOCKET_ERROR, 需要查询 WSAGetLastError()
+     *
+     * WSAGetLastError() 返回:
+     *   WSA_IO_PENDING 重叠操作成功启动，过后将有完成指示
+     *   WSAESHUTDOWN   套接口已经关闭
+     *   WSAEWOULDBLOCK 重叠套接口：太多重叠的输入/输出请求
+     *                  非重叠套接口：套接口被标志为非阻塞，但是操作不能立即完成
+     */
     DWORD bytes = 0;
     const int rs = ::WSASend(socket_fd,
                              wsabufs,
@@ -237,9 +339,17 @@ ssize_t SockOperation::writev(socket_t socket_fd, const void* const *buf_ptrs,
                              0,
                              nullptr,
                              nullptr);
-    if (SOCKET_ERROR == rs)
-        return -1;
-    return bytes;
+    if (SOCKET_ERROR != rs)
+        return bytes;
+
+    const int err = ::WSAGetLastError();
+    if (WSA_IO_PENDING == err)
+        return total_bytes;
+    else if (WSAESHUTDOWN == err)
+        return 0;
+    else if (WSAEWOULDBLOCK == err)
+        return -2;
+    return -1;
 #else
     struct iovec stack_iovs[STACK_ARRAY_SIZE], *iovs = nullptr;
     if (buf_count > STACK_ARRAY_SIZE)
@@ -259,7 +369,12 @@ ssize_t SockOperation::writev(socket_t socket_fd, const void* const *buf_ptrs,
     const ssize_t rs = ::writev(socket_fd, iovs, buf_count);
     if (buf_count > STACK_ARRAY_SIZE)
         ::free(iovs);
-    return rs;
+
+    if (rs >= 0)
+        return rs;
+    else if (EAGAIN == errno || EWOULDBLOCK == errno)
+        return -2;
+    return -1;
 #endif
 }
 

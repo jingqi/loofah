@@ -16,6 +16,9 @@ class LOOFAH_API Package : public nut::InputStream, public nut::OutputStream
     NUT_REF_COUNTABLE_OVERRIDE
 
 public:
+    typedef uint32_t header_type;
+
+public:
     explicit Package(size_t init_cap = 16);
     Package(const void *buf, size_t len);
     ~Package();
@@ -24,7 +27,11 @@ public:
     virtual void set_little_endian(bool le) override;
 
     void clear();
-    void prepend(const void *header);
+
+    /**
+     * 在数据前面添加一个 header 来存储数据大小，并设置读指针到 header
+     */
+    void pack();
 
     virtual size_t readable_size() const override;
     const void* readable_data() const;
@@ -42,15 +49,13 @@ private:
     Package& operator=(const Package&) = delete;
 
 private:
-    const size_t PREPEND_LEN = sizeof(uint32_t);
-
-    void *_buffer = nullptr;
+    uint8_t *_buffer = nullptr;
     size_t _capacity = 0;
 
-    size_t _read_index = PREPEND_LEN;
-    size_t _write_index = PREPEND_LEN;
+    size_t _read_index = sizeof(header_type);
+    size_t _write_index = sizeof(header_type);
 
-    bool _little_endian = false;
+    bool _little_endian = false; // Big endian for network
 };
 
 }

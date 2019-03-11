@@ -23,6 +23,11 @@
 typedef int socklen_t;
 #endif
 
+/**
+ * epoll_wait() / kevent() 单次查询最多返回事件数
+ */
+#define LOOFAH_MAX_ACTIVE_EVENTS 32
+
 namespace loofah
 {
 

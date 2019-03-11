@@ -8,7 +8,7 @@ Loofah
 
 | 平台 | 实现 |
 |-|-|
-| Windows  | select |
+| Windows  | select/WSAPoll |
 | MacOS | kqueue |
 | Linux | epoll |
 
