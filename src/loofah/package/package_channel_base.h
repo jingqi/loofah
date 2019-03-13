@@ -12,11 +12,15 @@
 
 #include "package.h"
 #include "../inet_base/event_loop_base.h"
+#include "../inet_base/sock_stream.h"
 
 
 namespace loofah
 {
 
+/**
+ * 开始 close 后，不接受 handle_exception
+ */
 class LOOFAH_API PackageChannelBase
 {
     NUT_REF_COUNTABLE
@@ -32,26 +36,34 @@ public:
 
     /**
      * 读到 package
+     *
+     * NOTE 开始关闭连接，或者读通道关闭后，不再收到该事件
      */
     virtual void handle_read(Package *pkg) = 0;
 
     /**
      * 读通道关闭，默认关闭链接
+     *
+     * NOTE 开始关闭连接，或者读通道关闭后，不再收到该事件
      */
     virtual void handle_reading_shutdown();
 
     /**
-     * 异常，默认关闭链接
+     * 异常
+     *
+     * NOTE 开始关闭连接后，不再收到该事件
      */
-    virtual void handle_exception();
+    virtual void handle_error(int err);
 
     /**
-     * socket 已关闭
+     * 连接已关闭
      */
     virtual void handle_close() = 0;
 
     /**
      * 写数据
+     *
+     * NOTE 写通道关闭后，数据将被忽略
      */
     virtual void write(Package *pkg) = 0;
     void write_later(Package *pkg);
@@ -59,12 +71,16 @@ public:
     /**
      * 关闭连接
      *
-     * @param discard_write 是否忽略尚未写入的 package, 否则等待全部写入后再关闭
+     * NOTE 会尽力将缓存中的数据发送完后再关闭连接
+     *
+     * @param discard_write 放弃还未写入的数据
      */
     virtual void close(bool discard_write = false) = 0;
     void close_later(bool discard_write = false);
 
 protected:
+    virtual SockStream& get_sock_stream() = 0;
+
     /**
      * 从读缓存分包，并触发 handle_read()/headle_exception()
      */

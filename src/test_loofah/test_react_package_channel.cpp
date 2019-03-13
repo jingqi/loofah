@@ -147,7 +147,7 @@ void test_react_package_channel()
     InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
     acc->open(addr);
     g_reactor.register_handler_later(acc, ReactHandler::READ_MASK);
-    NUT_LOG_D(TAG, "server listening at %s", addr.to_string().c_str());
+    NUT_LOG_D(TAG, "server listening at %s, fd %d", addr.to_string().c_str(), acc->get_socket());
 
     // Start client
     NUT_LOG_D(TAG, "client connect to %s", addr.to_string().c_str());

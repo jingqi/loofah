@@ -43,10 +43,13 @@ public:
      * ProactChannel 接口实现
      */
     virtual void open(socket_t fd) final override;
-    virtual void handle_read_completed(ssize_t cb) final override;
-    virtual void handle_write_completed(ssize_t cb) final override;
+    virtual void handle_read_completed(size_t cb) final override;
+    virtual void handle_write_completed(size_t cb) final override;
+    virtual void handle_exception(int err) override;
 
 private:
+    virtual SockStream& get_sock_stream() final override;
+
     // 向 proactor 请求 read 操作
     void launch_read();
     // 向 proactor 请求 write 操作

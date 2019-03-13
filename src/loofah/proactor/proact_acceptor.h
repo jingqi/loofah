@@ -24,9 +24,11 @@ public:
 
     virtual socket_t get_socket() const override;
 
-    virtual void handle_read_completed(ssize_t cb) final override;
+    virtual void handle_read_completed(size_t cb) final override;
 
-    virtual void handle_write_completed(ssize_t cb) final override;
+    virtual void handle_write_completed(size_t cb) final override;
+
+    virtual void handle_exception(int err) final override;
 
 private:
     socket_t _listener_socket = LOOFAH_INVALID_SOCKET_FD;

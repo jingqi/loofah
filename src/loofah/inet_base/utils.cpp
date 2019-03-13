@@ -10,7 +10,13 @@
 #   include <fcntl.h> // for fcntl()
 #endif
 
+#include <nut/logging/logger.h>
+
 #include "utils.h"
+#include "error.h"
+
+
+#define TAG "loofah.inet_base.utils"
 
 namespace loofah
 {
@@ -26,44 +32,56 @@ bool init_network()
 #if NUT_PLATFORM_OS_WINDOWS
     // 初始化网络库
     WSADATA wsa;
-    if (0 != ::WSAStartup(MAKEWORD(2,1), &wsa))
+    int rs = ::WSAStartup(MAKEWORD(2,1), &wsa);
+    if (0 != rs)
+    {
+        // NOTE 'rs' is errno, don't call ::WSAGetLastError()
+        NUT_LOG_E(TAG, "failed to call WSAStartup() with return %d", rs);
         return false;
+    }
 
     // 获取几个 API 函数指针
     SOCKET proxy_socket = ::socket(AF_INET, SOCK_STREAM, 0); // NOTE 只需要一个有效的 socket 即可，该 socket 的类型不影响什么
     if (INVALID_SOCKET == proxy_socket)
+    {
+        LOOFAH_LOG_ERRNO(socket);
         return false;
+    }
     GUID func_guid = WSAID_ACCEPTEX;
     DWORD bytes = 0;
-    ::WSAIoctl(proxy_socket, SIO_GET_EXTENSION_FUNCTION_POINTER, &func_guid, sizeof(func_guid),
-        &func_AcceptEx, sizeof(func_AcceptEx), &bytes, nullptr, nullptr);
-    if (nullptr == func_AcceptEx)
+    rs = ::WSAIoctl(proxy_socket, SIO_GET_EXTENSION_FUNCTION_POINTER, &func_guid, sizeof(func_guid),
+                    &func_AcceptEx, sizeof(func_AcceptEx), &bytes, nullptr, nullptr);
+    if (0 != rs || nullptr == func_AcceptEx)
     {
+        LOOFAH_LOG_ERRNO(WSAIoctl);
         ::closesocket(proxy_socket);
         return false;
     }
 
     func_guid = WSAID_CONNECTEX;
     bytes = 0;
-    ::WSAIoctl(proxy_socket, SIO_GET_EXTENSION_FUNCTION_POINTER, &func_guid, sizeof(func_guid),
-        &func_ConnectEx, sizeof(func_ConnectEx), &bytes, nullptr, nullptr);
-    if (nullptr == func_ConnectEx)
+    rs = ::WSAIoctl(proxy_socket, SIO_GET_EXTENSION_FUNCTION_POINTER, &func_guid, sizeof(func_guid),
+                    &func_ConnectEx, sizeof(func_ConnectEx), &bytes, nullptr, nullptr);
+    if (0 != rs || nullptr == func_ConnectEx)
     {
+        LOOFAH_LOG_ERRNO(WSAIoctl);
         ::closesocket(proxy_socket);
         return false;
     }
 
     func_guid = WSAID_GETACCEPTEXSOCKADDRS;
     bytes = 0;
-    ::WSAIoctl(proxy_socket, SIO_GET_EXTENSION_FUNCTION_POINTER, &func_guid, sizeof(func_guid),
-        &func_GetAcceptExSockaddrs, sizeof(func_GetAcceptExSockaddrs), &bytes, nullptr, nullptr);
-    if (nullptr == func_GetAcceptExSockaddrs)
+    rs = ::WSAIoctl(proxy_socket, SIO_GET_EXTENSION_FUNCTION_POINTER, &func_guid, sizeof(func_guid),
+                    &func_GetAcceptExSockaddrs, sizeof(func_GetAcceptExSockaddrs), &bytes, nullptr, nullptr);
+    if (0 != rs || nullptr == func_GetAcceptExSockaddrs)
     {
+        LOOFAH_LOG_ERRNO(WSAIoctl);
         ::closesocket(proxy_socket);
         return false;
     }
 
-    ::closesocket(proxy_socket);
+    if (0 != ::closesocket(proxy_socket))
+        LOOFAH_LOG_ERRNO(closesocket);
 
     return true;
 #else
@@ -74,7 +92,8 @@ bool init_network()
 void shutdown_network()
 {
 #if NUT_PLATFORM_OS_WINDOWS
-    ::WSACleanup();
+    if (0 != ::WSACleanup())
+        LOOFAH_LOG_ERRNO(WSACleanup);
 #endif
 }
 

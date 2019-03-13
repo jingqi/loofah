@@ -19,10 +19,10 @@
 #include <nut/logging/logger.h>
 
 #include "sock_operation.h"
+#include "error.h"
 
 
-#define TAG "loofah.sock_operation"
-#define STACK_ARRAY_SIZE 16
+#define TAG "loofah.inet_base.sock_operation"
 
 namespace loofah
 {
@@ -31,43 +31,91 @@ bool SockOperation::set_nonblocking(socket_t socket_fd, bool nonblocking)
 {
 #if NUT_PLATFORM_OS_WINDOWS
     unsigned long mode = (nonblocking ? 1 : 0);
-    return ::ioctlsocket(socket_fd, FIONBIO, &mode) == 0;
+    const int rs = ::ioctlsocket(socket_fd, FIONBIO, &mode);
+    if (0 != rs)
+        LOOFAH_LOG_FD_ERRNO(ioctlsocket, socket_fd);
+    return 0 == rs;
 #else
     int flags = ::fcntl(socket_fd, F_GETFL, 0);
     if (flags < 0)
+    {
+        LOOFAH_LOG_FD_ERRNO(fcntl, socket_fd);
         return false;
+    }
+
     if (nonblocking)
         flags |= O_NONBLOCK;
     else
         flags &= ~O_NONBLOCK;
-    return ::fcntl(socket_fd, F_SETFL, flags) == 0;
+    const int rs = ::fcntl(socket_fd, F_SETFL, flags);
+    if (0 != rs)
+        LOOFAH_LOG_FD_ERRNO(fcntl, socket_fd);
+    return 0 == rs;
 #endif
 }
 
 bool SockOperation::set_close_on_exit(socket_t socket_fd, bool close_on_exit)
 {
 #if NUT_PLATFORM_OS_WINDOWS
-    // TODO
-    NUT_LOG_E(TAG, "operation not implemented in Windows");
+    NUT_LOG_W(TAG, "SockOperation::set_close_on_exit() not implemented in Windows");
     return false;
 #else
     int flags = ::fcntl(socket_fd, F_GETFL, 0);
     if (flags < 0)
+    {
+        LOOFAH_LOG_FD_ERRNO(fcntl, socket_fd);
         return false;
+    }
+
     if (close_on_exit)
         flags |= O_CLOEXEC;
     else
         flags &= ~O_CLOEXEC;
-    return ::fcntl(socket_fd, F_SETFL, flags) == 0;
+    const int rs = ::fcntl(socket_fd, F_SETFL, flags);
+    if (0 != rs)
+        LOOFAH_LOG_FD_ERRNO(fcntl, socket_fd);
+    return 0 == rs;
 #endif
 }
 
 void SockOperation::close(socket_t socket_fd)
 {
 #if NUT_PLATFORM_OS_WINDOWS
-    ::closesocket(socket_fd);
+    if (0 != ::closesocket(socket_fd))
+        LOOFAH_LOG_FD_ERRNO(closesocket, socket_fd);
 #else
-    ::close(socket_fd);
+    if (0 != ::close(socket_fd))
+        LOOFAH_LOG_FD_ERRNO(close, socket_fd);
+#endif
+}
+
+bool SockOperation::is_valid(socket_t socket_fd)
+{
+#if NUT_PLATFORM_OS_WINDOWS
+    DWORD socket_type = 0;
+    int len = sizeof(socket_type);
+    if (0 == ::getsockopt(socket_fd, SOL_SOCKET, SO_TYPE, (char*) &socket_type, &len))
+        return true;
+    return WSAENOTSOCK != ::WSAGetLastError();
+#else
+    return ::fcntl(socket_fd, F_GETFL, 0) >= 0;
+#endif
+}
+
+int SockOperation::get_last_error(socket_t socket_fd)
+{
+#if NUT_PLATFORM_OS_WINDOWS
+    DWORD error = 0;
+    int len = sizeof(error);
+    if (0 != ::getsockopt(socket_fd, SOL_SOCKET, SO_ERROR, (char*) &error, &len))
+        return from_errno(::WSAGetLastError());
+    return (int) error;
+#else
+    int error = 0;
+    socklen_t len = sizeof(error);
+    if (0 != ::getsockopt(socket_fd, SOL_SOCKET, SO_ERROR, &error, &len))
+        return from_errno(errno);
+    return error;
 #endif
 }
 
@@ -77,13 +125,17 @@ bool SockOperation::set_reuse_addr(socket_t listener_socket_fd)
     // NOTE 在 Windows 上，设置 ReuseAddr 与在 *nix 上不同，参见
     // http://stackoverflow.com/questions/17212789/multiple-processes-listening-on-the-same-port
     BOOL optval = TRUE;
-    return 0 == ::setsockopt(listener_socket_fd, SOL_SOCKET, SO_REUSEADDR,
-                             (char*) &optval, sizeof(optval));
+    const int rs = ::setsockopt(listener_socket_fd, SOL_SOCKET, SO_REUSEADDR,
+                                (char*) &optval, sizeof(optval));
 #else
     int optval = 1;
-    return 0 == ::setsockopt(listener_socket_fd, SOL_SOCKET, SO_REUSEADDR,
-                             &optval, sizeof(optval));
+    const int rs = ::setsockopt(listener_socket_fd, SOL_SOCKET, SO_REUSEADDR,
+                                &optval, sizeof(optval));
 #endif
+
+    if (0 != rs)
+        LOOFAH_LOG_FD_ERRNO(setsockopt, listener_socket_fd);
+    return 0 == rs;
 }
 
 bool SockOperation::set_reuse_port(socket_t listener_socket_fd)
@@ -92,55 +144,43 @@ bool SockOperation::set_reuse_port(socket_t listener_socket_fd)
     // NOTE 在 Windows 上，设置 ReuseAddr 与在 *nix 上不同，参见
     // http://stackoverflow.com/questions/17212789/multiple-processes-listening-on-the-same-port
     BOOL optval = TRUE;
-    return 0 == ::setsockopt(listener_socket_fd, SOL_SOCKET, SO_REUSEADDR,
-                             (char*) &optval, sizeof(optval));
+    const int rs = ::setsockopt(listener_socket_fd, SOL_SOCKET, SO_REUSEADDR,
+                                (char*) &optval, sizeof(optval));
 #else
     int optval = 1;
-    return 0 == ::setsockopt(listener_socket_fd, SOL_SOCKET, SO_REUSEPORT,
-                             &optval, sizeof(optval));
+    const int rs = ::setsockopt(listener_socket_fd, SOL_SOCKET, SO_REUSEPORT,
+                                &optval, sizeof(optval));
 #endif
+
+    if (0 != rs)
+        LOOFAH_LOG_FD_ERRNO(setsockopt, listener_socket_fd);
+    return 0 == rs;
 }
 
 bool SockOperation::shutdown_read(socket_t socket_fd)
 {
 #if NUT_PLATFORM_OS_WINDOWS
     const int rs = ::shutdown(socket_fd, SD_RECEIVE);
-    if (0 != rs)
-    {
-        NUT_LOG_E(TAG, "failed to call ::shutdown() with return %d, WSAGetLastError() %d",
-                  rs, ::WSAGetLastError());
-    }
-    return 0 == rs;
 #else
     const int rs = ::shutdown(socket_fd, SHUT_RD);
-    if (0 != rs)
-    {
-        NUT_LOG_E(TAG, "failed to call ::shutdown() with return %d, errno %d: %s",
-                  rs, errno, ::strerror(errno));
-    }
-    return 0 == rs;
 #endif
+
+    if (0 != rs)
+        LOOFAH_LOG_FD_ERRNO(shutdown, socket_fd);
+    return 0 == rs;
 }
 
 bool SockOperation::shutdown_write(socket_t socket_fd)
 {
 #if NUT_PLATFORM_OS_WINDOWS
     const int rs = ::shutdown(socket_fd, SD_SEND);
-    if (0 != rs)
-    {
-        NUT_LOG_E(TAG, "failed to call ::shutdown() with return %d, WSAGetLastError() %d",
-                  rs, ::WSAGetLastError());
-    }
-    return 0 == rs;
 #else
     const int rs = ::shutdown(socket_fd, SHUT_WR);
-    if (0 != rs)
-    {
-        NUT_LOG_E(TAG, "failed to call ::shutdown() with return %d, errno %d: %s",
-                  rs, errno, ::strerror(errno));
-    }
-    return 0 == rs;
 #endif
+
+    if (0 != rs)
+        LOOFAH_LOG_FD_ERRNO(shutdown, socket_fd);
+    return 0 == rs;
 }
 
 ssize_t SockOperation::read(socket_t socket_fd, void *buf, size_t len)
@@ -170,14 +210,15 @@ ssize_t SockOperation::read(socket_t socket_fd, void *buf, size_t len)
     if (WSAESHUTDOWN == err)
         return 0;
     else if (WSAEWOULDBLOCK == err)
-        return -2;
-	// NUT_LOG_E(TAG, "recv() return %d, WSAGetLastError() %d", rs, err);
+        return LOOFAH_ERR_WOULD_BLOCK;
+    LOOFAH_LOG_FD_ERRNO(recv, socket_fd);
+    return from_errno(err);
 #else
     if (EAGAIN == errno || EWOULDBLOCK == errno)
-        return -2;
-	// NUT_LOG_E(TAG, "recv() return %d, errno %d", rs, errno);
+        return LOOFAH_ERR_WOULD_BLOCK;
+    LOOFAH_LOG_FD_ERRNO(recv, socket_fd);
+    return from_errno(errno);
 #endif
-    return -1;
 }
 
 ssize_t SockOperation::readv(socket_t socket_fd, void* const *buf_ptrs,
@@ -186,8 +227,8 @@ ssize_t SockOperation::readv(socket_t socket_fd, void* const *buf_ptrs,
     assert(nullptr != buf_ptrs && nullptr != len_ptrs);
 
 #if NUT_PLATFORM_OS_WINDOWS
-    WSABUF stack_wsabufs[STACK_ARRAY_SIZE], *wsabufs = nullptr;
-    if (buf_count > STACK_ARRAY_SIZE)
+    WSABUF stack_wsabufs[LOOFAH_STACK_BUFFER_LENGTH], *wsabufs = nullptr;
+    if (buf_count > LOOFAH_STACK_BUFFER_LENGTH)
         wsabufs = (WSABUF*) ::malloc(sizeof(WSABUF) * buf_count);
     else
         wsabufs = stack_wsabufs;
@@ -237,11 +278,13 @@ ssize_t SockOperation::readv(socket_t socket_fd, void* const *buf_ptrs,
     else if (WSAESHUTDOWN == err || WSAEDISCON == err)
         return 0;
     else if (WSAEWOULDBLOCK == err)
-        return -2;
-    return -1;
+        return LOOFAH_ERR_WOULD_BLOCK;
+
+    LOOFAH_LOG_FD_ERRNO(WSARecv, socket_fd);
+    return from_errno(err);
 #else
-    struct iovec stack_iovs[STACK_ARRAY_SIZE], *iovs = nullptr;
-    if (buf_count > STACK_ARRAY_SIZE)
+    struct iovec stack_iovs[LOOFAH_STACK_BUFFER_LENGTH], *iovs = nullptr;
+    if (buf_count > LOOFAH_STACK_BUFFER_LENGTH)
         iovs = (struct iovec*) ::malloc(sizeof(struct iovec) * buf_count);
     else
         iovs = stack_iovs;
@@ -256,14 +299,16 @@ ssize_t SockOperation::readv(socket_t socket_fd, void* const *buf_ptrs,
     }
 
     const ssize_t rs = ::readv(socket_fd, iovs, buf_count);
-    if (buf_count > STACK_ARRAY_SIZE)
+    if (buf_count > LOOFAH_STACK_BUFFER_LENGTH)
         ::free(iovs);
 
     if (rs >= 0)
         return rs;
     else if (EAGAIN == errno || EWOULDBLOCK == errno)
-        return -2;
-    return -1;
+        return LOOFAH_ERR_WOULD_BLOCK;
+
+    LOOFAH_LOG_FD_ERRNO(readv, socket_fd);
+    return from_errno(errno);
 #endif
 }
 
@@ -290,13 +335,15 @@ ssize_t SockOperation::write(socket_t socket_fd, const void *buf, size_t len)
 #if NUT_PLATFORM_OS_WINDOWS
     const int err = ::WSAGetLastError();
     if (WSAEWOULDBLOCK == err)
-        return -2;
+        return LOOFAH_ERR_WOULD_BLOCK;
+    LOOFAH_LOG_FD_ERRNO(send, socket_fd);
+    return from_errno(err);
 #else
     if (EAGAIN == errno || EWOULDBLOCK == errno)
-        return -2;
-	// NUT_LOG_E(TAG, "send() return %d, errno %d", rs, errno);
+        return LOOFAH_ERR_WOULD_BLOCK;
+    LOOFAH_LOG_FD_ERRNO(send, socket_fd);
+    return from_errno(errno);
 #endif
-    return -1;
 }
 
 ssize_t SockOperation::writev(socket_t socket_fd, const void* const *buf_ptrs,
@@ -305,8 +352,8 @@ ssize_t SockOperation::writev(socket_t socket_fd, const void* const *buf_ptrs,
     assert(nullptr != buf_ptrs && nullptr != len_ptrs);
 
 #if NUT_PLATFORM_OS_WINDOWS
-    WSABUF stack_wsabufs[STACK_ARRAY_SIZE], *wsabufs = nullptr;
-    if (buf_count > STACK_ARRAY_SIZE)
+    WSABUF stack_wsabufs[LOOFAH_STACK_BUFFER_LENGTH], *wsabufs = nullptr;
+    if (buf_count > LOOFAH_STACK_BUFFER_LENGTH)
         wsabufs = (WSABUF*) ::malloc(sizeof(WSABUF) * buf_count);
     else
         wsabufs = stack_wsabufs;
@@ -350,11 +397,13 @@ ssize_t SockOperation::writev(socket_t socket_fd, const void* const *buf_ptrs,
     else if (WSAESHUTDOWN == err)
         return 0;
     else if (WSAEWOULDBLOCK == err)
-        return -2;
-    return -1;
+        return LOOFAH_ERR_WOULD_BLOCK;
+
+    LOOFAH_LOG_FD_ERRNO(WSASend, socket_fd);
+    return from_errno(err);
 #else
-    struct iovec stack_iovs[STACK_ARRAY_SIZE], *iovs = nullptr;
-    if (buf_count > STACK_ARRAY_SIZE)
+    struct iovec stack_iovs[LOOFAH_STACK_BUFFER_LENGTH], *iovs = nullptr;
+    if (buf_count > LOOFAH_STACK_BUFFER_LENGTH)
         iovs = (struct iovec*) ::malloc(sizeof(struct iovec) * buf_count);
     else
         iovs = stack_iovs;
@@ -369,14 +418,16 @@ ssize_t SockOperation::writev(socket_t socket_fd, const void* const *buf_ptrs,
     }
 
     const ssize_t rs = ::writev(socket_fd, iovs, buf_count);
-    if (buf_count > STACK_ARRAY_SIZE)
+    if (buf_count > LOOFAH_STACK_BUFFER_LENGTH)
         ::free(iovs);
 
     if (rs >= 0)
         return rs;
     else if (EAGAIN == errno || EWOULDBLOCK == errno)
-        return -2;
-    return -1;
+        return LOOFAH_ERR_WOULD_BLOCK;
+
+    LOOFAH_LOG_FD_ERRNO(writev, socket_fd);
+    return from_errno(errno);
 #endif
 }
 
@@ -384,11 +435,9 @@ InetAddr SockOperation::get_local_addr(socket_t socket_fd)
 {
     InetAddr ret;
     socklen_t plen = ret.get_max_sockaddr_size();
-    if (::getsockname(socket_fd, ret.cast_to_sockaddr(), &plen) < 0)
-    {
-        NUT_LOG_E(TAG, "failed to call ::getsockname(), socketfd %d", socket_fd);
-        return ret;
-    }
+    const int rs = ::getsockname(socket_fd, ret.cast_to_sockaddr(), &plen);
+    if (0 != rs)
+        LOOFAH_LOG_FD_ERRNO(getsockname, socket_fd);
     return ret;
 }
 
@@ -396,11 +445,9 @@ InetAddr SockOperation::get_peer_addr(socket_t socket_fd)
 {
     InetAddr ret;
     socklen_t plen = ret.get_max_sockaddr_size();
-    if (::getpeername(socket_fd, ret.cast_to_sockaddr(), &plen) < 0)
-    {
-        NUT_LOG_E(TAG, "failed to call ::getpeername(), socketfd %d", socket_fd);
-        return ret;
-    }
+    const int rs = ::getpeername(socket_fd, ret.cast_to_sockaddr(), &plen);
+    if (0 != rs)
+        LOOFAH_LOG_FD_ERRNO(getpeername, socket_fd);
     return ret;
 }
 
@@ -413,26 +460,34 @@ bool SockOperation::set_tcp_nodelay(socket_t socket_fd, bool no_delay)
 {
 #if NUT_PLATFORM_OS_WINDOWS
     BOOL optval = no_delay ? TRUE : FALSE;
-    return 0 == ::setsockopt(socket_fd, IPPROTO_TCP, TCP_NODELAY,
-                             (char*) &optval, sizeof(optval));
+    const int rs = ::setsockopt(socket_fd, IPPROTO_TCP, TCP_NODELAY,
+                                (char*) &optval, sizeof(optval));
 #else
     int optval = no_delay ? 1 : 0;
-    return 0 == ::setsockopt(socket_fd, IPPROTO_TCP, TCP_NODELAY,
-                             &optval, sizeof(optval));
+    const int rs = ::setsockopt(socket_fd, IPPROTO_TCP, TCP_NODELAY,
+                                &optval, sizeof(optval));
 #endif
+
+    if (0 != rs)
+        LOOFAH_LOG_FD_ERRNO(setsockopt, socket_fd);
+    return 0 == rs;
 }
 
 bool SockOperation::set_keep_alive(socket_t socket_fd, bool keep_alive)
 {
 #if NUT_PLATFORM_OS_WINDOWS
     BOOL optval = keep_alive ? TRUE : FALSE;
-    return 0 == ::setsockopt(socket_fd, SOL_SOCKET, SO_KEEPALIVE,
-                             (char*) &optval, sizeof(optval));
+    const int rs = ::setsockopt(socket_fd, SOL_SOCKET, SO_KEEPALIVE,
+                                (char*) &optval, sizeof(optval));
 #else
     int optval = keep_alive ? 1 : 0;
-    return 0 == ::setsockopt(socket_fd, SOL_SOCKET, SO_KEEPALIVE,
-                             &optval, sizeof(optval));
+    const int rs = ::setsockopt(socket_fd, SOL_SOCKET, SO_KEEPALIVE,
+                                &optval, sizeof(optval));
 #endif
+
+    if (0 != rs)
+        LOOFAH_LOG_FD_ERRNO(setsockopt, socket_fd);
+    return 0 == rs;
 }
 
 }

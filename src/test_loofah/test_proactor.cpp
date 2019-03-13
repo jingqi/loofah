@@ -35,7 +35,7 @@ public:
 
     virtual void handle_connected() override
     {
-        NUT_LOG_D(TAG, "server got a connection");
+        NUT_LOG_D(TAG, "server got a connection, fd %d", get_socket());
 
         g_proactor.register_handler(this);
 
@@ -44,7 +44,7 @@ public:
         g_proactor.launch_read(this, &buf, &len, 1);
     }
 
-    virtual void handle_read_completed(ssize_t cb) override
+    virtual void handle_read_completed(size_t cb) override
     {
         NUT_LOG_D(TAG, "server received %d bytes: %d", cb, _tmp);
         if (0 == cb) // 正常结束
@@ -73,7 +73,7 @@ public:
         g_proactor.launch_write(this, &buf, &len, 1);
     }
 
-    virtual void handle_write_completed(ssize_t cb) override
+    virtual void handle_write_completed(size_t cb) override
     {
         NUT_LOG_D(TAG, "server send %d bytes: %d", cb, _counter);
         assert(cb == sizeof(_counter));
@@ -82,6 +82,11 @@ public:
         void *buf = &_tmp;
         size_t len = sizeof(_tmp);
         g_proactor.launch_read(this, &buf, &len, 1);
+    }
+
+    virtual void handle_exception(int err) override
+    {
+        NUT_LOG_D(TAG, "server exception %d", err);
     }
 };
 
@@ -96,7 +101,7 @@ public:
 
     virtual void handle_connected() override
     {
-        NUT_LOG_D(TAG, "client make a connection");
+        NUT_LOG_D(TAG, "client make a connection, fd %d", get_socket());
 
         g_proactor.register_handler(this);
 
@@ -105,7 +110,7 @@ public:
         g_proactor.launch_write(this, &buf, &len, 1);
     }
 
-    virtual void handle_read_completed(ssize_t cb) override
+    virtual void handle_read_completed(size_t cb) override
     {
         NUT_LOG_D(TAG, "client received %d bytes: %d", cb, _tmp);
         if (0 == cb) // 正常结束
@@ -133,7 +138,7 @@ public:
         g_proactor.launch_write(this, &buf, &len, 1);
     }
 
-    virtual void handle_write_completed(ssize_t cb) override
+    virtual void handle_write_completed(size_t cb) override
     {
         NUT_LOG_D(TAG, "client send %d bytes: %d", cb, _counter);
         assert(cb == sizeof(_counter));
@@ -142,6 +147,11 @@ public:
         void *buf = &_tmp;
         size_t len = sizeof(_tmp);
         g_proactor.launch_read(this, &buf, &len, 1);
+    }
+
+    virtual void handle_exception(int err) override
+    {
+        NUT_LOG_D(TAG, "client exception %d", err);
     }
 };
 
@@ -155,7 +165,7 @@ void test_proactor()
     acc->open(addr);
     g_proactor.register_handler_later(acc);
     g_proactor.launch_accept_later(acc);
-    NUT_LOG_D(TAG, "server listening at %s", addr.to_string().c_str());
+    NUT_LOG_D(TAG, "server listening at %s, fd %d", addr.to_string().c_str(), acc->get_socket());
 
     // start client
     NUT_LOG_D(TAG, "client will connect to %s", addr.to_string().c_str());

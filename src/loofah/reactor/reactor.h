@@ -52,20 +52,18 @@ protected:
     void shutdown();
 
 private:
-#if NUT_PLATFORM_OS_WINDOWS
-#   if WINVER < _WIN32_WINNT_WINBLUE // Windows8.1, 0x0603
+#if NUT_PLATFORM_OS_WINDOWS && WINVER < _WIN32_WINNT_WINBLUE
     // Windows 8.1 之前，使用 ::select() 实现
     // NOTE 默认情况下受限于 FD_SETSIZE = 64 大小限制, 但是可以在包含 winsock2.h 之前
     //      define 其为更大的值, 参见 https://msdn.microsoft.com/zh-cn/library/windows/desktop/ms740141(v=vs.85).aspx
     FD_SET _read_set, _write_set, _except_set;
     std::unordered_map<socket_t, ReactHandler*> _socket_to_handler;
-#   else
-    // Windows 8.1 之后，使用 ::WSAPoll() 实现
+#elif NUT_PLATFORM_OS_WINDOWS
+    // Windows 8.1 及其之后，使用 ::WSAPoll() 实现
     WSAPOLLFD *_pollfds = nullptr;
     ReactHandler **_handlers = nullptr;
     size_t _capacity = 16;
     size_t _size = 0;
-#   endif
 #elif NUT_PLATFORM_OS_MAC
     // 使用 ::kqueue() 实现
     int _kq = -1;

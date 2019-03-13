@@ -50,7 +50,7 @@
 #include "inet_addr.h"
 
 
-#define TAG "loofah.inet_addr"
+#define TAG "loofah.inet_base.inet_addr"
 
 namespace loofah
 {
@@ -63,7 +63,7 @@ namespace loofah
 static int inet_pton(int af, const char *src, void *dst)
 {
     /* Stupid non-const API */
-    const size_t maxlen = (std::max)(INET_ADDRSTRLEN, INET6_ADDRSTRLEN); // Include tailing '\0' already
+    const size_t maxlen = std::max(INET_ADDRSTRLEN, INET6_ADDRSTRLEN); // Include tailing '\0' already
     char src_copy[maxlen];
     ::strncpy(src_copy, src, maxlen);
     src_copy[maxlen - 1] = 0;

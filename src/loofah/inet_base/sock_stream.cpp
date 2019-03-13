@@ -1,11 +1,14 @@
 ﻿
-#include "sock_stream.h"
+#include "../loofah_config.h"
 
 #include <nut/platform/platform.h>
 #include <nut/logging/logger.h>
 
+#include "sock_stream.h"
+#include "error.h"
 
-#define TAG "loofah.sock_stream"
+
+#define TAG "loofah.inet_base.sock_stream"
 
 namespace loofah
 {
@@ -38,9 +41,24 @@ socket_t SockStream::get_socket() const
     return _socket_fd;
 }
 
+bool SockStream::is_null() const
+{
+    return LOOFAH_INVALID_SOCKET_FD == _socket_fd;
+}
+
 bool SockStream::is_valid() const
 {
-    return LOOFAH_INVALID_SOCKET_FD != _socket_fd;
+    if (LOOFAH_INVALID_SOCKET_FD == _socket_fd)
+        return false;
+    return SockOperation::is_valid(_socket_fd);
+}
+
+int SockStream::get_last_error() const
+{
+    const int err = SockOperation::get_last_error(_socket_fd);
+    if (0 == err)
+        return err;
+    return from_errno(err);
 }
 
 bool SockStream::shutdown_read()
@@ -56,7 +74,7 @@ bool SockStream::is_reading_shutdown() const
     return _reading_shutdown;
 }
 
-void SockStream::set_reading_shutdown()
+void SockStream::mark_reading_shutdown()
 {
     _reading_shutdown = true;
 }
@@ -72,6 +90,11 @@ bool SockStream::shutdown_write()
 bool SockStream::is_writing_shutdown() const
 {
     return _writing_shutdown;
+}
+
+void SockStream::mark_writing_shutdown()
+{
+    _writing_shutdown = true;
 }
 
 ssize_t SockStream::read(void *buf, size_t max_len)

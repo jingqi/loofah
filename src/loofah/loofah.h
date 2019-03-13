@@ -11,6 +11,7 @@
 #include "inet_base/channel.h"
 #include "inet_base/connector_base.h"
 #include "inet_base/utils.h"
+#include "inet_base/error.h"
 
 // reactor
 #include "reactor/react_handler.h"
@@ -29,6 +30,7 @@
 
 // package channel
 #include "package/package.h"
+#include "package/package_channel_base.h"
 #include "package/react_package_channel.h"
 #include "package/proact_package_channel.h"
 

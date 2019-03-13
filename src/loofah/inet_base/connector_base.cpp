@@ -15,11 +15,12 @@
 #include <nut/logging/logger.h>
 
 #include "connector_base.h"
-#include "../inet_base/utils.h"
-#include "../inet_base/sock_operation.h"
+#include "utils.h"
+#include "sock_operation.h"
+#include "error.h"
 
 
-#define TAG "loofah.connector_base"
+#define TAG "loofah.inet_base.connector_base"
 
 namespace loofah
 {
@@ -33,7 +34,7 @@ bool ConnectorBase::connect(Channel *channel, const InetAddr& address)
     socket_t fd = ::socket(domain, SOCK_STREAM, 0);
     if (LOOFAH_INVALID_SOCKET_FD == fd)
     {
-        NUT_LOG_E(TAG, "failed to call ::socket()");
+        LOOFAH_LOG_ERRNO(socket);
         return false;
     }
 
@@ -45,8 +46,8 @@ bool ConnectorBase::connect(Channel *channel, const InetAddr& address)
     if (-1 == status)
 #endif
     {
-        NUT_LOG_E(TAG, "failed to call ::connect(), socketfd %d, errno %d", fd, errno);
-        int save_errno = errno;
+        LOOFAH_LOG_ERRNO(connect);
+        const int save_errno = errno;
         SockOperation::close(fd);
         errno = save_errno; // The SockOperation::shutdown() may set new errno
         return false;

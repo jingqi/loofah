@@ -40,7 +40,7 @@ public:
         g_global.proactor.launch_write(this, &_buf, &g_global.block_size, 1);
     }
 
-    virtual void handle_read_completed(ssize_t cb) override
+    virtual void handle_read_completed(size_t cb) override
     {
         if (0 == cb) // 正常结束
         {
@@ -58,12 +58,17 @@ public:
         g_global.proactor.launch_write(this, &_buf, &g_global.block_size, 1);
     }
 
-    virtual void handle_write_completed(ssize_t cb) override
+    virtual void handle_write_completed(size_t cb) override
     {
         if (cb != g_global.block_size)
             NUT_LOG_E(TAG, "client expect %d, but got %d received", g_global.block_size, cb);
         assert(cb == g_global.block_size);
         g_global.proactor.launch_read(this, &_buf, &g_global.block_size, 1);
+    }
+
+    virtual void handle_exception(int err) final override
+    {
+        NUT_LOG_E(TAG, "client exception %d: %s", err, str_error(err));
     }
 };
 

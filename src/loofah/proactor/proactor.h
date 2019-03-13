@@ -31,21 +31,13 @@ public:
     void launch_accept(ProactHandler *handler);
     void launch_accept_later(ProactHandler *handler);
 
-    /**
-     * @return  0 正常
-     *         -1 异常
-     */
-    int launch_read(ProactHandler *handler, void* const *buf_ptrs,
-                    const size_t *len_ptrs, size_t buf_count);
+    void launch_read(ProactHandler *handler, void* const *buf_ptrs,
+                     const size_t *len_ptrs, size_t buf_count);
     void launch_read_later(ProactHandler *handler, void* const *buf_ptrs,
                            const size_t *len_ptrs, size_t buf_count);
 
-    /**
-     * @return  0 正常
-     *         -1 异常
-     */
-    int launch_write(ProactHandler *handler, void* const *buf_ptrs,
-                     const size_t *len_ptrs, size_t buf_count);
+    void launch_write(ProactHandler *handler, void* const *buf_ptrs,
+                      const size_t *len_ptrs, size_t buf_count);
     void launch_write_later(ProactHandler *handler, void* const *buf_ptrs,
                             const size_t *len_ptrs, size_t buf_count);
 

@@ -28,7 +28,7 @@ void test_proact_package_channel();
 
 static void setup_std_logger()
 {
-    rc_ptr<ConsoleLogHandler> handler = rc_new<ConsoleLogHandler>();
+    rc_ptr<ConsoleLogHandler> handler = rc_new<ConsoleLogHandler>(false);
     Logger::get_instance()->add_handler(handler);
 }
 

@@ -44,8 +44,11 @@ public:
     virtual void open(socket_t fd) final override;
     virtual void handle_read_ready() final override;
     virtual void handle_write_ready() final override;
+    virtual void handle_exception(int err) final override;
 
 private:
+    virtual SockStream& get_sock_stream() final override;
+
     // 关闭连接
     virtual void force_close() final override;
 };

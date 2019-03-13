@@ -21,24 +21,32 @@ public:
 
     socket_t get_socket() const;
 
+    bool is_null() const;
     bool is_valid() const;
+
+    int get_last_error() const;
 
     bool shutdown_read();
     bool is_reading_shutdown() const;
-    void set_reading_shutdown();
+    void mark_reading_shutdown();
 
     bool shutdown_write();
     bool is_writing_shutdown() const;
+    void mark_writing_shutdown();
 
     /**
      * 读
      *
-     * @return >0 读成功, 返回读取到的字节数(Windows 下 readv() 返回值不可靠)
-     *          0 EOF, 读通道已经正常关闭;
-     *            或者传入的 len==0
-     *         -1 错误
-     *         -2 非阻塞 socket 读操作将会阻塞;
-     *            或者设置过读超时, 而读超时被触发
+     * @return
+     *  >0  读成功, 返回读取到的字节数(Windows 下 readv() 返回值不可靠)
+     *
+     *  0   EOF, 读通道已经正常关闭; 或者传入的 len==0
+     *
+     *  LOOFAH_ERR_UNKNOWN
+     *      未知错误
+     *
+     *  LOOFAH_ERR_WOULD_BLOCK
+     *      非阻塞 socket 读操作将会阻塞; 或者设置过读超时, 而读超时被触发
      */
     ssize_t read(void *buf, size_t max_len);
     ssize_t readv(void* const *buf_ptrs, const size_t *len_ptrs, size_t buf_count);
@@ -46,9 +54,14 @@ public:
     /**
      * 写
      *
-     * @return >=0 写成功, 返回写入的字节数(Windows 下 writev() 返回值不可靠)
-     *          -1 错误
-     *          -2 非阻塞 socket 写操作将会阻塞
+     * @return
+     *  >=0 写成功, 返回写入的字节数(Windows 下 writev() 返回值不可靠)
+     *
+     *  LOOFAH_ERR_UNKNOWN
+     *      未知错误
+     *
+     *  LOOFAH_ERR_WOULD_BLOCK
+     *      非阻塞 socket 写操作将会阻塞
      */
     ssize_t write(const void *buf, size_t max_len);
     ssize_t writev(const void* const *buf_ptrs, const size_t *len_ptrs, size_t buf_count);

@@ -30,9 +30,10 @@
 #include "io_request.h"
 #include "../reactor/react_acceptor.h"
 #include "../inet_base/utils.h"
+#include "../inet_base/error.h"
 
 
-#define TAG "loofah.proactor"
+#define TAG "loofah.proactor.proactor"
 
 namespace
 {
@@ -75,24 +76,17 @@ Proactor::Proactor()
 #if NUT_PLATFORM_OS_WINDOWS
     _iocp = ::CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 0); // Returns nullptr if failed
     if (nullptr == _iocp)
-        NUT_LOG_E(TAG, "failed to create IOCP handle with GetLastError() %d", ::GetLastError());
+        NUT_LOG_E(TAG, "failed to call CreateIoCompletionPort() with GetLastError() %d", ::GetLastError());
 #elif NUT_PLATFORM_OS_MAC
     _kq = ::kqueue();
     if (-1 == _kq)
-    {
-        NUT_LOG_E(TAG, "failed to call ::kqueue() with errno %d: %s", errno,
-                  ::strerror(errno));
-        return;
-    }
+        LOOFAH_LOG_ERRNO(kqueue);
 #elif NUT_PLATFORM_OS_LINUX
     // NOTE 自从 Linux2.6.8 版本以后，epoll_create() 参数值其实是没什么用的, 只
     //      需要大于 0
     _epoll_fd = ::epoll_create(2048);
     if (-1 == _epoll_fd)
-    {
-        NUT_LOG_E(TAG, "failed to call ::epoll_create()");
-        return;
-    }
+        LOOFAH_LOG_ERRNO(epoll_create);
 #endif
 }
 
@@ -129,16 +123,23 @@ void Proactor::shutdown()
             assert(nullptr != io_request);
             IORequest::delete_request(io_request);
         }
-        ::CloseHandle(_iocp);
+        if (FALSE == ::CloseHandle(_iocp))
+            NUT_LOG_E(TAG, "failed to call CloseHandle() with GetLastError() %d", ::GetLastError());
     }
     _iocp = nullptr;
 #elif NUT_PLATFORM_OS_MAC
     if (-1 != _kq)
-        ::close(_kq);
+    {
+        if (0 != ::close(_kq))
+            LOOFAH_LOG_ERRNO(close);
+    }
     _kq = -1;
 #elif NUT_PLATFORM_OS_LINUX
     if (-1 != _epoll_fd)
-        ::close(_epoll_fd);
+    {
+        if (0 != ::close(_epoll_fd))
+            LOOFAH_LOG_ERRNO(close);
+    }
     _epoll_fd = -1;
 #endif
 }
@@ -172,7 +173,7 @@ void Proactor::register_handler(ProactHandler *handler)
     const HANDLE rs = ::CreateIoCompletionPort((HANDLE) fd, _iocp, (ULONG_PTR) handler, 0);
     if (nullptr == rs)
     {
-        NUT_LOG_E(TAG, "failed to associate IOCP with GetLastError() %d", ::GetLastError());
+        NUT_LOG_E(TAG, "failed to call CreateIoCompletionPort() with GetLastError() %d", ::GetLastError());
         return;
     }
     assert(rs == _iocp);
@@ -182,8 +183,7 @@ void Proactor::register_handler(ProactHandler *handler)
     EV_SET(ev + 1, fd, EVFILT_WRITE, EV_ADD | EV_DISABLE, 0, 0, (void*) handler);
     if (0 != ::kevent(_kq, ev, 2, nullptr, 0, nullptr))
     {
-        NUT_LOG_E(TAG, "failed to call ::kevent() with errno %d: %s", errno,
-                  ::strerror(errno));
+        LOOFAH_LOG_FD_ERRNO(kevent, fd);
         return;
     }
 #elif NUT_PLATFORM_OS_LINUX
@@ -193,7 +193,7 @@ void Proactor::register_handler(ProactHandler *handler)
     epv.events = 0;
     if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, fd, &epv))
     {
-        NUT_LOG_E(TAG, "failed to call ::epoll_ctl()");
+        LOOFAH_LOG_FD_ERRNO(epoll_ctl, fd);
         return;
     }
 #endif
@@ -227,6 +227,7 @@ void Proactor::unregister_handler(ProactHandler *handler)
 
 #if NUT_PLATFORM_OS_WINDOWS
     // NOTE 对于 Windows 下的 IOCP，是无法 unregister_handler() 的
+    NUT_LOG_W(TAG, "Proactor::unregister_handler() not implemented in Windows");
 #elif NUT_PLATFORM_OS_MAC
     const socket_t fd = handler->get_socket();
     struct kevent ev[2];
@@ -234,8 +235,7 @@ void Proactor::unregister_handler(ProactHandler *handler)
     EV_SET(ev + 1, fd, EVFILT_WRITE, EV_DELETE, 0, 0, (void*) handler);
     if (0 != ::kevent(_kq, ev, 2, nullptr, 0, nullptr))
     {
-        NUT_LOG_E(TAG, "failed to call ::kevent() with errno %d: %s", errno,
-                  ::strerror(errno));
+        LOOFAH_LOG_FD_ERRNO(kevent, fd);
         return;
     }
 #elif NUT_PLATFORM_OS_LINUX
@@ -245,7 +245,7 @@ void Proactor::unregister_handler(ProactHandler *handler)
     epv.data.ptr = (void*) handler;
     if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_DEL, fd, &epv))
     {
-        NUT_LOG_E(TAG, "failed to call ::epoll_ctl()");
+        LOOFAH_LOG_FD_ERRNO(epoll_ctl, fd);
         return;
     }
 #endif
@@ -280,7 +280,7 @@ void Proactor::launch_accept(ProactHandler *handler)
     socket_t accept_socket = ::WSASocket(AF_INET, SOCK_STREAM, 0, nullptr, 0, WSA_FLAG_OVERLAPPED);
     if (INVALID_SOCKET == accept_socket)
     {
-        NUT_LOG_E(TAG, "failed to call ::WSASocket()");
+        LOOFAH_LOG_ERRNO(WSASocket);
         return;
     }
 
@@ -309,8 +309,10 @@ void Proactor::launch_accept(ProactHandler *handler)
         // NOTE ERROR_IO_PENDING 说明异步调用没有可立即处理的数据，属于正常情况
         if (ERROR_IO_PENDING != errcode)
         {
-            NUT_LOG_E(TAG, "failed to call ::AcceptEx() with WSAGetLastError() %d", errcode);
-            ::closesocket(accept_socket);
+            LOOFAH_LOG_FD_ERRNO(AcceptEx, listener_socket);
+            if (0 != ::closesocket(accept_socket))
+                LOOFAH_LOG_FD_ERRNO(closesocket, accept_socket);
+            handler->handle_exception(from_errno(errcode));
             return;
         }
     }
@@ -322,8 +324,8 @@ void Proactor::launch_accept(ProactHandler *handler)
         EV_SET(&ev, listener_socket, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, (void*) handler);
         if (0 != ::kevent(_kq, &ev, 1, nullptr, 0, nullptr))
         {
-            NUT_LOG_E(TAG, "failed to call ::kevent() with errno %d: %s", errno,
-                      ::strerror(errno));
+            LOOFAH_LOG_FD_ERRNO(kevent, listener_socket);
+            handler->handle_exception(from_errno(errno));
             return;
         }
         handler->_registered_events |= ProactHandler::READ_MASK;
@@ -340,7 +342,8 @@ void Proactor::launch_accept(ProactHandler *handler)
             epv.events |= EPOLLOUT;
         if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_MOD, listener_socket, &epv))
         {
-            NUT_LOG_E(TAG, "failed to call ::epoll_ctl()");
+            LOOFAH_LOG_FD_ERRNO(epoll_ctl, listener_socket);
+            handler->handle_exception(from_errno(errno));
             return;
         }
         handler->_registered_events |= EPOLLIN;
@@ -367,8 +370,8 @@ void Proactor::launch_read_later(ProactHandler *handler, void* const *buf_ptrs,
     }
 }
 
-int Proactor::launch_read(ProactHandler *handler, void* const *buf_ptrs,
-                          const size_t *len_ptrs, size_t buf_count)
+void Proactor::launch_read(ProactHandler *handler, void* const *buf_ptrs,
+                           const size_t *len_ptrs, size_t buf_count)
 {
     assert(nullptr != handler && nullptr != buf_ptrs && nullptr != len_ptrs && buf_count > 0);
     assert(is_in_loop_thread());
@@ -393,23 +396,21 @@ int Proactor::launch_read(ProactHandler *handler, void* const *buf_ptrs,
         const int errcode = ::WSAGetLastError();
         if (ERROR_IO_PENDING != errcode)
         {
-            NUT_LOG_E(TAG, "failed to call ::WSARecv() with WSAGetLastError() %d", errcode);
-            return -1;
+            LOOFAH_LOG_FD_ERRNO(WSARecv, fd);
+            handler->handle_exception(from_errno(errcode));
+            return;
         }
     }
-    return 0;
 #elif NUT_PLATFORM_OS_MAC
     handler->_read_queue.push(io_request);
 
     if (0 == (handler->_registered_events & ProactHandler::READ_MASK))
         enable_handler(handler, ProactHandler::READ_MASK);
-    return 0;
 #elif NUT_PLATFORM_OS_LINUX
     handler->_read_queue.push(io_request);
 
     if (0 == (handler->_registered_events & ProactHandler::READ_MASK))
         enable_handler(handler, ProactHandler::READ_MASK);
-    return 0;
 #endif
 }
 
@@ -432,8 +433,8 @@ void Proactor::launch_write_later(ProactHandler *handler, void* const *buf_ptrs,
     }
 }
 
-int Proactor::launch_write(ProactHandler *handler, void* const *buf_ptrs,
-                           const size_t *len_ptrs, size_t buf_count)
+void Proactor::launch_write(ProactHandler *handler, void* const *buf_ptrs,
+                            const size_t *len_ptrs, size_t buf_count)
 {
     assert(nullptr != handler && nullptr != buf_ptrs && nullptr != len_ptrs && buf_count > 0);
     assert(is_in_loop_thread());
@@ -457,23 +458,21 @@ int Proactor::launch_write(ProactHandler *handler, void* const *buf_ptrs,
         const int errcode = ::WSAGetLastError();
         if (ERROR_IO_PENDING != errcode)
         {
-            NUT_LOG_E(TAG, "failed to call ::WSASend() with WSAGetLastError() %d", errcode);
-            return -1;
+            LOOFAH_LOG_FD_ERRNO(WSASend, fd);
+            handler->handle_exception(from_errno(errcode));
+            return;
         }
     }
-    return 0;
 #elif NUT_PLATFORM_OS_MAC
     handler->_write_queue.push(io_request);
 
     if (0 == (handler->_registered_events & ProactHandler::WRITE_MASK))
         enable_handler(handler, ProactHandler::WRITE_MASK);
-    return 0;
 #elif NUT_PLATFORM_OS_LINUX
     handler->_write_queue.push(io_request);
 
     if (0 == (handler->_registered_events & ProactHandler::WRITE_MASK))
         enable_handler(handler, ProactHandler::WRITE_MASK);
-    return 0;
 #endif
 }
 
@@ -504,8 +503,8 @@ void Proactor::enable_handler(ProactHandler *handler, int mask)
     }
     if (0 != ::kevent(_kq, ev, n, nullptr, 0, nullptr))
     {
-        NUT_LOG_E(TAG, "failed to call ::kevent() with errno %d: %s", errno,
-                  ::strerror(errno));
+        LOOFAH_LOG_FD_ERRNO(kevent, fd);
+        handler->handle_exception(from_errno(errno));
         return;
     }
 #elif NUT_PLATFORM_OS_LINUX
@@ -518,7 +517,8 @@ void Proactor::enable_handler(ProactHandler *handler, int mask)
         epv.events |= EPOLLOUT;
     if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_MOD, fd, &epv))
     {
-        NUT_LOG_E(TAG, "failed to call ::epoll_ctl()");
+        LOOFAH_LOG_FD_ERRNO(epoll_ctl, fd);
+        handler->handle_exception(from_errno(errno));
         return;
     }
 #endif
@@ -542,8 +542,8 @@ void Proactor::disable_handler(ProactHandler *handler, int mask)
         EV_SET(ev + n++, fd, EVFILT_WRITE, EV_DISABLE, 0, 0, (void*) handler);
     if (0 != ::kevent(_kq, ev, n, nullptr, 0, nullptr))
     {
-        NUT_LOG_E(TAG, "failed to call ::kevent() with errno %d: %s", errno,
-                  ::strerror(errno));
+        LOOFAH_LOG_FD_ERRNO(kevent, fd);
+        handler->handle_exception(from_errno(errno));
         return;
     }
 #elif NUT_PLATFORM_OS_LINUX
@@ -556,7 +556,8 @@ void Proactor::disable_handler(ProactHandler *handler, int mask)
         epv.events |= EPOLLOUT;
     if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_MOD, fd, &epv))
     {
-        NUT_LOG_E(TAG, "failed to call ::epoll_ctl()");
+        LOOFAH_LOG_FD_ERRNO(epoll_ctl, fd);
+        handler->handle_exception(from_errno(errno));
         return;
     }
 #endif
@@ -594,7 +595,7 @@ int Proactor::handle_events(int timeout_ms)
             //      timeout_ms 传入 0, 而无事件可处理, 触发 ERROR_SUCCESS 错误;
             if (WAIT_TIMEOUT != errcode && ERROR_SUCCESS != errcode)
             {
-                NUT_LOG_W(TAG, "failed to call ::GetQueuedCompletionStatus() with errno %d",
+                NUT_LOG_W(TAG, "failed to call ::GetQueuedCompletionStatus() with GetLastError() %d",
                           errcode);
                 return -1;
             }
@@ -636,11 +637,11 @@ int Proactor::handle_events(int timeout_ms)
             }
 
             case ProactHandler::READ_MASK:
-                handler->handle_read_completed(bytes_transfered);
+                handler->handle_read_completed((size_t) bytes_transfered);
                 break;
 
             case ProactHandler::WRITE_MASK:
-                handler->handle_write_completed(bytes_transfered);
+                handler->handle_write_completed((size_t) bytes_transfered);
                 break;
 
             default:
@@ -691,7 +692,10 @@ int Proactor::handle_events(int timeout_ms)
                         disable_handler(handler, ProactHandler::READ_MASK);
 
                     const ssize_t readed = ::readv(fd, io_request->iovs, io_request->buf_count);
-                    handler->handle_read_completed(readed);
+                    if (readed >= 0)
+                        handler->handle_read_completed((size_t) readed);
+                    else
+                        handler->handle_exception(from_errno(errno));
 
                     IORequest::delete_request(io_request);
                 }
@@ -707,7 +711,10 @@ int Proactor::handle_events(int timeout_ms)
                     disable_handler(handler, ProactHandler::WRITE_MASK);
 
                 const ssize_t wrote = ::writev(fd, io_request->iovs, io_request->buf_count);
-                handler->handle_write_completed(wrote);
+                if (wrote >= 0)
+                    handler->handle_write_completed((size_t) wrote);
+                else
+                    handler->handle_exception(from_errno(errno));
 
                 IORequest::delete_request(io_request);
             }
@@ -753,7 +760,10 @@ int Proactor::handle_events(int timeout_ms)
                         disable_handler(handler, ProactHandler::READ_MASK);
 
                     const ssize_t readed = ::readv(fd, io_request->iovs, io_request->buf_count);
-                    handler->handle_read_completed(readed);
+                    if (readed >= 0)
+                        handler->handle_read_completed((size_t) readed);
+                    else
+                        handler->handle_exception(from_errno(errno));
 
                     IORequest::delete_request(io_request);
                 }
@@ -769,7 +779,10 @@ int Proactor::handle_events(int timeout_ms)
                     disable_handler(handler, ProactHandler::WRITE_MASK);
 
                 const ssize_t wrote = ::writev(fd, io_request->iovs, io_request->buf_count);
-                handler->handle_write_completed(wrote);
+                if (wrote >= 0)
+                    handler->handle_write_completed((size_t) wrote);
+                else
+                    handler->handle_exception(from_errno(errno));
 
                 IORequest::delete_request(io_request);
             }

@@ -10,6 +10,8 @@
 namespace loofah
 {
 
+class Reactor;
+
 class ReactHandler
 {
     NUT_REF_COUNTABLE
@@ -43,6 +45,13 @@ public:
      * channel 可发送数据
      */
     virtual void handle_write_ready() = 0;
+
+    /**
+     * channel 出错
+     *
+     * @param err 错误码，如 LOOFAH_ERR_PKG_OVERSIZE 等
+     */
+    virtual void handle_exception(int err) = 0;
 
 private:
     ReactHandler(const ReactHandler&) = delete;

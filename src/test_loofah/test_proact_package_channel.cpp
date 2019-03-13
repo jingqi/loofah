@@ -35,7 +35,7 @@ public:
 
     virtual void handle_connected() override
     {
-        NUT_LOG_D(TAG, "server got a connection");
+        NUT_LOG_D(TAG, "server got a connection, fd %d", get_socket());
     }
 
     virtual void handle_read(Package *pkg) override
@@ -92,7 +92,7 @@ public:
 
     virtual void handle_connected() override
     {
-        NUT_LOG_D(TAG, "client create a connection");
+        NUT_LOG_D(TAG, "client create a connection, fd %d", get_socket());
 
         rc_ptr<Package> new_pkg = rc_new<Package>();
         *new_pkg << _counter;
@@ -148,7 +148,7 @@ void test_proact_package_channel()
     acc->open(addr);
     g_proactor.register_handler_later(acc);
     g_proactor.launch_accept_later(acc);
-    NUT_LOG_D(TAG, "server listening at %s", addr.to_string().c_str());
+    NUT_LOG_D(TAG, "server listening at %s, fd %d", addr.to_string().c_str(), acc->get_socket());
 
     // Start client
     NUT_LOG_D(TAG, "client connect to %s", addr.to_string().c_str());

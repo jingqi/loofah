@@ -24,30 +24,28 @@
 #include <nut/rc/rc_new.h>
 
 #include "reactor.h"
+#include "../inet_base/error.h"
 
 
-#define TAG "loofah.reactor"
+#define TAG "loofah.reactor.reactor"
 
 namespace loofah
 {
 
 Reactor::Reactor()
 {
-#if NUT_PLATFORM_OS_WINDOWS
-#   if WINVER < _WIN32_WINNT_WINBLUE
+#if NUT_PLATFORM_OS_WINDOWS && WINVER < _WIN32_WINNT_WINBLUE
     FD_ZERO(&_read_set);
     FD_ZERO(&_write_set);
     FD_ZERO(&_except_set);
-#   else
+#elif NUT_PLATFORM_OS_WINDOWS
     _pollfds = (WSAPOLLFD*) ::malloc(sizeof(WSAPOLLFD) * _capacity);
     _handlers = (ReactHandler**) ::malloc(sizeof(ReactHandler*) * _capacity);
-#   endif
 #elif NUT_PLATFORM_OS_MAC
     _kq = ::kqueue();
     if (-1 == _kq)
     {
-        NUT_LOG_E(TAG, "failed to call ::kqueue() with errno %d: %s", errno,
-                  ::strerror(errno));
+        LOOFAH_LOG_ERRNO(kqueue);
         return;
     }
 #elif NUT_PLATFORM_OS_LINUX
@@ -56,7 +54,7 @@ Reactor::Reactor()
     _epoll_fd = ::epoll_create(2048);
     if (-1 == _epoll_fd)
     {
-        NUT_LOG_E(TAG, "failed to call ::epoll_create()");
+        LOOFAH_LOG_ERRNO(epoll_create);
         return;
     }
 #endif
@@ -66,15 +64,13 @@ Reactor::~Reactor()
 {
     shutdown();
 
-#if NUT_PLATFORM_OS_WINDOWS
-#   if WINVER >= _WIN32_WINNT_WINBLUE
+#if NUT_PLATFORM_OS_WINDOWS && WINVER >= _WIN32_WINNT_WINBLUE
     if (nullptr != _pollfds)
         ::free(_pollfds);
     _pollfds = nullptr;
     if (nullptr != _handlers)
         ::free(_handlers);
     _handlers = nullptr;
-#   endif
 #endif
 }
 
@@ -89,22 +85,26 @@ void Reactor::shutdown()
 
     _closing_or_closed = true;
 
-#if NUT_PLATFORM_OS_WINDOWS
-#   if WINVER < _WIN32_WINNT_WINBLUE
+#if NUT_PLATFORM_OS_WINDOWS && WINVER < _WIN32_WINNT_WINBLUE
     FD_ZERO(&_read_set);
     FD_ZERO(&_write_set);
     FD_ZERO(&_except_set);
     _socket_to_handler.clear();
-#   else
+#elif NUT_PLATFORM_OS_WINDOWS
     _size = 0;
-#   endif
 #elif NUT_PLATFORM_OS_MAC
     if (-1 != _kq)
-        ::close(_kq);
+    {
+        if (0 != ::close(_kq))
+            LOOFAH_LOG_ERRNO(close);
+    }
     _kq = -1;
 #elif NUT_PLATFORM_OS_LINUX
     if (-1 != _epoll_fd)
-        ::close(_epoll_fd);
+    {
+        if (0 != ::close(_epoll_fd))
+            LOOFAH_LOG_ERRNO(close);
+    }
     _epoll_fd = -1;
 #endif
 }
@@ -162,14 +162,13 @@ void Reactor::register_handler(ReactHandler *handler, int mask)
 
     const socket_t fd = handler->get_socket();
 
-#if NUT_PLATFORM_OS_WINDOWS
-#   if WINVER < _WIN32_WINNT_WINBLUE
+#if NUT_PLATFORM_OS_WINDOWS && WINVER < _WIN32_WINNT_WINBLUE
     if (0 != (mask & ReactHandler::READ_MASK))
         FD_SET(fd, &_read_set);
     if (0 != (mask & ReactHandler::WRITE_MASK))
         FD_SET(fd, &_write_set);
     _socket_to_handler.insert(std::pair<socket_t,ReactHandler*>(fd, handler));
-#   else
+#elif NUT_PLATFORM_OS_WINDOWS
     ensure_capacity(_size + 1);
     _handlers[_size] = handler;
     _pollfds[_size].fd = fd;
@@ -180,7 +179,6 @@ void Reactor::register_handler(ReactHandler *handler, int mask)
     if (0 != (mask & ReactHandler::WRITE_MASK))
         _pollfds[_size].events |= POLLOUT;
     ++_size;
-#   endif
 #elif NUT_PLATFORM_OS_MAC
     assert(0 == handler->_registered_events);
     struct kevent ev[2];
@@ -191,8 +189,7 @@ void Reactor::register_handler(ReactHandler *handler, int mask)
         EV_SET(ev + n++, fd, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, (void*) handler);
     if (0 != ::kevent(_kq, ev, n, nullptr, 0, nullptr))
     {
-        NUT_LOG_E(TAG, "failed to call ::kevent() with errno %d: %s", errno,
-                  ::strerror(errno));
+        LOOFAH_LOG_FD_ERRNO(kevent, fd);
         return;
     }
     handler->_registered_events = mask;
@@ -209,7 +206,7 @@ void Reactor::register_handler(ReactHandler *handler, int mask)
         epv.events |= EPOLLET;
     if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, fd, &epv))
     {
-        NUT_LOG_E(TAG, "failed to call ::epoll_ctl()");
+        LOOFAH_LOG_FD_ERRNO(epoll_ctl, fd);
         return;
     }
     handler->_registered_events = mask;
@@ -240,8 +237,7 @@ void Reactor::unregister_handler(ReactHandler *handler)
 
     const socket_t fd = handler->get_socket();
 
-#if NUT_PLATFORM_OS_WINDOWS
-#   if WINVER < _WIN32_WINNT_WINBLUE
+#if NUT_PLATFORM_OS_WINDOWS && WINVER < _WIN32_WINNT_WINBLUE
     if (FD_ISSET(fd, &_read_set))
         FD_CLR(fd, &_read_set);
     if (FD_ISSET(fd, &_write_set))
@@ -249,7 +245,7 @@ void Reactor::unregister_handler(ReactHandler *handler)
     if (FD_ISSET(fd, &_except_set))
         FD_CLR(fd, &_except_set);
     _socket_to_handler.erase(fd);
-#   else
+#elif NUT_PLATFORM_OS_WINDOWS
     const size_t index = index_of(handler);
     if (index >= _size)
         return;
@@ -260,15 +256,13 @@ void Reactor::unregister_handler(ReactHandler *handler)
         _handlers[index] = _handlers[_size - 1];
     }
     --_size;
-#   endif
 #elif NUT_PLATFORM_OS_MAC
     struct kevent ev[2];
     EV_SET(ev, fd, EVFILT_READ, EV_DELETE, 0, 0, (void*) handler);
     EV_SET(ev + 1, fd, EVFILT_WRITE, EV_DELETE, 0, 0, (void*) handler);
     if (0 != ::kevent(_kq, ev, 2, nullptr, 0, nullptr))
     {
-        NUT_LOG_E(TAG, "failed to call ::kevent() with errno %d: %s", errno,
-                  ::strerror(errno));
+        LOOFAH_LOG_FD_ERRNO(kevent, fd);
         return;
     }
     handler->_registered_events = 0;
@@ -278,7 +272,7 @@ void Reactor::unregister_handler(ReactHandler *handler)
     epv.data.ptr = (void*) handler;
     if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_DEL, fd, &epv))
     {
-        NUT_LOG_E(TAG, "failed to call ::epoll_ctl()");
+        LOOFAH_LOG_FD_ERRNO(epoll_ctl, fd);
         return;
     }
     handler->_registered_events = 0;
@@ -309,14 +303,13 @@ void Reactor::enable_handler(ReactHandler *handler, int mask)
 
     const socket_t fd = handler->get_socket();
 
-#if NUT_PLATFORM_OS_WINDOWS
-#   if WINVER < _WIN32_WINNT_WINBLUE
+#if NUT_PLATFORM_OS_WINDOWS && WINVER < _WIN32_WINNT_WINBLUE
     if (0 != (mask & ReactHandler::READ_MASK) && !FD_ISSET(fd, &_read_set))
         FD_SET(fd, &_read_set);
     if (0 != (mask & ReactHandler::WRITE_MASK) && !FD_ISSET(fd, &_write_set))
         FD_SET(fd, &_write_set);
     _socket_to_handler.insert(std::pair<socket_t,ReactHandler*>(fd, handler));
-#   else
+#elif NUT_PLATFORM_OS_WINDOWS
     const size_t index = index_of(handler);
     if (index >= _size)
         return;
@@ -324,7 +317,6 @@ void Reactor::enable_handler(ReactHandler *handler, int mask)
         _pollfds[index].events |= POLLIN;
     if (0 != (mask & ReactHandler::WRITE_MASK))
         _pollfds[index].events |= POLLOUT;
-#   endif
 #elif NUT_PLATFORM_OS_MAC
     struct kevent ev[2];
     int n = 0;
@@ -344,8 +336,7 @@ void Reactor::enable_handler(ReactHandler *handler, int mask)
     }
     if (0 != ::kevent(_kq, ev, n, nullptr, 0, nullptr))
     {
-        NUT_LOG_E(TAG, "failed to call ::kevent() with errno %d: %s", errno,
-                  ::strerror(errno));
+        LOOFAH_LOG_FD_ERRNO(kevent, fd);
         return;
     }
     handler->_registered_events |= mask;
@@ -361,7 +352,7 @@ void Reactor::enable_handler(ReactHandler *handler, int mask)
         epv.events |= EPOLLET;
     if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_MOD, fd, &epv))
     {
-        NUT_LOG_E(TAG, "failed to call ::epoll_ctl()");
+        LOOFAH_LOG_FD_ERRNO(epoll_ctl, fd);
         return;
     }
     handler->_registered_events |= mask;
@@ -392,13 +383,12 @@ void Reactor::disable_handler(ReactHandler *handler, int mask)
 
     const socket_t fd = handler->get_socket();
 
-#if NUT_PLATFORM_OS_WINDOWS
-#   if WINVER < _WIN32_WINNT_WINBLUE
+#if NUT_PLATFORM_OS_WINDOWS && WINVER < _WIN32_WINNT_WINBLUE
     if (0 != (mask & ReactHandler::READ_MASK) && FD_ISSET(fd, &_read_set))
         FD_CLR(fd, &_read_set);
     if (0 != (mask & ReactHandler::WRITE_MASK) && FD_ISSET(fd, &_write_set))
         FD_CLR(fd, &_write_set);
-#   else
+#elif NUT_PLATFORM_OS_WINDOWS
     const size_t index = index_of(handler);
     if (index >= _size)
         return;
@@ -406,7 +396,6 @@ void Reactor::disable_handler(ReactHandler *handler, int mask)
         _pollfds[index].events &= ~POLLIN;
     if (0 != (mask & ReactHandler::WRITE_MASK))
         _pollfds[index].events &= ~POLLOUT;
-#   endif
 #elif NUT_PLATFORM_OS_MAC
     struct kevent ev[2];
     int n = 0;
@@ -416,8 +405,7 @@ void Reactor::disable_handler(ReactHandler *handler, int mask)
         EV_SET(ev + n++, fd, EVFILT_WRITE, EV_DISABLE, 0, 0, (void*) handler);
     if (0 != ::kevent(_kq, ev, n, nullptr, 0, nullptr))
     {
-        NUT_LOG_E(TAG, "failed to call ::kevent() with errno %d: %s", errno,
-                  ::strerror(errno));
+        LOOFAH_LOG_FD_ERRNO(kevent, fd);
         return;
     }
     handler->_registered_events &= ~mask;
@@ -433,7 +421,7 @@ void Reactor::disable_handler(ReactHandler *handler, int mask)
         epv.events |= EPOLLET;
     if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_MOD, fd, &epv))
     {
-        NUT_LOG_E(TAG, "failed to call ::epoll_ctl()");
+        LOOFAH_LOG_FD_ERRNO(epoll_ctl, fd);
         return;
     }
     handler->_registered_events &= ~mask;
@@ -454,8 +442,7 @@ int Reactor::handle_events(int timeout_ms)
     {
         HandleEventsGuard g(this);
 
-#if NUT_PLATFORM_OS_WINDOWS
-#   if WINVER < _WIN32_WINNT_WINBLUE
+#if NUT_PLATFORM_OS_WINDOWS && WINVER < _WIN32_WINNT_WINBLUE
         struct timeval timeout, *ptimeout = nullptr; // nullptr 表示无限等待
         if (timeout_ms >= 0)
         {
@@ -469,7 +456,7 @@ int Reactor::handle_events(int timeout_ms)
         const int rs = ::select(0, &read_set, &write_set, &except_set, ptimeout);
         if (SOCKET_ERROR == rs)
         {
-            NUT_LOG_E(TAG, "failed to call ::select() with WSAGetLastError() %d", ::WSAGetLastError());
+            LOOFAH_LOG_ERRNO(select);
             return -1;
         }
         for (unsigned i = 0; i < read_set.fd_count; ++i)
@@ -492,11 +479,11 @@ int Reactor::handle_events(int timeout_ms)
             assert(nullptr != handler);
             handler->handle_write_ready();
         }
-#   else
+#elif NUT_PLATFORM_OS_WINDOWS
         const int rs = ::WSAPoll(_pollfds, _size, timeout_ms);
         if (SOCKET_ERROR == rs)
         {
-            NUT_LOG_E(TAG, "failed to call ::WSAPoll() with WSAGetLastError() %d", ::WSAGetLastError());
+            LOOFAH_LOG_ERRNO(WSAPoll);
             return -1;
         }
         int found = 0;
@@ -519,18 +506,17 @@ int Reactor::handle_events(int timeout_ms)
                  * POLLIN = POLLRDNORM | POLLRDBAND
                  * POLLOUT = POLLWRNORM
                  */
-                if (0 != (revents & POLLERR) || 0 != (revents & POLLNVAL))
-                {
-                    NUT_LOG_E(TAG, "error detected with fd %d when calling ::WSAPoll()", _pollfds[i].fd);
-                    return -1;
-                }
                 if (0 != (revents & POLLHUP) || 0 != (revents & POLLIN))
                     _handlers[i]->handle_read_ready();
                 if (0 != (revents & POLLOUT))
                     _handlers[i]->handle_write_ready();
+
+                if (0 != (revents & POLLNVAL))
+                    _handlers[i]->handle_exception(LOOFAH_ERR_INVALID_FD);
+                else if (0 != (revents & POLLERR))
+                    _handlers[i]->handle_exception(LOOFAH_ERR_UNKNOWN);
             }
         }
-#   endif
 #elif NUT_PLATFORM_OS_MAC
         struct timespec timeout;
         timeout.tv_sec = timeout_ms / 1000;
@@ -561,6 +547,12 @@ int Reactor::handle_events(int timeout_ms)
 #elif NUT_PLATFORM_OS_LINUX
         struct epoll_event events[LOOFAH_MAX_ACTIVE_EVENTS];
         const int n = ::epoll_wait(_epoll_fd, events, LOOFAH_MAX_ACTIVE_EVENTS, timeout_ms);
+        if (n < 0)
+        {
+            LOOFAH_LOG_ERRNO(epoll_wait);
+            return -1;
+        }
+
         for (int i = 0; i < n; ++i)
         {
             ReactHandler *handler = (ReactHandler*) events[i].data.ptr;

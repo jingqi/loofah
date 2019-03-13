@@ -29,6 +29,8 @@ public:
 
     virtual void handle_write_ready() final override;
 
+    virtual void handle_exception(int err) final override;
+
 private:
     socket_t _listener_socket = LOOFAH_INVALID_SOCKET_FD;
 };

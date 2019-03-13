@@ -20,6 +20,7 @@ namespace loofah
 {
 
 class IORequest;
+class Proactor;
 
 class LOOFAH_API ProactHandler
 {
@@ -55,17 +56,22 @@ public:
      *
      * @param cb >0 收到的字节数
      *            0 读通道关闭
-     *           <0 错误
      */
-    virtual void handle_read_completed(ssize_t cb) = 0;
+    virtual void handle_read_completed(size_t cb) = 0;
 
     /**
      * channel 发送数据
      *
-     * @param cb >=0 写入的字节数
-     *            <0 错误
+     * @param cb 写入的字节数
      */
-    virtual void handle_write_completed(ssize_t cb) = 0;
+    virtual void handle_write_completed(size_t cb) = 0;
+
+    /**
+     * channel 出错
+     *
+     * @param err 错误码, 如 LOOFAH_ERR_PKG_OVERSIZE 等
+     */
+    virtual void handle_exception(int err) = 0;
 
 private:
     ProactHandler(const ProactHandler&) = delete;

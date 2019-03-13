@@ -14,9 +14,10 @@
 #include "proact_acceptor.h"
 #include "../inet_base/utils.h"
 #include "../inet_base/sock_operation.h"
+#include "../inet_base/error.h"
 
 
-#define TAG "loofah.proact_acceptor"
+#define TAG "loofah.proactor.proact_acceptor"
 
 namespace loofah
 {
@@ -31,14 +32,14 @@ bool ProactAcceptorBase::open(const InetAddr& addr, int listen_num)
     _listener_socket = ::WSASocket(domain, SOCK_STREAM, 0, nullptr, 0, WSA_FLAG_OVERLAPPED);
     if (INVALID_SOCKET == _listener_socket)
     {
-        NUT_LOG_E(TAG, "failed to call ::WSASocket()");
+        LOOFAH_LOG_ERRNO(WSASocket);
         return false;
     }
 #else
     _listener_socket = ::socket(domain, SOCK_STREAM, 0);
     if (-1 == _listener_socket)
     {
-        NUT_LOG_E(TAG, "failed to call ::socket()");
+        LOOFAH_LOG_ERRNO(socket);
         return false;
     }
 #endif
@@ -50,26 +51,30 @@ bool ProactAcceptorBase::open(const InetAddr& addr, int listen_num)
         NUT_LOG_W(TAG, "failed to make listen socket port reuseable, socketfd %d", _listener_socket);
 
     // Bind
+    int rs = ::bind(_listener_socket, addr.cast_to_sockaddr(), addr.get_sockaddr_size());
 #if NUT_PLATFORM_OS_WINDOWS
-    if (SOCKET_ERROR == ::bind(_listener_socket, addr.cast_to_sockaddr(), addr.get_sockaddr_size()))
+    if (SOCKET_ERROR == rs)
 #else
-    if (::bind(_listener_socket, addr.cast_to_sockaddr(), addr.get_sockaddr_size()) < 0)
+    if (rs < 0)
 #endif
     {
-        NUT_LOG_E(TAG, "failed to call ::bind() with addr %s", addr.to_string().c_str());
+        LOOFAH_LOG_FD_ERRNO(bind, _listener_socket);
+        NUT_LOG_E(TAG, "failed to call bind() with addr %s", addr.to_string().c_str());
         SockOperation::close(_listener_socket);
         _listener_socket = LOOFAH_INVALID_SOCKET_FD;
         return false;
     }
 
     // Listen
+    rs = ::listen(_listener_socket, listen_num);
 #if NUT_PLATFORM_OS_WINDOWS
-    if (SOCKET_ERROR == ::listen(_listener_socket, listen_num))
+    if (SOCKET_ERROR == rs)
 #else
-    if (::listen(_listener_socket, listen_num) < 0)
+    if (rs < 0)
 #endif
     {
-        NUT_LOG_E(TAG, "failed to call ::listen() with addr %s", addr.to_string().c_str());
+        LOOFAH_LOG_FD_ERRNO(listen, _listener_socket);
+        NUT_LOG_E(TAG, "failed to call listen() with addr %s", addr.to_string().c_str());
         SockOperation::close(_listener_socket);
         _listener_socket = LOOFAH_INVALID_SOCKET_FD;
         return false;
@@ -87,14 +92,20 @@ socket_t ProactAcceptorBase::get_socket() const
     return _listener_socket;
 }
 
-void ProactAcceptorBase::handle_read_completed(ssize_t cb)
+void ProactAcceptorBase::handle_read_completed(size_t cb)
 {
     // Dummy for an acceptor
 }
 
-void ProactAcceptorBase::handle_write_completed(ssize_t cb)
+void ProactAcceptorBase::handle_write_completed(size_t cb)
 {
     // Dummy for an acceptor
+}
+
+void ProactAcceptorBase::handle_exception(int err)
+{
+    NUT_LOG_E(TAG, "fd %d, loofah error raised %d: %s", get_socket(),
+              err, str_error(err));
 }
 
 }

@@ -31,19 +31,19 @@ public:
         ::free(_buf);
     }
 
-    virtual void initialize() override
+    virtual void initialize() final override
     {
         g_server_channels.push_back(this);
     }
 
-    virtual void handle_connected() override
+    virtual void handle_connected() final override
     {
         NUT_LOG_D(TAG, "server channel connected");
         g_global.proactor.register_handler(this);
         g_global.proactor.launch_read(this, &_buf, &g_global.block_size, 1);
     }
 
-    virtual void handle_read_completed(ssize_t cb) override
+    virtual void handle_read_completed(size_t cb) final override
     {
         // NUT_LOG_D(TAG, "server received %d bytes: %d", cb, _tmp);
         if (0 == cb) // 正常结束
@@ -63,12 +63,17 @@ public:
         g_global.proactor.launch_write(this, &_buf, &g_global.block_size, 1);
     }
 
-    virtual void handle_write_completed(ssize_t cb) override
+    virtual void handle_write_completed(size_t cb) final override
     {
         if (cb != g_global.block_size)
             NUT_LOG_E(TAG, "server expect %d, but got %d received", g_global.block_size, cb);
         assert(cb == g_global.block_size);
         g_global.proactor.launch_read(this, &_buf, &g_global.block_size, 1);
+    }
+
+    virtual void handle_exception(int err) final override
+    {
+        NUT_LOG_D(TAG, "server exception %d: %s", err, str_error(err));
     }
 };
 

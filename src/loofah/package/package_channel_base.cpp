@@ -6,6 +6,7 @@
 #include <nut/platform/endian.h>
 
 #include "package_channel_base.h"
+#include "../inet_base/error.h"
 
 
 #define TAG "loofah.package.package_channel_base"
@@ -193,11 +194,11 @@ void PackageChannelBase::split_and_handle_packages(size_t extra_readed)
 
         pkg->skip_read(sizeof(Package::header_type));
         handle_read(pkg);
-        if (_closing)
-            return;
+        if (_closing || get_sock_stream().is_reading_shutdown())
+            break;
     }
-    if (payload_oversize)
-        handle_exception();
+    if (!_closing && payload_oversize)
+        handle_error(LOOFAH_ERR_PKG_OVERSIZE);
 }
 
 void PackageChannelBase::handle_reading_shutdown()
@@ -205,16 +206,16 @@ void PackageChannelBase::handle_reading_shutdown()
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(nullptr != _actor && _actor->is_in_loop_thread());
 
-    close_later();
+    close();
 }
 
-void PackageChannelBase::handle_exception()
+void PackageChannelBase::handle_error(int err)
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(nullptr != _actor && _actor->is_in_loop_thread());
 
-    NUT_LOG_E(TAG, "error in socket");
-    close_later();
+    NUT_LOG_E(TAG, "loofah error raised %d: %s", err, str_error(err));
+    close();
 }
 
 void PackageChannelBase::write_later(Package *pkg)
@@ -222,9 +223,9 @@ void PackageChannelBase::write_later(Package *pkg)
     assert(nullptr != pkg);
     NUT_DEBUGGING_ASSERT_ALIVE;
 
-    if (_closing)
+    if (_closing || get_sock_stream().is_writing_shutdown())
     {
-        NUT_LOG_E(TAG, "channel is closing, writing package discard");
+        NUT_LOG_E(TAG, "write channel is closing/closed, writing package discard");
         return;
     }
 

@@ -16,6 +16,7 @@
 #include "react_acceptor.h"
 #include "../inet_base/utils.h"
 #include "../inet_base/sock_operation.h"
+#include "../inet_base/error.h"
 
 
 #define TAG "loofah.react_acceptor"
@@ -30,7 +31,7 @@ bool ReactAcceptorBase::open(const InetAddr& addr, int listen_num)
     _listener_socket = ::socket(domain, SOCK_STREAM, 0);
     if (LOOFAH_INVALID_SOCKET_FD == _listener_socket)
     {
-        NUT_LOG_E(TAG, "failed to call ::socket()");
+        LOOFAH_LOG_ERRNO(socket);
         return false;
     }
 
@@ -43,6 +44,7 @@ bool ReactAcceptorBase::open(const InetAddr& addr, int listen_num)
     // Bind
     if (::bind(_listener_socket, addr.cast_to_sockaddr(), addr.get_sockaddr_size()) < 0)
     {
+        LOOFAH_LOG_FD_ERRNO(bind, _listener_socket);
         NUT_LOG_E(TAG, "failed to call ::bind() with addr %s", addr.to_string().c_str());
         SockOperation::close(_listener_socket);
         _listener_socket = LOOFAH_INVALID_SOCKET_FD;
@@ -52,6 +54,7 @@ bool ReactAcceptorBase::open(const InetAddr& addr, int listen_num)
     // Listen
     if (::listen(_listener_socket, listen_num) < 0)
     {
+        LOOFAH_LOG_FD_ERRNO(listen, _listener_socket);
         NUT_LOG_E(TAG, "failed to call ::listen() with addr %s", addr.to_string().c_str());
         SockOperation::close(_listener_socket);
         _listener_socket = LOOFAH_INVALID_SOCKET_FD;
@@ -81,14 +84,11 @@ socket_t ReactAcceptorBase::handle_accept(socket_t listener_socket)
         const int errcode = ::WSAGetLastError();
         // NOTE 错误码 WSAEWOULDBLOCK 表示已经没有资源了，等待下次异步通知，是正常的
         if (WSAEWOULDBLOCK != errcode)
-            NUT_LOG_E(TAG, "failed to call ::accept() with errno %d", errcode);
+            LOOFAH_LOG_FD_ERRNO(accept, listener_socket);
 #else
         // NOTE 错误码 EAGAIN 表示已经没有资源了，等待下次异步通知，是正常的
         if (EAGAIN != errno)
-        {
-            NUT_LOG_E(TAG, "failed to call ::accept() with errno %d: %s", errno,
-                      ::strerror(errno));
-        }
+            LOOFAH_LOG_FD_ERRNO(accept, listener_socket);
 #endif
         return LOOFAH_INVALID_SOCKET_FD;
     }
@@ -102,6 +102,12 @@ socket_t ReactAcceptorBase::handle_accept(socket_t listener_socket)
 void ReactAcceptorBase::handle_write_ready()
 {
     // Dummy for an acceptor
+}
+
+void ReactAcceptorBase::handle_exception(int err)
+{
+    NUT_LOG_E(TAG, "fd %d, loofah error raised %d: %s", get_socket(),
+              err, str_error(err));
 }
 
 }

@@ -34,7 +34,7 @@ public:
 
     virtual void handle_connected() override
     {
-        NUT_LOG_D(TAG, "server got a connection, fd %d", _sock_stream.get_socket());
+        NUT_LOG_D(TAG, "server got a connection, fd %d", get_socket());
         g_reactor.register_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
         g_reactor.disable_handler(this, ReactHandler::WRITE_MASK);
     }
@@ -76,6 +76,11 @@ public:
         ++_counter;
         g_reactor.disable_handler(this, ReactHandler::WRITE_MASK);
     }
+
+    virtual void handle_exception(int err) override
+    {
+        NUT_LOG_D(TAG, "server exception %d", err);
+    }
 };
 
 class ClientChannel : public ReactChannel
@@ -88,7 +93,7 @@ public:
 
     virtual void handle_connected() override
     {
-        NUT_LOG_D(TAG, "client make a connection, fd %d", _sock_stream.get_socket());
+        NUT_LOG_D(TAG, "client make a connection, fd %d", get_socket());
         g_reactor.register_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
         //g_reactor.disable_handler(this, ReactHandler::WRITE_MASK);
     }
@@ -127,6 +132,11 @@ public:
         assert(rs == sizeof(_counter));
         ++_counter;
         g_reactor.disable_handler(this, ReactHandler::WRITE_MASK);
+    }
+
+    virtual void handle_exception(int err) override
+    {
+        NUT_LOG_D(TAG, "client exception %d", err);
     }
 };
 
