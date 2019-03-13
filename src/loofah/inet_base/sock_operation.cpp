@@ -107,15 +107,16 @@ bool SockOperation::shutdown_read(socket_t socket_fd)
     const int rs = ::shutdown(socket_fd, SD_RECEIVE);
     if (0 != rs)
     {
-        NUT_LOG_E(TAG, "failed to call ::shutdown() with return %d", rs);
+        NUT_LOG_E(TAG, "failed to call ::shutdown() with return %d, WSAGetLastError() %d",
+                  rs, ::WSAGetLastError());
     }
     return 0 == rs;
 #else
     const int rs = ::shutdown(socket_fd, SHUT_RD);
     if (0 != rs)
     {
-        NUT_LOG_E(TAG, "failed to call ::shutdown() with errno %d: %s",
-                  errno, ::strerror(errno));
+        NUT_LOG_E(TAG, "failed to call ::shutdown() with return %d, errno %d: %s",
+                  rs, errno, ::strerror(errno));
     }
     return 0 == rs;
 #endif
@@ -127,15 +128,16 @@ bool SockOperation::shutdown_write(socket_t socket_fd)
     const int rs = ::shutdown(socket_fd, SD_SEND);
     if (0 != rs)
     {
-        NUT_LOG_E(TAG, "failed to call ::shutdown() with return %d", rs);
+        NUT_LOG_E(TAG, "failed to call ::shutdown() with return %d, WSAGetLastError() %d",
+                  rs, ::WSAGetLastError());
     }
     return 0 == rs;
 #else
     const int rs = ::shutdown(socket_fd, SHUT_WR);
     if (0 != rs)
     {
-        NUT_LOG_E(TAG, "failed to call ::shutdown() with errno %d: %s",
-                  errno, ::strerror(errno));
+        NUT_LOG_E(TAG, "failed to call ::shutdown() with return %d, errno %d: %s",
+                  rs, errno, ::strerror(errno));
     }
     return 0 == rs;
 #endif

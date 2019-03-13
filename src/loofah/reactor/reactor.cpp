@@ -469,7 +469,7 @@ int Reactor::handle_events(int timeout_ms)
         const int rs = ::select(0, &read_set, &write_set, &except_set, ptimeout);
         if (SOCKET_ERROR == rs)
         {
-            NUT_LOG_E(TAG, "failed to call ::select() with errorno %d", ::WSAGetLastError());
+            NUT_LOG_E(TAG, "failed to call ::select() with WSAGetLastError() %d", ::WSAGetLastError());
             return -1;
         }
         for (unsigned i = 0; i < read_set.fd_count; ++i)
@@ -496,7 +496,7 @@ int Reactor::handle_events(int timeout_ms)
         const int rs = ::WSAPoll(_pollfds, _size, timeout_ms);
         if (SOCKET_ERROR == rs)
         {
-            NUT_LOG_E(TAG, "failed to call ::WSAPoll() with errorno %d", ::WSAGetLastError());
+            NUT_LOG_E(TAG, "failed to call ::WSAPoll() with WSAGetLastError() %d", ::WSAGetLastError());
             return -1;
         }
         int found = 0;

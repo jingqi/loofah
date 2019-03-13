@@ -23,10 +23,21 @@
 typedef int socklen_t;
 #endif
 
-/**
- * epoll_wait() / kevent() 单次查询最多返回事件数
- */
+// epoll_wait() / kevent() 单次查询最多返回事件数
 #define LOOFAH_MAX_ACTIVE_EVENTS 32
+
+// 栈上传入 writev() 参数数量
+#define LOOFAH_STACK_WRITEV_ARRAY_SIZE 64
+
+// 读操作时的初始 package payload 大小
+#define LOOFAH_INIT_READ_PKG_SIZE 1024
+
+// 默认最大 package payload 大小
+#define LOOFAH_DEFAULT_MAX_PKG_SIZE (64 * 1024 * 1024)
+
+// 强制关闭连接延时(毫秒)
+// <0 表示不强制关闭, 0 表示立即关闭, >0 表示超时强制关闭
+#define LOOFAH_FORCE_CLOSE_DELAY 5000
 
 namespace loofah
 {

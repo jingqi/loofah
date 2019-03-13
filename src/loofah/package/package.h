@@ -28,11 +28,6 @@ public:
 
     void clear();
 
-    /**
-     * 在数据前面添加一个 header 来存储数据大小，并设置读指针到 header
-     */
-    void pack();
-
     virtual size_t readable_size() const override;
     const void* readable_data() const;
     virtual void skip_read(size_t len) override;
@@ -43,6 +38,16 @@ public:
     void skip_write(size_t len);
     void ensure_writable_size(size_t write_size);
     virtual size_t write(const void *buf, size_t len) override;
+
+    /**
+     * 在数据前面添加一个 header 来存储数据大小，并设置读指针到 header
+     */
+    void raw_pack();
+
+    /**
+     * 设置读、写指针到 header，准备写入 header
+     */
+    void raw_rewind();
 
 private:
     Package(const Package&) = delete;

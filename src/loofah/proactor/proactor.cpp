@@ -75,7 +75,7 @@ Proactor::Proactor()
 #if NUT_PLATFORM_OS_WINDOWS
     _iocp = ::CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 0); // Returns nullptr if failed
     if (nullptr == _iocp)
-        NUT_LOG_E(TAG, "failed to create IOCP handle with errno %d", ::GetLastError());
+        NUT_LOG_E(TAG, "failed to create IOCP handle with GetLastError() %d", ::GetLastError());
 #elif NUT_PLATFORM_OS_MAC
     _kq = ::kqueue();
     if (-1 == _kq)
@@ -172,7 +172,7 @@ void Proactor::register_handler(ProactHandler *handler)
     const HANDLE rs = ::CreateIoCompletionPort((HANDLE) fd, _iocp, (ULONG_PTR) handler, 0);
     if (nullptr == rs)
     {
-        NUT_LOG_E(TAG, "failed to associate IOCP with errno %d", ::GetLastError());
+        NUT_LOG_E(TAG, "failed to associate IOCP with GetLastError() %d", ::GetLastError());
         return;
     }
     assert(rs == _iocp);
@@ -309,7 +309,7 @@ void Proactor::launch_accept(ProactHandler *handler)
         // NOTE ERROR_IO_PENDING 说明异步调用没有可立即处理的数据，属于正常情况
         if (ERROR_IO_PENDING != errcode)
         {
-            NUT_LOG_E(TAG, "failed to call ::AcceptEx() with errno %d", errcode);
+            NUT_LOG_E(TAG, "failed to call ::AcceptEx() with WSAGetLastError() %d", errcode);
             ::closesocket(accept_socket);
             return;
         }
@@ -367,8 +367,8 @@ void Proactor::launch_read_later(ProactHandler *handler, void* const *buf_ptrs,
     }
 }
 
-void Proactor::launch_read(ProactHandler *handler, void* const *buf_ptrs,
-                           const size_t *len_ptrs, size_t buf_count)
+int Proactor::launch_read(ProactHandler *handler, void* const *buf_ptrs,
+                          const size_t *len_ptrs, size_t buf_count)
 {
     assert(nullptr != handler && nullptr != buf_ptrs && nullptr != len_ptrs && buf_count > 0);
     assert(is_in_loop_thread());
@@ -393,20 +393,23 @@ void Proactor::launch_read(ProactHandler *handler, void* const *buf_ptrs,
         const int errcode = ::WSAGetLastError();
         if (ERROR_IO_PENDING != errcode)
         {
-            NUT_LOG_E(TAG, "failed to call ::WSARecv() with errno %d", errcode);
-            return;
+            NUT_LOG_E(TAG, "failed to call ::WSARecv() with WSAGetLastError() %d", errcode);
+            return -1;
         }
     }
+    return 0;
 #elif NUT_PLATFORM_OS_MAC
     handler->_read_queue.push(io_request);
 
     if (0 == (handler->_registered_events & ProactHandler::READ_MASK))
         enable_handler(handler, ProactHandler::READ_MASK);
+    return 0;
 #elif NUT_PLATFORM_OS_LINUX
     handler->_read_queue.push(io_request);
 
     if (0 == (handler->_registered_events & ProactHandler::READ_MASK))
         enable_handler(handler, ProactHandler::READ_MASK);
+    return 0;
 #endif
 }
 
@@ -429,8 +432,8 @@ void Proactor::launch_write_later(ProactHandler *handler, void* const *buf_ptrs,
     }
 }
 
-void Proactor::launch_write(ProactHandler *handler, void* const *buf_ptrs,
-                            const size_t *len_ptrs, size_t buf_count)
+int Proactor::launch_write(ProactHandler *handler, void* const *buf_ptrs,
+                           const size_t *len_ptrs, size_t buf_count)
 {
     assert(nullptr != handler && nullptr != buf_ptrs && nullptr != len_ptrs && buf_count > 0);
     assert(is_in_loop_thread());
@@ -454,20 +457,23 @@ void Proactor::launch_write(ProactHandler *handler, void* const *buf_ptrs,
         const int errcode = ::WSAGetLastError();
         if (ERROR_IO_PENDING != errcode)
         {
-            NUT_LOG_E(TAG, "failed to call ::WSASend() with errno %d", errcode);
-            return;
+            NUT_LOG_E(TAG, "failed to call ::WSASend() with WSAGetLastError() %d", errcode);
+            return -1;
         }
     }
+    return 0;
 #elif NUT_PLATFORM_OS_MAC
     handler->_write_queue.push(io_request);
 
     if (0 == (handler->_registered_events & ProactHandler::WRITE_MASK))
         enable_handler(handler, ProactHandler::WRITE_MASK);
+    return 0;
 #elif NUT_PLATFORM_OS_LINUX
     handler->_write_queue.push(io_request);
 
     if (0 == (handler->_registered_events & ProactHandler::WRITE_MASK))
         enable_handler(handler, ProactHandler::WRITE_MASK);
+    return 0;
 #endif
 }
 

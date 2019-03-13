@@ -56,22 +56,6 @@ void Package::clear()
     _write_index = sizeof(header_type);
 }
 
-void Package::pack()
-{
-    VALIDATE_MEMBERS();
-    assert(_read_index >= sizeof(header_type)); // NOTE Space for header
-
-    if (nullptr == _buffer)
-    {
-        _buffer = (uint8_t*) ::malloc(sizeof(header_type));
-        _capacity = sizeof(header_type);
-    }
-
-    uint32_t *pheader = (uint32_t*)(_buffer + _read_index - sizeof(header_type));
-    *pheader = htobe32(readable_size());
-    _read_index -= sizeof(header_type);
-}
-
 size_t Package::readable_size() const
 {
     VALIDATE_MEMBERS();
@@ -93,7 +77,7 @@ void Package::skip_read(size_t len)
 size_t Package::read(void *buf, size_t len)
 {
     assert(nullptr != buf);
-    size_t ret = (std::min)(len, readable_size());
+    size_t ret = std::min(len, readable_size());
     ::memcpy(buf, _buffer + _read_index, ret);
     _read_index += ret;
     return ret;
@@ -166,6 +150,30 @@ size_t Package::write(const void *buf, size_t len)
     ::memcpy(_buffer + _write_index, buf, len);
     _write_index += len;
     return len;
+}
+
+void Package::raw_pack()
+{
+    VALIDATE_MEMBERS();
+    assert(_read_index >= sizeof(header_type)); // NOTE Space for header
+
+    if (nullptr == _buffer)
+    {
+        _buffer = (uint8_t*) ::malloc(sizeof(header_type));
+        _capacity = sizeof(header_type);
+    }
+
+    header_type *pheader = (header_type*)(_buffer + _read_index - sizeof(header_type));
+    *pheader = htobe32(readable_size());
+    _read_index -= sizeof(header_type);
+}
+
+void Package::raw_rewind()
+{
+    VALIDATE_MEMBERS();
+    assert(nullptr != _buffer);
+    _read_index = 0;
+    _write_index = 0;
 }
 
 }
