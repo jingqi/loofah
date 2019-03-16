@@ -122,19 +122,18 @@ void ProactPackageChannel::handle_read_completed(size_t cb)
     assert(nullptr != _actor && _actor->is_in_loop_thread());
     assert(nullptr != _reading_pkg);
 
-    // Ignore if in closing
-    if (_closing)
-        return;
-
     if (0 == cb)
     {
         // Read channel closed
+        const bool old_reading_shutdown = _sock_stream.is_reading_shutdown();
         _sock_stream.mark_reading_shutdown();
-        handle_reading_shutdown();
+        if (!_closing && !old_reading_shutdown)
+            handle_reading_shutdown();
         return;
     }
 
-    split_and_handle_packages(cb);
+    if (!_closing && !_sock_stream.is_reading_shutdown())
+        split_and_handle_packages(cb);
 
     if (!_closing && !_sock_stream.is_reading_shutdown())
         launch_read();
@@ -169,6 +168,14 @@ void ProactPackageChannel::launch_write()
     assert(!_sock_stream.is_null() && !_sock_stream.is_writing_shutdown());
 
     // NOTE '_closing' 可能为 true, 做关闭前最后的写入
+
+    // NOTE 写入前需要检查 RST 错误
+    const int err = _sock_stream.get_last_error();
+    if (0 != err)
+    {
+        handle_exception(err);
+        return;
+    }
 
     assert(!_pkg_write_queue.empty());
     void* bufs[LOOFAH_STACK_BUFFER_LENGTH];
@@ -239,7 +246,9 @@ void ProactPackageChannel::handle_exception(int err)
     if (LOOFAH_ERR_CONNECTION_RESET == err)
         _sock_stream.mark_writing_shutdown();
 
-    if (!_closing)
+    if (_closing)
+        force_close();
+    else
         handle_error(err);
 }
 

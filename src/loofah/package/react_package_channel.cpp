@@ -107,20 +107,22 @@ void ReactPackageChannel::handle_read_ready()
 
     // Ignore if in closing
     Reactor *reactor = (Reactor*) _actor;
-    while (!_closing)
+    while (true)
     {
         if (nullptr == _reading_pkg)
         {
             _reading_pkg = nut::rc_new<Package>(LOOFAH_INIT_READ_PKG_SIZE);
             _reading_pkg->raw_rewind();
         }
-        ssize_t rs = _sock_stream.read(_reading_pkg->writable_data(), _reading_pkg->writable_size());
+        const ssize_t rs = _sock_stream.read(_reading_pkg->writable_data(), _reading_pkg->writable_size());
         if (0 == rs)
         {
             // Read channel closed
+            const bool old_reading_shutdown = _sock_stream.is_reading_shutdown();
             _sock_stream.mark_reading_shutdown();
             reactor->disable_handler(this, ReactHandler::READ_MASK);
-            handle_reading_shutdown();
+            if (!_closing && !old_reading_shutdown)
+                handle_reading_shutdown();
             return;
         }
         else if (LOOFAH_ERR_WOULD_BLOCK == rs)
@@ -131,13 +133,13 @@ void ReactPackageChannel::handle_read_ready()
         else if (rs < 0)
         {
             // Error
-            _sock_stream.mark_reading_shutdown();
             reactor->disable_handler(this, ReactHandler::READ_MASK);
-            handle_error(rs);
+            handle_exception(rs);
             return;
         }
 
-        split_and_handle_packages((size_t) rs);
+        if (!_closing && !_sock_stream.is_reading_shutdown())
+            split_and_handle_packages((size_t) rs);
     }
 }
 
@@ -173,6 +175,15 @@ void ReactPackageChannel::handle_write_ready()
     Reactor *reactor = (Reactor*) _actor;
     while (!_pkg_write_queue.empty() && !_sock_stream.is_writing_shutdown())
     {
+        // NOTE 写入前需要检查 RST 错误
+        const int err = _sock_stream.get_last_error();
+        if (0 != err)
+        {
+            reactor->disable_handler(this, ReactHandler::WRITE_MASK);
+            handle_exception(err);
+            return;
+        }
+
 #if NUT_PLATFORM_OS_MAX || NUT_PLATFORM_OS_LINUX
         if (1 == _pkg_write_queue.size())
         {
@@ -197,14 +208,9 @@ void ReactPackageChannel::handle_write_ready()
             else
             {
                 // Error
-                _sock_stream.mark_writing_shutdown();
                 reactor->disable_handler(this, ReactHandler::WRITE_MASK);
-                if (!_closing)
-                {
-                    handle_error(rs);
-                    return;
-                }
-                break;
+                handle_exception(rs);
+                return;
             }
 #if NUT_PLATFORM_OS_MAX || NUT_PLATFORM_OS_LINUX
         }
@@ -248,14 +254,9 @@ void ReactPackageChannel::handle_write_ready()
             else if (rs < 0)
             {
                 // Error
-                _sock_stream.mark_writing_shutdown();
                 reactor->disable_handler(this, ReactHandler::WRITE_MASK);
-                if (!_closing)
-                {
-                    handle_error(rs);
-                    return;
-                }
-                break;
+                handle_exception(rs);
+                return;
             }
         }
 #endif
@@ -285,7 +286,9 @@ void ReactPackageChannel::handle_exception(int err)
     if (LOOFAH_ERR_CONNECTION_RESET == err)
         _sock_stream.mark_writing_shutdown();
 
-    if (!_closing)
+    if (_closing)
+        force_close();
+    else
         handle_error(err);
 }
 

@@ -99,6 +99,9 @@ void PackageChannelBase::split_and_handle_packages(size_t extra_readed)
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(nullptr != _actor && _actor->is_in_loop_thread());
 
+    if (_closing || get_sock_stream().is_reading_shutdown())
+        return;
+
     // 分包
     nut::rc_ptr<Package> buffer_pkg = _reading_pkg;
     std::vector<nut::rc_ptr<Package>> full_packages;
@@ -197,7 +200,7 @@ void PackageChannelBase::split_and_handle_packages(size_t extra_readed)
         if (_closing || get_sock_stream().is_reading_shutdown())
             break;
     }
-    if (!_closing && payload_oversize)
+    if (payload_oversize && !_closing && !get_sock_stream().is_reading_shutdown())
         handle_error(LOOFAH_ERR_PKG_OVERSIZE);
 }
 
@@ -225,7 +228,11 @@ void PackageChannelBase::write_later(Package *pkg)
 
     if (_closing || get_sock_stream().is_writing_shutdown())
     {
-        NUT_LOG_E(TAG, "write channel is closing/closed, writing package discard");
+        const socket_t fd = get_sock_stream().get_socket();
+        if (_closing)
+            NUT_LOG_E(TAG, "channel is closing, writing package discard. fd %d", fd);
+        else
+            NUT_LOG_E(TAG, "write channel is closed, writing package discard. fd %d", fd);
         return;
     }
 

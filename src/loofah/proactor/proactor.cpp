@@ -585,7 +585,7 @@ int Proactor::handle_events(int timeout_ms)
         void *key = nullptr;
         OVERLAPPED *io_overlapped = nullptr;
         assert(nullptr != _iocp);
-        BOOL rs = ::GetQueuedCompletionStatus(_iocp, &bytes_transfered, (PULONG_PTR)&key,
+        BOOL rs = ::GetQueuedCompletionStatus(_iocp, &bytes_transfered, (PULONG_PTR) &key,
                                               &io_overlapped, timeout_ms);
         // NOTE 返回值为 False, 但是返回的 io_overlapped 不为 nullptr, 则仅仅说明链接被中断了
         if (FALSE == rs && nullptr == io_overlapped)

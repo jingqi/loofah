@@ -40,6 +40,8 @@ public:
 
     /**
      * 获取 socket 错误
+     *
+     * NOTE 该方法将重置 socket 内的错误码
      */
     static int get_last_error(socket_t socket_fd);
 
