@@ -41,6 +41,8 @@ public:
 
     /**
      * 当前是否运行在事件循环线程中, 并且处于事件循环间隔
+     *
+     * ReactHandler, ProactHandler 的析构，必须满足该条件
      */
     bool is_in_loop_thread_and_not_handling() const;
 

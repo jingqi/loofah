@@ -127,14 +127,20 @@ void Reactor::ensure_capacity(size_t new_size)
     _capacity = new_cap;
 }
 
-size_t Reactor::index_of(ReactHandler *handler)
+ssize_t Reactor::binayr_search(ReactHandler *handler)
 {
-    for (size_t i = 0; i < _size; ++i)
+    ssize_t left = -1, right = _size;
+    whiel (left + 1 < right)
     {
-        if (_handlers[i] == handler)
-            return i;
+        size_t middle = (left + right) >> 1;
+        if (_handlers[middle] == handler)
+            return middle;
+        else if (_handlers[middle] < handler)
+            left = middle;
+        else
+            right = middle;
     }
-    return _size;
+    return -right - 1;
 }
 #endif
 
@@ -170,14 +176,23 @@ void Reactor::register_handler(ReactHandler *handler, int mask)
     _socket_to_handler.insert(std::pair<socket_t,ReactHandler*>(fd, handler));
 #elif NUT_PLATFORM_OS_WINDOWS
     ensure_capacity(_size + 1);
-    _handlers[_size] = handler;
-    _pollfds[_size].fd = fd;
-    _pollfds[_size].events = 0;
-    _pollfds[_size].revents = 0;
+    ssize_t index = binary_search(handler);
+    if (index >= 0)
+        return;
+    index = -index - 1;
+    if (index < _size)
+    {
+        ::memmove(_pollfds + index + 1, _pollfds + index, sizeof(WSAPOLLFD) * (_size - index));
+        ::memmove(_handlers + index + 1, _handlers + index, sizeof(ReactHandler*) * (_size - index));
+    }
+    _handlers[index] = handler;
+    _pollfds[index].fd = fd;
+    _pollfds[index].events = 0;
+    _pollfds[index].revents = 0;
     if (0 != (mask & ReactHandler::READ_MASK))
-        _pollfds[_size].events |= POLLIN;
+        _pollfds[index].events |= POLLIN;
     if (0 != (mask & ReactHandler::WRITE_MASK))
-        _pollfds[_size].events |= POLLOUT;
+        _pollfds[index].events |= POLLOUT;
     ++_size;
 #elif NUT_PLATFORM_OS_MAC
     assert(0 == handler->_registered_events);
@@ -246,14 +261,13 @@ void Reactor::unregister_handler(ReactHandler *handler)
         FD_CLR(fd, &_except_set);
     _socket_to_handler.erase(fd);
 #elif NUT_PLATFORM_OS_WINDOWS
-    const size_t index = index_of(handler);
-    if (index >= _size)
+    const ssize_t index = binary_search(handler);
+    if (index < 0)
         return;
     if (index + 1 < _size)
     {
-        // Swap current and last element
-        _pollfds[index] = _pollfds[_size - 1];
-        _handlers[index] = _handlers[_size - 1];
+        ::memmove(_pollfds + index, _pollfds + index + 1, sizeof(WSAPOLLFD) * (_size - index - 1));
+        ::memmove(_handlers + index, _handlers + index + 1, sizeof(ReactHandler*) * (_size - index - 1));
     }
     --_size;
 #elif NUT_PLATFORM_OS_MAC
@@ -310,8 +324,8 @@ void Reactor::enable_handler(ReactHandler *handler, int mask)
         FD_SET(fd, &_write_set);
     _socket_to_handler.insert(std::pair<socket_t,ReactHandler*>(fd, handler));
 #elif NUT_PLATFORM_OS_WINDOWS
-    const size_t index = index_of(handler);
-    if (index >= _size)
+    const ssize_t index = binary_search(handler);
+    if (index < 0)
         return;
     if (0 != (mask & ReactHandler::READ_MASK))
         _pollfds[index].events |= POLLIN;
@@ -389,8 +403,8 @@ void Reactor::disable_handler(ReactHandler *handler, int mask)
     if (0 != (mask & ReactHandler::WRITE_MASK) && FD_ISSET(fd, &_write_set))
         FD_CLR(fd, &_write_set);
 #elif NUT_PLATFORM_OS_WINDOWS
-    const size_t index = index_of(handler);
-    if (index >= _size)
+    const ssize_t index = binary_search(handler);
+    if (index < 0)
         return;
     if (0 != (mask & ReactHandler::READ_MASK))
         _pollfds[index].events &= ~POLLIN;
@@ -487,34 +501,44 @@ int Reactor::handle_events(int timeout_ms)
             return -1;
         }
         int found = 0;
-        for (size_t i = 0; i < _size && found < rs; ++i)
+        for (ssize_t i = 0; i < (ssize_t) _size && found < rs; ++i)
         {
             const SHORT revents = _pollfds[i].revents;
-            _pollfds[i].revents = 0;
-            if (0 != revents)
-            {
-                ++found;
-                /**
-                 * POLLERR        错误
-                 * POLLNVAL       无效的 socket fd 被使用
-                 * POLLHUP        面向连接的 socket 被断开或者放弃
-                 * POLLPRI        Not used by Microsoft Winsock
-                 * POLLRDBAND     Priority band (out-of-band) 数据可读
-                 * POLLRDNORM     常规数据可读
-                 * POLLWRNORM     常规数据可写
-                 *
-                 * POLLIN = POLLRDNORM | POLLRDBAND
-                 * POLLOUT = POLLWRNORM
-                 */
-                if (0 != (revents & POLLHUP) || 0 != (revents & POLLIN))
-                    _handlers[i]->handle_read_ready();
-                if (0 != (revents & POLLOUT))
-                    _handlers[i]->handle_write_ready();
+            if (0 == revents)
+                continue;
 
-                if (0 != (revents & POLLNVAL))
-                    _handlers[i]->handle_exception(LOOFAH_ERR_INVALID_FD);
-                else if (0 != (revents & POLLERR))
-                    _handlers[i]->handle_exception(LOOFAH_ERR_UNKNOWN);
+            _pollfds[i].revents = 0;
+            ++found;
+            ReactHandler *handler = _handlers[i];
+
+            /**
+             * POLLERR        错误
+             * POLLNVAL       无效的 socket fd 被使用
+             * POLLHUP        面向连接的 socket 被断开或者放弃
+             * POLLPRI        Not used by Microsoft Winsock
+             * POLLRDBAND     Priority band (out-of-band) 数据可读
+             * POLLRDNORM     常规数据可读
+             * POLLWRNORM     常规数据可写
+             *
+             * POLLIN = POLLRDNORM | POLLRDBAND
+             * POLLOUT = POLLWRNORM
+             */
+            if (0 != (revents & POLLHUP) || 0 != (revents & POLLIN))
+                handler->handle_read_ready();
+            if (0 != (revents & POLLOUT))
+                handler->handle_write_ready();
+
+            if (0 != (revents & POLLNVAL))
+                handler->handle_exception(LOOFAH_ERR_INVALID_FD);
+            else if (0 != (revents & POLLERR))
+                handler->handle_exception(LOOFAH_ERR_UNKNOWN);
+
+            // 如果结构发生改变，则重新定位搜索位置
+            if (i >= _size || _handlers[i] != handler)
+            {
+                i = binary_search(handler);
+                if (i < 0)
+                    i = -i - 2; // NOTE 'i' 可能取到 -1
             }
         }
 #elif NUT_PLATFORM_OS_MAC

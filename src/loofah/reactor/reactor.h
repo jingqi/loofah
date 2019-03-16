@@ -46,7 +46,7 @@ public:
 protected:
 #if NUT_PLATFORM_OS_WINDOWS && WINVER >= _WIN32_WINNT_WINBLUE
     void ensure_capacity(size_t new_size);
-    size_t index_of(ReactHandler *handler);
+    ssize_t binary_search(ReactHandler *handler);
 #endif
 
     void shutdown();
