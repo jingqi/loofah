@@ -26,6 +26,13 @@ void test_proactor();
 void test_react_package_channel();
 void test_proact_package_channel();
 
+void test_react_package_rst();
+void test_proact_package_rst();
+
+void test_reactor_manually();
+void test_react_package_manually();
+void test_proact_package_manually();
+
 static void setup_std_logger()
 {
     rc_ptr<ConsoleLogHandler> handler = rc_new<ConsoleLogHandler>(false);
@@ -46,6 +53,7 @@ int main(int argc, char **argv)
         return -1;
     }
 
+    // 冒烟测试
     const char *split = "----------------------------";
     cout << split << " test reactor " << split << endl;
     test_reactor();
@@ -55,6 +63,17 @@ int main(int argc, char **argv)
     test_react_package_channel();
     cout << split << " test proact package " << split << endl;
     test_proact_package_channel();
+
+    // 针对 RST 状态的测试
+    cout << split << " test RST react package " << split << endl;
+    test_react_package_rst();
+    cout << split << " test RST proact package " << split << endl;
+    test_proact_package_rst();
+
+    // 手工测试
+    // test_reactor_manually();
+    // test_react_package_manually();
+    // test_proact_package_manually();
 
     loofah::shutdown_network();
 

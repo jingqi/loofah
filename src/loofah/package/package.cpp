@@ -168,6 +168,12 @@ void Package::raw_pack()
     _read_index -= sizeof(header_type);
 }
 
+Package::header_type Package::header_betoh(header_type header)
+{
+    assert(sizeof(header) == 4);
+    return be32toh(header);
+}
+
 void Package::raw_rewind()
 {
     VALIDATE_MEMBERS();

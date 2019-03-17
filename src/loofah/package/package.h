@@ -45,6 +45,11 @@ public:
     void raw_pack();
 
     /**
+     * header big endian to host endian
+     */
+    static header_type header_betoh(header_type header);
+
+    /**
      * 设置读、写指针到 header，准备写入 header
      */
     void raw_rewind();

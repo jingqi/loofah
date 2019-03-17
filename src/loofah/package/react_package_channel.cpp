@@ -122,7 +122,7 @@ void ReactPackageChannel::handle_read_ready()
             _sock_stream.mark_reading_shutdown();
             reactor->disable_handler(this, ReactHandler::READ_MASK);
             if (!_closing && !old_reading_shutdown)
-                handle_reading_shutdown();
+                handle_read(nullptr);
             return;
         }
         else if (LOOFAH_ERR_WOULD_BLOCK == rs)

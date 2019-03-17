@@ -40,7 +40,13 @@ public:
 
     virtual void handle_read(Package *pkg) override
     {
-        assert(nullptr != pkg);
+        if (nullptr == pkg)
+        {
+            NUT_LOG_D(TAG, "server reading shutdown, will close");
+            close_later();
+            return;
+        }
+
         NUT_LOG_D(TAG, "server received %d bytes: %d", pkg->readable_size(), _counter);
 
         assert(pkg->readable_size() == sizeof(int));
@@ -54,12 +60,6 @@ public:
         write(new_pkg);
         NUT_LOG_D(TAG, "server send %d", _counter);
         ++_counter;
-    }
-
-    virtual void handle_reading_shutdown() override
-    {
-        NUT_LOG_D(TAG, "server reading shutdown, will close");
-        close_later();
     }
 
     virtual void handle_close() override
@@ -103,7 +103,13 @@ public:
 
     virtual void handle_read(Package *pkg) override
     {
-        assert(nullptr != pkg);
+        if (nullptr == pkg)
+        {
+            NUT_LOG_D(TAG, "client reading shutdown, will close");
+            close_later();
+            return;
+        }
+
         NUT_LOG_D(TAG, "client received %d bytes: %d", pkg->readable_size(), _counter);
 
         assert(pkg->readable_size() == sizeof(int));
@@ -124,12 +130,6 @@ public:
             close_later();
             return;
         }
-    }
-
-    virtual void handle_reading_shutdown() override
-    {
-        NUT_LOG_D(TAG, "client reading shutdown, will close");
-        close_later();
     }
 
     virtual void handle_close() override

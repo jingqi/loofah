@@ -37,16 +37,9 @@ public:
     /**
      * 读到 package
      *
-     * NOTE 开始关闭连接，或者读通道关闭后，不再收到该事件
+     * @param pkg 为 nullptr 时表示读通道关闭
      */
     virtual void handle_read(Package *pkg) = 0;
-
-    /**
-     * 读通道关闭，默认关闭链接
-     *
-     * NOTE 开始关闭连接，或者读通道关闭后，不再收到该事件
-     */
-    virtual void handle_reading_shutdown();
 
     /**
      * 异常

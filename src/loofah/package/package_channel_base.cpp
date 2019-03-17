@@ -3,7 +3,6 @@
 
 #include <nut/rc/rc_new.h>
 #include <nut/logging/logger.h>
-#include <nut/platform/endian.h>
 
 #include "package_channel_base.h"
 #include "../inet_base/error.h"
@@ -134,7 +133,7 @@ void PackageChannelBase::split_and_handle_packages(size_t extra_readed)
 
         // 检查 payload 大小
         Package::header_type payload_size = *(const Package::header_type*) readable_data;
-        payload_size = be32toh(payload_size);
+        payload_size = Package::header_betoh(payload_size);
         if (payload_size > _max_payload_size)
         {
             payload_oversize = true;
@@ -192,7 +191,7 @@ void PackageChannelBase::split_and_handle_packages(size_t extra_readed)
 
         assert(pkg->readable_size() >= sizeof(Package::header_type));
         Package::header_type payload_size = *(const Package::header_type*) pkg->readable_data();
-        payload_size = be32toh(payload_size);
+        payload_size = Package::header_betoh(payload_size);
         assert(pkg->readable_size() == sizeof(Package::header_type) + payload_size);
 
         pkg->skip_read(sizeof(Package::header_type));
@@ -202,14 +201,6 @@ void PackageChannelBase::split_and_handle_packages(size_t extra_readed)
     }
     if (payload_oversize && !_closing && !get_sock_stream().is_reading_shutdown())
         handle_error(LOOFAH_ERR_PKG_OVERSIZE);
-}
-
-void PackageChannelBase::handle_reading_shutdown()
-{
-    NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(nullptr != _actor && _actor->is_in_loop_thread());
-
-    close();
 }
 
 void PackageChannelBase::handle_error(int err)

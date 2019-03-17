@@ -128,7 +128,7 @@ void ProactPackageChannel::handle_read_completed(size_t cb)
         const bool old_reading_shutdown = _sock_stream.is_reading_shutdown();
         _sock_stream.mark_reading_shutdown();
         if (!_closing && !old_reading_shutdown)
-            handle_reading_shutdown();
+            handle_read(nullptr);
         return;
     }
 
