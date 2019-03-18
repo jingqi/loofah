@@ -74,7 +74,6 @@ void ProactPackageChannel::force_close()
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(nullptr != _actor && _actor->is_in_loop_thread());
-    assert(_closing);
 
     if (_sock_stream.is_null())
         return;
@@ -149,9 +148,9 @@ void ProactPackageChannel::write(Package *pkg)
     if (_closing || _sock_stream.is_writing_shutdown())
     {
         if (_closing)
-            NUT_LOG_E(TAG, "channel is closing, writing package discard. fd %d", get_socket());
+            NUT_LOG_W(TAG, "channel is closing, writing package discard. fd %d", get_socket());
         else
-            NUT_LOG_E(TAG, "write channel is closed, writing package discard. fd %d", get_socket());
+            NUT_LOG_W(TAG, "write channel is closed, writing package discard. fd %d", get_socket());
         return;
     }
 
@@ -230,12 +229,7 @@ void ProactPackageChannel::handle_write_completed(size_t cb)
 
     // 如果本地写队列空了，并且处于关闭流程中，则关闭 socket
     if (_closing)
-    {
-        if (_sock_stream.is_reading_shutdown())
-            force_close();
-        else if (!_sock_stream.is_writing_shutdown())
-            _sock_stream.shutdown_write();
-    }
+        force_close();
 }
 
 void ProactPackageChannel::handle_exception(int err)
@@ -243,8 +237,8 @@ void ProactPackageChannel::handle_exception(int err)
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(nullptr != _actor && _actor->is_in_loop_thread());
 
-    if (LOOFAH_ERR_CONNECTION_RESET == err)
-        _sock_stream.mark_writing_shutdown();
+    _sock_stream.mark_reading_shutdown();
+    _sock_stream.mark_writing_shutdown();
 
     if (_closing)
         force_close();

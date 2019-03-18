@@ -5,7 +5,7 @@
 
 #define TAG "test_react_package"
 #define LISTEN_ADDR "localhost"
-#define LISTEN_PORT 2348
+#define LISTEN_PORT 2347
 
 using namespace nut;
 using namespace loofah;
@@ -140,24 +140,34 @@ public:
 
 }
 
-void test_react_package_channel()
+class TestReactPackageChannel : public TestFixture
 {
-    // Start server
-    rc_ptr<ReactAcceptor<ServerChannel>> acc = rc_new<ReactAcceptor<ServerChannel> >();
-    InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
-    acc->open(addr);
-    g_reactor.register_handler_later(acc, ReactHandler::READ_MASK);
-    NUT_LOG_D(TAG, "server listening at %s, fd %d", addr.to_string().c_str(), acc->get_socket());
-
-    // Start client
-    NUT_LOG_D(TAG, "client connect to %s", addr.to_string().c_str());
-    rc_ptr<ClientChannel> client = ReactConnector<ClientChannel>::connect(addr);
-
-    // Loop
-    while (!g_server_channels.empty() || LOOFAH_INVALID_SOCKET_FD != client->get_socket())
+    virtual void register_cases() override
     {
-        if (g_reactor.handle_events(TimeWheel::TICK_GRANULARITY_MS) < 0)
-            break;
-        g_timewheel.tick();
+        NUT_REGISTER_CASE(test_react_package_channel);
     }
-}
+
+    void test_react_package_channel()
+    {
+        // Start server
+        rc_ptr<ReactAcceptor<ServerChannel>> acc = rc_new<ReactAcceptor<ServerChannel> >();
+        InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
+        acc->open(addr);
+        g_reactor.register_handler_later(acc, ReactHandler::READ_MASK);
+        NUT_LOG_D(TAG, "server listening at %s, fd %d", addr.to_string().c_str(), acc->get_socket());
+
+        // Start client
+        NUT_LOG_D(TAG, "client connect to %s", addr.to_string().c_str());
+        rc_ptr<ClientChannel> client = ReactConnector<ClientChannel>::connect(addr);
+
+        // Loop
+        while (!g_server_channels.empty() || LOOFAH_INVALID_SOCKET_FD != client->get_socket())
+        {
+            if (g_reactor.handle_events(TimeWheel::TICK_GRANULARITY_MS) < 0)
+                break;
+            g_timewheel.tick();
+        }
+    }
+};
+
+NUT_REGISTER_FIXTURE(TestReactPackageChannel, "react, package, all")

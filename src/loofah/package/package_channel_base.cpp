@@ -200,7 +200,7 @@ void PackageChannelBase::split_and_handle_packages(size_t extra_readed)
             break;
     }
     if (payload_oversize && !_closing && !get_sock_stream().is_reading_shutdown())
-        handle_error(LOOFAH_ERR_PKG_OVERSIZE);
+        handle_exception(LOOFAH_ERR_PKG_OVERSIZE);
 }
 
 void PackageChannelBase::handle_error(int err)
@@ -209,7 +209,7 @@ void PackageChannelBase::handle_error(int err)
     assert(nullptr != _actor && _actor->is_in_loop_thread());
 
     NUT_LOG_E(TAG, "loofah error raised %d: %s", err, str_error(err));
-    close();
+    force_close();
 }
 
 void PackageChannelBase::write_later(Package *pkg)
@@ -221,9 +221,9 @@ void PackageChannelBase::write_later(Package *pkg)
     {
         const socket_t fd = get_sock_stream().get_socket();
         if (_closing)
-            NUT_LOG_E(TAG, "channel is closing, writing package discard. fd %d", fd);
+            NUT_LOG_W(TAG, "channel is closing, writing package discard. fd %d", fd);
         else
-            NUT_LOG_E(TAG, "write channel is closed, writing package discard. fd %d", fd);
+            NUT_LOG_W(TAG, "write channel is closed, writing package discard. fd %d", fd);
         return;
     }
 

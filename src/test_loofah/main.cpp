@@ -21,14 +21,6 @@ using namespace std;
 
 #define TAG "main"
 
-void test_reactor();
-void test_proactor();
-void test_react_package_channel();
-void test_proact_package_channel();
-
-void test_react_package_rst();
-void test_proact_package_rst();
-
 void test_reactor_manually();
 void test_react_package_manually();
 void test_proact_package_manually();
@@ -53,22 +45,11 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    // 冒烟测试
-    const char *split = "----------------------------";
-    cout << split << " test reactor " << split << endl;
-    test_reactor();
-    cout << split << " test proactor " << split << endl;
-    test_proactor();
-    cout << split << " test react package " << split << endl;
-    test_react_package_channel();
-    cout << split << " test proact package " << split << endl;
-    test_proact_package_channel();
-
-    // 针对 RST 状态的测试
-    cout << split << " test RST react package " << split << endl;
-    test_react_package_rst();
-    cout << split << " test RST proact package " << split << endl;
-    test_proact_package_rst();
+    ConsoleTestLogger l;
+    TestRunner runner(&l);
+    runner.run_group("RST");
+    // runner.run_fixture("TestProactPackageRST");
+    // runner.run_case("TestConcurrentHashMap", "test_multi_thread");
 
     // 手工测试
     // test_reactor_manually();

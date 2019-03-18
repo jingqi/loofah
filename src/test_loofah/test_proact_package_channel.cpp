@@ -5,7 +5,7 @@
 
 #define TAG "test_proact_package"
 #define LISTEN_ADDR "localhost"
-#define LISTEN_PORT 2347
+#define LISTEN_PORT 2348
 
 using namespace nut;
 using namespace loofah;
@@ -140,25 +140,35 @@ public:
 
 }
 
-void test_proact_package_channel()
+class TestProactPackageChannel : public TestFixture
 {
-    // Start server
-    rc_ptr<ProactAcceptor<ServerChannel>> acc = rc_new<ProactAcceptor<ServerChannel>>();
-    InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
-    acc->open(addr);
-    g_proactor.register_handler_later(acc);
-    g_proactor.launch_accept_later(acc);
-    NUT_LOG_D(TAG, "server listening at %s, fd %d", addr.to_string().c_str(), acc->get_socket());
-
-    // Start client
-    NUT_LOG_D(TAG, "client connect to %s", addr.to_string().c_str());
-    rc_ptr<ClientChannel> client = ProactConnector<ClientChannel>::connect(addr);
-
-    // Loop
-    while (!g_server_channels.empty() || LOOFAH_INVALID_SOCKET_FD != client->get_socket())
+    virtual void register_cases() override
     {
-        if (g_proactor.handle_events(TimeWheel::TICK_GRANULARITY_MS) < 0)
-            break;
-        g_timewheel.tick();
+        NUT_REGISTER_CASE(test_proact_package_channel);
     }
-}
+
+    void test_proact_package_channel()
+    {
+        // Start server
+        rc_ptr<ProactAcceptor<ServerChannel>> acc = rc_new<ProactAcceptor<ServerChannel>>();
+        InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
+        acc->open(addr);
+        g_proactor.register_handler_later(acc);
+        g_proactor.launch_accept_later(acc);
+        NUT_LOG_D(TAG, "server listening at %s, fd %d", addr.to_string().c_str(), acc->get_socket());
+
+        // Start client
+        NUT_LOG_D(TAG, "client connect to %s", addr.to_string().c_str());
+        rc_ptr<ClientChannel> client = ProactConnector<ClientChannel>::connect(addr);
+
+        // Loop
+        while (!g_server_channels.empty() || LOOFAH_INVALID_SOCKET_FD != client->get_socket())
+        {
+            if (g_proactor.handle_events(TimeWheel::TICK_GRANULARITY_MS) < 0)
+                break;
+            g_timewheel.tick();
+        }
+    }
+};
+
+NUT_REGISTER_FIXTURE(TestProactPackageChannel, "proact, package, all")

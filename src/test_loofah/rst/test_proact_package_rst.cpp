@@ -10,10 +10,9 @@
 #endif
 
 
-#define TAG "test_package_manually"
+#define TAG "test_proact_package_rst"
 #define LISTEN_ADDR "localhost"
-#define LISTEN_PORT 2345
-#define BUF_LEN 256
+#define LISTEN_PORT 2350
 
 using namespace nut;
 using namespace loofah;
@@ -21,21 +20,27 @@ using namespace loofah;
 namespace
 {
 
-Proactor g_proactor;
-TimeWheel g_timewheel;
-
 class ServerChannel;
-rc_ptr<ServerChannel> g_server;
+class ClientChannel;
+
+Proactor proactor;
+TimeWheel timewheel;
+
+rc_ptr<ServerChannel> server;
+ClientChannel *client = nullptr;
+int prepared = 0;
+
+void testing();
 
 class ServerChannel : public ProactPackageChannel
 {
 public:
     virtual void initialize() override
     {
-        set_proactor(&g_proactor);
-        set_time_wheel(&g_timewheel);
+        set_proactor(&proactor);
+        set_time_wheel(&timewheel);
 
-        g_server = this;
+        server = this;
     }
 
     void writeint(uint32_t data)
@@ -49,6 +54,10 @@ public:
     virtual void handle_connected() override
     {
         NUT_LOG_D(TAG, "server got a connection, fd %d", get_socket());
+
+        ++prepared;
+        if (2 == prepared)
+            testing();
     }
 
     virtual void handle_read(Package *pkg) override
@@ -67,14 +76,14 @@ public:
 
     virtual void handle_error(int err) override
     {
-        NUT_LOG_D(TAG, "server error %d", err);
+        NUT_LOG_D(TAG, "server error %d: %s", err, str_error(err));
     }
 
     virtual void handle_close() override
     {
         NUT_LOG_D(TAG, "server closed");
 
-        g_server = nullptr;
+        server = nullptr;
     }
 };
 
@@ -84,26 +93,28 @@ class ClientChannel : public ProactChannel
 
 public:
     virtual void initialize() override
-    {}
+    {
+        client = this;
+    }
 
     void write(int data)
     {
         void *buf = &data;
         size_t len = sizeof(data);
-        g_proactor.launch_write(this, &buf, &len, 1);
+        proactor.launch_write(this, &buf, &len, 1);
     }
 
     void read()
     {
         void *buf = &_read_data;
         size_t len = sizeof(_read_data);
-        g_proactor.launch_read(this, &buf, &len, 1);
+        proactor.launch_read(this, &buf, &len, 1);
     }
 
     void close()
     {
         NUT_LOG_D(TAG, "client close");
-        g_proactor.unregister_handler(this);
+        proactor.unregister_handler(this);
         _sock_stream.close();
     }
 
@@ -111,7 +122,11 @@ public:
     {
         NUT_LOG_D(TAG, "client make a connection, fd %d", get_socket());
 
-        g_proactor.register_handler(this);
+        proactor.register_handler(this);
+
+        ++prepared;
+        if (2 == prepared)
+            testing();
     }
 
     virtual void handle_read_completed(size_t cb) override
@@ -127,60 +142,72 @@ public:
 
     virtual void handle_exception(int err) override
     {
-        NUT_LOG_D(TAG, "client exception %d", err);
+        NUT_LOG_D(TAG, "client exception %d: %s", err, str_error(err));
     }
 };
 
-}
-
-void test_proact_package_rst()
+void testing()
 {
-    // start server
-    rc_ptr<ProactAcceptor<ServerChannel>> acc = rc_new<ProactAcceptor<ServerChannel>>();
-    InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
-    acc->open(addr);
-    g_proactor.register_handler_later(acc);
-    g_proactor.launch_accept_later(acc);
-    NUT_LOG_D(TAG, "server listening at %s, fd %d", addr.to_string().c_str(), acc->get_socket());
-
-    // start client
-    NUT_LOG_D(TAG, "client will connect to %s", addr.to_string().c_str());
-    nut::rc_ptr<ClientChannel> client = ProactConnector<ClientChannel>::connect(addr);
-
-    g_timewheel.add_timer(
+    timewheel.add_timer(
         50, 0,
         [=](TimeWheel::timer_id_type id, uint64_t expires) {
             // 关闭 server 读通道，仅仅依靠写通道的自检来处理 RST 状态
-            SockOperation::shutdown_read(g_server->get_socket());
+            SockOperation::shutdown_read(server->get_socket());
 
             // 1. client 不读数据
             // 2. 向 client 写数据
             // 3. 由于存在未读数据，client.close() 将发送 RST 包给 server
-            g_server->writeint(1);
+            server->writeint(1);
             client->close();
         });
 
-    g_timewheel.add_timer(
+    timewheel.add_timer(
         100, 0,
         [=](TimeWheel::timer_id_type id, uint64_t expires) {
             // 如果没有正确处理 RST 状态，server 写数据会导致 SIGPIPE 信号从而
             // 进程退出
-            g_server->writeint(2);
+            server->writeint(2);
         });
 
-    g_timewheel.add_timer(
+    timewheel.add_timer(
         150, 0,
         [=](TimeWheel::timer_id_type id, uint64_t expires) {
             NUT_LOG_D(TAG, "--- good");
-            g_server->close();
+            server->close();
         });
-
-
-    // loop
-    while (!g_server.is_null() || LOOFAH_INVALID_SOCKET_FD != client->get_socket())
-    {
-        if (g_proactor.handle_events(TimeWheel::TICK_GRANULARITY_MS) < 0)
-            break;
-        g_timewheel.tick();
-    }
 }
+
+}
+
+class TestProactPackageRST : public TestFixture
+{
+    virtual void register_cases() override
+    {
+        NUT_REGISTER_CASE(test_proact_pkg_rst);
+    }
+
+    void test_proact_pkg_rst()
+    {
+        // start server
+        rc_ptr<ProactAcceptor<ServerChannel>> acc = rc_new<ProactAcceptor<ServerChannel>>();
+        InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
+        acc->open(addr);
+        proactor.register_handler_later(acc);
+        proactor.launch_accept_later(acc);
+        NUT_LOG_D(TAG, "server listening at %s, fd %d", addr.to_string().c_str(), acc->get_socket());
+
+        // start client
+        NUT_LOG_D(TAG, "client will connect to %s", addr.to_string().c_str());
+        nut::rc_ptr<ClientChannel> client = ProactConnector<ClientChannel>::connect(addr);
+
+        // loop
+        while (server != nullptr || LOOFAH_INVALID_SOCKET_FD != client->get_socket())
+        {
+            if (proactor.handle_events(TimeWheel::TICK_GRANULARITY_MS) < 0)
+                break;
+            timewheel.tick();
+        }
+    }
+};
+
+NUT_REGISTER_FIXTURE(TestProactPackageRST, "proact, package, RST, all")

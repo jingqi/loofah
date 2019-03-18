@@ -585,29 +585,44 @@ int Proactor::handle_events(int timeout_ms)
         void *key = nullptr;
         OVERLAPPED *io_overlapped = nullptr;
         assert(nullptr != _iocp);
+        /**
+         * GetQueuedCompletionStatus() 返回值处理
+         * - FALSE==rs
+         *   - null==io_overlapped
+         *     - WAIT_TIMEOUT==errcode 超时
+         *     - 其他错误
+         *   - null!=io_overlapped
+         *     - ERROR_SUCESS==errcode && 0==bytes_transfered 连接关闭
+         *     - 连接错误
+         * - FALSE!=rs 正常返回，此时 null!=io_overlapped, bytes_transfered>0
+         */
         BOOL rs = ::GetQueuedCompletionStatus(_iocp, &bytes_transfered, (PULONG_PTR) &key,
                                               &io_overlapped, timeout_ms);
-        // NOTE 返回值为 False, 但是返回的 io_overlapped 不为 nullptr, 则仅仅说明链接被中断了
-        if (FALSE == rs && nullptr == io_overlapped)
+        const DWORD errcode = (FALSE == rs ? ::GetLastError() : ERROR_SUCCESS);
+        if (nullptr == io_overlapped)
         {
-            const DWORD errcode = ::GetLastError();
-            // NOTE WAIT_TIMEOUT 表示等待超时;
-            //      timeout_ms 传入 0, 而无事件可处理, 触发 ERROR_SUCCESS 错误;
-            if (WAIT_TIMEOUT != errcode && ERROR_SUCCESS != errcode)
+            assert(FALSE == rs);
+            if (WAIT_TIMEOUT != errcode) // WAIT_TIMEOUT 表示等待超时，是正常的
             {
                 NUT_LOG_W(TAG, "failed to call ::GetQueuedCompletionStatus() with GetLastError() %d",
                           errcode);
                 return -1;
             }
         }
+        else if (FALSE == rs && ERROR_SUCCESS != errcode)
+        {
+            ProactHandler *handler = (ProactHandler*) key;
+            assert(nullptr != handler);
+            handler->handle_exception(from_errno(errcode)); // 连接错误
+        }
         else
         {
-            assert(FALSE != rs || 0 == bytes_transfered);
+            // ERROR_SUCCESS == errcode && 0 == bytes_transfered 表示连接关闭
+            assert(FALSE != rs || (ERROR_SUCCESS == errcode && 0 == bytes_transfered));
 
             ProactHandler *handler = (ProactHandler*) key;
             assert(nullptr != handler);
 
-            assert(nullptr != io_overlapped);
             IORequest *io_request = CONTAINING_RECORD(io_overlapped, IORequest, overlapped);
             assert(nullptr != io_request);
 

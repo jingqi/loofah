@@ -2,6 +2,8 @@
 #ifndef ___HEADFILE_4AE79154_FD6F_4764_AA01_F44F7183F1A8_
 #define ___HEADFILE_4AE79154_FD6F_4764_AA01_F44F7183F1A8_
 
+#include "../loofah_config.h"
+
 #include <nut/platform/platform.h>
 
 #if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
@@ -16,17 +18,25 @@
 // 未知错误
 #define LOOFAH_ERR_UNKNOWN -1
 
-// non-block 操作不能立即完成，会 block
-#define LOOFAH_ERR_WOULD_BLOCK -2
-
 // 无效 socket fd
-#define LOOFAH_ERR_INVALID_FD -3
+#define LOOFAH_ERR_INVALID_FD -2
+
+// non-block 操作不能立即完成，会 block
+#define LOOFAH_ERR_WOULD_BLOCK -3
+
+// socket 未连接完成
+#define LOOFAH_ERR_NOT_CONNECTED -4
 
 // 连接被重置
-#define LOOFAH_ERR_CONNECTION_RESET -4
+// NOTE 对端发送了 RST 包
+#define LOOFAH_ERR_CONNECTION_RESET -5
+
+// socket 被放弃
+// NOTE 对端发送了 FIN 之后又发送了 RST 包
+#define LOOFAH_ERR_CONNECTION_ABORTED -6
 
 // package 大小超限
-#define LOOFAH_ERR_PKG_OVERSIZE -5
+#define LOOFAH_ERR_PKG_OVERSIZE -7
 
 
 // logging errno
@@ -75,7 +85,7 @@ int from_errno(int err);
 /**
  * loofah error 字符串描述
  */
-const char* str_error(int err);
+LOOFAH_API const char* str_error(int err);
 
 }
 

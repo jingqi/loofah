@@ -11,10 +11,6 @@ namespace loofah
 template <typename CHANNEL>
 class ProactConnector : public ConnectorBase
 {
-private:
-    // Invalid methods
-    ProactConnector() = delete;
-
 public:
     static nut::rc_ptr<CHANNEL> connect(const InetAddr& address)
     {
@@ -25,6 +21,9 @@ public:
             channel.set_null();
         return channel;
     }
+
+private:
+    ProactConnector() = delete;
 };
 
 }

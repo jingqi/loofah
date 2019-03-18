@@ -12,6 +12,9 @@ class LOOFAH_API ConnectorBase
 {
 protected:
     static bool connect(Channel *channel, const InetAddr& address);
+
+private:
+    ConnectorBase() = delete;
 };
 
 }

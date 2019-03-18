@@ -10,7 +10,6 @@
 #define TAG "test_reactor"
 #define LISTEN_ADDR "localhost"
 #define LISTEN_PORT 2345
-#define BUF_LEN 256
 
 using namespace nut;
 using namespace loofah;
@@ -142,23 +141,34 @@ public:
 
 }
 
-void test_reactor()
+class TestReactor : public TestFixture
 {
-    // start server
-    rc_ptr<ReactAcceptor<ServerChannel> > acc = rc_new<ReactAcceptor<ServerChannel> >();
-    InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
-    acc->open(addr);
-    g_reactor.register_handler_later(acc, ReactHandler::READ_MASK);
-    NUT_LOG_D(TAG, "server listening at %s, fd %d", addr.to_string().c_str(), acc->get_socket());
-
-    // start client
-    NUT_LOG_D(TAG, "client will connect to %s", addr.to_string().c_str());
-    nut::rc_ptr<ClientChannel> client = ReactConnector<ClientChannel>::connect(addr);
-
-    // loop
-    while (!g_server_channels.empty() || LOOFAH_INVALID_SOCKET_FD != client->get_socket())
+    virtual void register_cases() override
     {
-        if (g_reactor.handle_events() < 0)
-            break;
+        NUT_REGISTER_CASE(test_reactor);
     }
-}
+
+    void test_reactor()
+    {
+        // start server
+        rc_ptr<ReactAcceptor<ServerChannel> > acc = rc_new<ReactAcceptor<ServerChannel> >();
+        InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
+        acc->open(addr);
+        g_reactor.register_handler_later(acc, ReactHandler::READ_MASK);
+        NUT_LOG_D(TAG, "server listening at %s, fd %d", addr.to_string().c_str(), acc->get_socket());
+
+        // start client
+        NUT_LOG_D(TAG, "client will connect to %s", addr.to_string().c_str());
+        nut::rc_ptr<ClientChannel> client = ReactConnector<ClientChannel>::connect(addr);
+
+        // loop
+        while (!g_server_channels.empty() || LOOFAH_INVALID_SOCKET_FD != client->get_socket())
+        {
+            if (g_reactor.handle_events() < 0)
+                break;
+        }
+    }
+
+};
+
+NUT_REGISTER_FIXTURE(TestReactor, "react, all")
