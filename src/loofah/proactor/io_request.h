@@ -15,6 +15,8 @@
 
 #include <string.h> // for size_t
 
+#include "proact_handler.h"
+
 
 namespace loofah
 {
@@ -23,11 +25,11 @@ class IORequest
 {
 public:
 #if NUT_PLATFORM_OS_WINDOWS
-    static IORequest* new_request(int event_type, size_t buf_count,
-                                  socket_t listening_socket = LOOFAH_INVALID_SOCKET_FD,
-                                  socket_t accept_socket = LOOFAH_INVALID_SOCKET_FD);
+    static IORequest* new_request(
+        ProactHandler *handler, ProactHandler::mask_type event_type,
+        size_t buf_count = 0, socket_t accept_socket = LOOFAH_INVALID_SOCKET_FD);
 #else
-    static IORequest* new_request(int event_type, size_t buf_count);
+    static IORequest* new_request(ProactHandler::mask_type event_type, size_t buf_count = 0);
 #endif
 
     static void delete_request(IORequest *p);
@@ -37,13 +39,12 @@ public:
 
 private:
 #if NUT_PLATFORM_OS_WINDOWS
-    IORequest(int event_type_, size_t buf_count_, socket_t listening_socket,
-              socket_t accept_socket_);
+    IORequest(ProactHandler *handler, ProactHandler::mask_type event_type_,
+              size_t buf_count_, socket_t accept_socket_);
 #else
-    IORequest(int event_type_, size_t buf_count_);
+    IORequest(ProactHandler::mask_type event_type_, size_t buf_count_);
 #endif
 
-    // Non-copyable
     IORequest(const IORequest&) = delete;
     IORequest& operator=(const IORequest&) = delete;
 
@@ -54,11 +55,13 @@ public:
     // NOTE OVERLAPPED 必须放在首位
     OVERLAPPED overlapped;
 
+    // Handler
+    ProactHandler *handler = nullptr;
+
     // 事件类型
-    int event_type = 0;
+    ProactHandler::mask_type event_type = 0;
 
     // 为 AcceptEx() 准备的数据
-    socket_t listening_socket = LOOFAH_INVALID_SOCKET_FD;
     socket_t accept_socket = LOOFAH_INVALID_SOCKET_FD;
 
     const size_t buf_count = 0;
@@ -67,7 +70,7 @@ public:
     WSABUF wsabufs[1];
 #else
     // 事件类型
-    int event_type = 0;
+    ProactHandler::mask_type event_type = 0;
 
     const size_t buf_count = 0;
 

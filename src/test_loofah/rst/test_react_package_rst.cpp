@@ -27,7 +27,7 @@ Reactor reactor;
 TimeWheel timewheel;
 
 rc_ptr<ServerChannel> server;
-ClientChannel *client = nullptr;
+rc_ptr<ClientChannel> client;
 int prepared = 0;
 
 void testing();
@@ -74,7 +74,7 @@ public:
         NUT_LOG_D(TAG, "server received %d bytes: %d", rs, data);
     }
 
-    virtual void handle_error(int err) override
+    virtual void handle_exception(int err) override
     {
         NUT_LOG_E(TAG, "server error %d: %s", err, str_error(err));
     }
@@ -102,9 +102,10 @@ public:
         NUT_LOG_D(TAG, "client close");
         reactor.unregister_handler(this);
         _sock_stream.close();
+        client = nullptr;
     }
 
-    virtual void handle_connected() override
+    virtual void handle_channel_connected() override
     {
         NUT_LOG_D(TAG, "client make a connection, fd %d", get_socket());
         reactor.register_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
@@ -133,7 +134,7 @@ public:
         reactor.disable_handler(this, ReactHandler::WRITE_MASK);
     }
 
-    virtual void handle_exception(int err) override
+    virtual void handle_io_exception(int err) override
     {
         NUT_LOG_E(TAG, "client exception %d: %s", err, str_error(err));
     }
@@ -184,18 +185,19 @@ class TestReactPackageRST : public TestFixture
     void test_react_pkg_rst()
     {
         // start server
-        rc_ptr<ReactAcceptor<ServerChannel> > acc = rc_new<ReactAcceptor<ServerChannel> >();
         InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
-        acc->open(addr);
-        reactor.register_handler_later(acc, ReactHandler::READ_MASK);
+        rc_ptr<ReactAcceptor<ServerChannel>> acc = rc_new<ReactAcceptor<ServerChannel>>();
+        acc->listen(addr);
+        reactor.register_handler_later(acc, ReactHandler::ACCEPT_MASK);
         NUT_LOG_D(TAG, "server listening at %s, fd %d", addr.to_string().c_str(), acc->get_socket());
 
         // start client
         NUT_LOG_D(TAG, "client will connect to %s", addr.to_string().c_str());
-        nut::rc_ptr<ClientChannel> refclient = ReactConnector<ClientChannel>::connect(addr);
+        ReactConnector<ClientChannel> con;
+        con.connect(&reactor, addr);
 
         // loop
-        while (server != nullptr || LOOFAH_INVALID_SOCKET_FD != refclient->get_socket())
+        while (prepared < 2 || server != nullptr || client != nullptr)
         {
             if (reactor.handle_events(TimeWheel::TICK_GRANULARITY_MS) < 0)
                 break;

@@ -1,19 +1,13 @@
 ﻿
+#include "../loofah_config.h"
+
+#include <assert.h>
+
 #include <nut/platform/platform.h>
-
-#if NUT_PLATFORM_OS_WINDOWS
-#   include <winsock2.h>
-#   include <windows.h>
-#else
-#   include <sys/socket.h> // for ::socket() and so on
-#   include <netinet/in.h> // for sockaddr_in
-#   include <errno.h>
-#   include <string.h> // for ::strerror()
-#endif
-
 #include <nut/logging/logger.h>
 
 #include "react_acceptor.h"
+#include "react_channel.h"
 #include "../inet_base/utils.h"
 #include "../inet_base/sock_operation.h"
 #include "../inet_base/error.h"
@@ -24,7 +18,14 @@
 namespace loofah
 {
 
-bool ReactAcceptorBase::open(const InetAddr& addr, int listen_num)
+ReactAcceptorBase::~ReactAcceptorBase()
+{
+    if (LOOFAH_INVALID_SOCKET_FD != _listening_socket)
+        SockOperation::close(_listening_socket);
+    _listening_socket = LOOFAH_INVALID_SOCKET_FD;
+}
+
+bool ReactAcceptorBase::listen(const InetAddr& addr, int listen_num)
 {
     // Create socket
     const int domain = addr.is_ipv6() ? AF_INET6 : AF_INET;
@@ -55,7 +56,7 @@ bool ReactAcceptorBase::open(const InetAddr& addr, int listen_num)
     if (::listen(_listening_socket, listen_num) < 0)
     {
         LOOFAH_LOG_FD_ERRNO(listen, _listening_socket);
-        NUT_LOG_E(TAG, "failed to call ::listen() with addr %s", addr.to_string().c_str());
+        NUT_LOG_E(TAG, "failed to call listen() with addr %s", addr.to_string().c_str());
         SockOperation::close(_listening_socket);
         _listening_socket = LOOFAH_INVALID_SOCKET_FD;
         return false;
@@ -73,7 +74,25 @@ socket_t ReactAcceptorBase::get_socket() const
     return _listening_socket;
 }
 
-socket_t ReactAcceptorBase::handle_accept(socket_t listening_socket)
+void ReactAcceptorBase::handle_accept_ready()
+{
+    // NOTE 在 edge-trigger 模式下，需要一次接收干净
+    while (true)
+    {
+        // Accept
+        const socket_t fd = accept(_listening_socket);
+        if (LOOFAH_INVALID_SOCKET_FD == fd)
+            break;
+
+        // Create new handler
+        nut::rc_ptr<ReactChannel> channel = create_channel();
+        channel->initialize();
+        channel->open(fd);
+        channel->handle_channel_connected();
+    }
+}
+
+socket_t ReactAcceptorBase::accept(socket_t listening_socket)
 {
     InetAddr peer_addr;
     socklen_t rsz = peer_addr.get_max_sockaddr_size();
@@ -99,12 +118,22 @@ socket_t ReactAcceptorBase::handle_accept(socket_t listening_socket)
     return fd;
 }
 
-void ReactAcceptorBase::handle_write_ready()
+void ReactAcceptorBase::handle_connect_ready()
 {
-    // Dummy for an acceptor
+    assert(false); // Should not run into this place
 }
 
-void ReactAcceptorBase::handle_exception(int err)
+void ReactAcceptorBase::handle_read_ready()
+{
+    assert(false); // Should not run into this place
+}
+
+void ReactAcceptorBase::handle_write_ready()
+{
+    assert(false); // Should not run into this place
+}
+
+void ReactAcceptorBase::handle_io_exception(int err)
 {
     NUT_LOG_E(TAG, "fd %d, loofah error raised %d: %s", get_socket(),
               err, str_error(err));

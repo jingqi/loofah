@@ -4,7 +4,8 @@
 
 #include "../loofah_config.h"
 
-#include <list>
+#include <deque>
+#include <atomic>
 
 #include <nut/rc/rc_ptr.h>
 #include <nut/time/time_wheel.h>
@@ -35,6 +36,11 @@ public:
     size_t get_max_payload_size() const;
 
     /**
+     * 连接完成
+     */
+    virtual void handle_connected() = 0;
+
+    /**
      * 读到 package
      *
      * @param pkg 为 nullptr 时表示读通道关闭
@@ -46,7 +52,7 @@ public:
      *
      * NOTE 开始关闭连接后，不再收到该事件
      */
-    virtual void handle_error(int err);
+    virtual void handle_exception(int err);
 
     /**
      * 连接已关闭
@@ -73,8 +79,7 @@ public:
 
 protected:
     virtual SockStream& get_sock_stream() = 0;
-
-    virtual void handle_exception(int err) = 0;
+    virtual void handle_io_exception(int err) = 0;
 
     /**
      * 从读缓存分包，并触发 handle_read()/headle_exception()
@@ -93,14 +98,14 @@ protected:
     EventLoopBase *_actor = nullptr;
 
     // 写队列
-    typedef std::list<nut::rc_ptr<Package>> queue_t;
+    typedef std::deque<nut::rc_ptr<Package>> queue_t;
     queue_t _pkg_write_queue;
 
     // 读缓存
     nut::rc_ptr<Package> _reading_pkg;
 
     // 是否等待关闭
-    bool _closing = false;
+    std::atomic<bool>_closing = ATOMIC_VAR_INIT(false);
 
     NUT_DEBUGGING_DESTROY_CHECKER
 

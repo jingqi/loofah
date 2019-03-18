@@ -41,10 +41,12 @@ public:
     /**
      * ReactChannel 接口实现
      */
-    virtual void open(socket_t fd) final override;
+    virtual void open(socket_t fd) override;
+    virtual void handle_channel_connected() final override;
+
     virtual void handle_read_ready() final override;
     virtual void handle_write_ready() final override;
-    virtual void handle_exception(int err) final override;
+    virtual void handle_io_exception(int err) final override;
 
 private:
     virtual SockStream& get_sock_stream() final override;

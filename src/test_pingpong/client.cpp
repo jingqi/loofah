@@ -11,7 +11,8 @@ namespace
 {
 
 class ClientChannel;
-std::vector<rc_ptr<ClientChannel> > g_client_channels;
+
+std::vector<rc_ptr<ClientChannel>> g_client_channels;
 
 class ClientChannel : public ProactChannel
 {
@@ -21,6 +22,7 @@ public:
     ClientChannel()
     {
         _buf = ::malloc(g_global.block_size);
+        ::memset(_buf, 0x9d, g_global.block_size);
     }
 
     ~ClientChannel()
@@ -33,9 +35,9 @@ public:
         g_client_channels.push_back(this);
     }
 
-    virtual void handle_connected() override
+    virtual void handle_channel_connected() override
     {
-        NUT_LOG_D(TAG, "client channel connected");
+        NUT_LOG_D(TAG, "client channel connected, fd %d", get_socket());
         g_global.proactor.register_handler(this);
         g_global.proactor.launch_write(this, &_buf, &g_global.block_size, 1);
     }
@@ -66,7 +68,7 @@ public:
         g_global.proactor.launch_read(this, &_buf, &g_global.block_size, 1);
     }
 
-    virtual void handle_exception(int err) final override
+    virtual void handle_io_exception(int err) final override
     {
         NUT_LOG_E(TAG, "client exception %d: %s", err, str_error(err));
     }
@@ -77,9 +79,10 @@ public:
 void start_client()
 {
     InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
+    ProactConnector<ClientChannel> con;
     for (int i = 0; i < g_global.connection_num; ++i)
     {
-        rc_ptr<ClientChannel> client = ProactConnector<ClientChannel>::connect(addr);
+        con.connect(&g_global.proactor, addr);
         NUT_LOG_D(TAG, "client will connect to %s", addr.to_string().c_str());
     }
 }

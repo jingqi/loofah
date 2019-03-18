@@ -13,10 +13,15 @@ using namespace loofah;
 namespace
 {
 
-Reactor g_reactor;
-TimeWheel g_timewheel;
 class ServerChannel;
-std::vector<rc_ptr<ServerChannel> > g_server_channels;
+class ClientChannel;
+
+Reactor reactor;
+TimeWheel timewheel;
+
+rc_ptr<ServerChannel> server;
+rc_ptr<ClientChannel> client;
+bool prepared = false;
 
 class ServerChannel : public ReactPackageChannel
 {
@@ -26,11 +31,12 @@ public:
     virtual void initialize() override
     {
         // Initialize
-        set_reactor(&g_reactor);
-        set_time_wheel(&g_timewheel);
+        set_reactor(&reactor);
+        set_time_wheel(&timewheel);
 
         // Hold reference
-        g_server_channels.push_back(this);
+        server = this;
+		prepared = true;
     }
 
     virtual void handle_connected() override
@@ -67,14 +73,7 @@ public:
         NUT_LOG_D(TAG, "server closed");
 
         // Unhold reference
-        for (size_t i = 0, sz = g_server_channels.size(); i < sz; ++i)
-        {
-            if (g_server_channels.at(i).pointer() == this)
-            {
-                g_server_channels.erase(g_server_channels.begin() + i);
-                break;
-            }
-        }
+		server = nullptr;
     }
 };
 
@@ -86,8 +85,10 @@ public:
     virtual void initialize() override
     {
         // Initialize
-        set_reactor(&g_reactor);
-        set_time_wheel(&g_timewheel);
+        set_reactor(&reactor);
+        set_time_wheel(&timewheel);
+
+		client = this;
     }
 
     virtual void handle_connected() override
@@ -135,6 +136,7 @@ public:
     virtual void handle_close() override
     {
         NUT_LOG_D(TAG, "client closed");
+		client = nullptr;
     }
 };
 
@@ -150,22 +152,23 @@ class TestReactPackageChannel : public TestFixture
     void test_react_package_channel()
     {
         // Start server
-        rc_ptr<ReactAcceptor<ServerChannel>> acc = rc_new<ReactAcceptor<ServerChannel> >();
         InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
-        acc->open(addr);
-        g_reactor.register_handler_later(acc, ReactHandler::READ_MASK);
+        rc_ptr<ReactAcceptor<ServerChannel>> acc = rc_new<ReactAcceptor<ServerChannel> >();
+        acc->listen(addr);
+        reactor.register_handler_later(acc, ReactHandler::ACCEPT_MASK);
         NUT_LOG_D(TAG, "server listening at %s, fd %d", addr.to_string().c_str(), acc->get_socket());
 
         // Start client
         NUT_LOG_D(TAG, "client connect to %s", addr.to_string().c_str());
-        rc_ptr<ClientChannel> client = ReactConnector<ClientChannel>::connect(addr);
+        ReactConnector<ClientChannel> con;
+		con.connect(&reactor, addr);
 
         // Loop
-        while (!g_server_channels.empty() || LOOFAH_INVALID_SOCKET_FD != client->get_socket())
+        while (!prepared || server != nullptr || client != nullptr)
         {
-            if (g_reactor.handle_events(TimeWheel::TICK_GRANULARITY_MS) < 0)
+            if (reactor.handle_events(TimeWheel::TICK_GRANULARITY_MS) < 0)
                 break;
-            g_timewheel.tick();
+            timewheel.tick();
         }
     }
 };

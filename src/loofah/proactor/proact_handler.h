@@ -32,10 +32,17 @@ public:
     enum EventType
     {
         ACCEPT_MASK = 0x01,
-        READ_MASK = 0x02,
-        WRITE_MASK = 0x04,
-        EXCEPT_MASK = 0x08,
+        CONNECT_MASK = 0x02,
+        READ_MASK = 0x04,
+        WRITE_MASK = 0x08,
+
+        ACCEPT_READ_MASK = ACCEPT_MASK | READ_MASK,
+        CONNECT_WRITE_MASK = CONNECT_MASK | WRITE_MASK,
+        READ_WRITE_MASK = READ_MASK | WRITE_MASK,
+        ALL_MASK = ACCEPT_MASK | CONNECT_MASK | READ_MASK | WRITE_MASK,
     };
+
+    typedef uint8_t mask_type;
 
 public:
     ProactHandler() = default;
@@ -50,6 +57,11 @@ public:
      * acceptor 收到链接
      */
     virtual void handle_accept_completed(socket_t fd) = 0;
+
+    /**
+     * connector 连接完成
+     */
+    virtual void handle_connect_completed() = 0;
 
     /**
      * channel 收到数据; 如果 cb==0, 则是读通道关闭事件
@@ -71,17 +83,33 @@ public:
      *
      * @param err 错误码, 如 LOOFAH_ERR_PKG_OVERSIZE 等
      */
-    virtual void handle_exception(int err) = 0;
+    virtual void handle_io_exception(int err) = 0;
 
 private:
     ProactHandler(const ProactHandler&) = delete;
     ProactHandler& operator=(const ProactHandler&) = delete;
 
+protected:
+    Proactor *_proactor = nullptr;
+
 private:
-#if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
-    int _registered_events = 0; // 用于记录注册状态，参见 Proactor 的实现
-    int _request_accept = 0;
+#if NUT_PLATFORM_OS_MAC | NUT_PLATFORM_OS_LINUX
+    // ACCEPT_MASK, CONNECT_MASK, READ_MASK, WRITE_MASK
+    mask_type _enabled_events = 0;
+
+    // accept 请求数
+    size_t _request_accept = 0;
+
+    // 读写请求队列
     std::queue<IORequest*> _read_queue, _write_queue;
+#endif
+
+    // 用于记录注册状态，参见 Proactor 的实现
+#if NUT_PLATFORM_OS_MAC
+    // READ_MASK, WRITE_MASK
+    mask_type _registered_events = 0;
+#elif NUT_PLATFORM_OS_LINUX
+    bool _registered = false;
 #endif
 };
 

@@ -10,7 +10,6 @@
 #define TAG "test_package_manually"
 #define LISTEN_ADDR "localhost"
 #define LISTEN_PORT 2345
-#define BUF_LEN 256
 
 using namespace nut;
 using namespace loofah;
@@ -18,21 +17,26 @@ using namespace loofah;
 namespace
 {
 
-Proactor g_proactor;
-TimeWheel g_timewheel;
-
 class ServerChannel;
-rc_ptr<ServerChannel> g_server;
+class ClientChannel;
+
+Proactor proactor;
+TimeWheel timewheel;
+
+rc_ptr<ServerChannel> server;
+rc_ptr<ClientChannel> client;
+bool prepared = false;
 
 class ServerChannel : public ProactPackageChannel
 {
 public:
     virtual void initialize() override
     {
-        set_proactor(&g_proactor);
-        set_time_wheel(&g_timewheel);
+        set_proactor(&proactor);
+        set_time_wheel(&timewheel);
 
-        g_server = this;
+        server = this;
+        prepared = true;
     }
 
     void writeint(int data)
@@ -61,7 +65,7 @@ public:
         NUT_LOG_D(TAG, "server received %d bytes: %d", rs, data);
     }
 
-    virtual void handle_error(int err) override
+    virtual void handle_exception(int err) override
     {
         NUT_LOG_D(TAG, "server error %d", err);
     }
@@ -70,7 +74,7 @@ public:
     {
         NUT_LOG_D(TAG, "server closed");
 
-        g_server = nullptr;
+        server = nullptr;
     }
 };
 
@@ -80,34 +84,37 @@ class ClientChannel : public ProactChannel
 
 public:
     virtual void initialize() override
-    {}
+    {
+        client = this;
+    }
 
     void write(int data)
     {
         void *buf = &data;
         size_t len = sizeof(data);
-        g_proactor.launch_write(this, &buf, &len, 1);
+        proactor.launch_write(this, &buf, &len, 1);
     }
 
     void read()
     {
         void *buf = &_read_data;
         size_t len = sizeof(_read_data);
-        g_proactor.launch_read(this, &buf, &len, 1);
+        proactor.launch_read(this, &buf, &len, 1);
     }
 
     void close()
     {
         NUT_LOG_D(TAG, "client close");
-        g_proactor.unregister_handler(this);
+        proactor.unregister_handler(this);
         _sock_stream.close();
+        client = nullptr;
     }
 
-    virtual void handle_connected() override
+    virtual void handle_channel_connected() override
     {
         NUT_LOG_D(TAG, "client make a connection, fd %d", get_socket());
 
-        g_proactor.register_handler(this);
+        proactor.register_handler(this);
     }
 
     virtual void handle_read_completed(size_t cb) override
@@ -120,7 +127,7 @@ public:
         NUT_LOG_D(TAG, "client send %d bytes", cb);
     }
 
-    virtual void handle_exception(int err) override
+    virtual void handle_io_exception(int err) override
     {
         NUT_LOG_D(TAG, "client exception %d", err);
     }
@@ -131,46 +138,47 @@ public:
 void test_proact_package_manually()
 {
     // start server
-    rc_ptr<ProactAcceptor<ServerChannel>> acc = rc_new<ProactAcceptor<ServerChannel>>();
     InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
-    acc->open(addr);
-    g_proactor.register_handler_later(acc);
-    g_proactor.launch_accept_later(acc);
+    rc_ptr<ProactAcceptor<ServerChannel>> acc = rc_new<ProactAcceptor<ServerChannel>>();
+    acc->listen(addr);
+    proactor.register_handler_later(acc);
+    proactor.launch_accept_later(acc);
     NUT_LOG_D(TAG, "server listening at %s, fd %d", addr.to_string().c_str(), acc->get_socket());
 
     // start client
     NUT_LOG_D(TAG, "client will connect to %s", addr.to_string().c_str());
-    nut::rc_ptr<ClientChannel> client = ProactConnector<ClientChannel>::connect(addr);
+    ProactConnector<ClientChannel> con;
+    con.connect(&proactor, addr);
 
-    g_timewheel.add_timer(
+    timewheel.add_timer(
         500, 0,
         [=](TimeWheel::timer_id_type id, uint64_t expires) {
-            // g_server->read();
-            SockOperation::shutdown_read(g_server->get_socket());
+            // server->read();
+            SockOperation::shutdown_read(server->get_socket());
 
-            g_server->writeint(0);
+            server->writeint(0);
         });
 
-    g_timewheel.add_timer(
+    timewheel.add_timer(
         1000, 0,
         [=](TimeWheel::timer_id_type id, uint64_t expires) {
-            // g_server->read();
+            // server->read();
             client->close();
         });
 
-    g_timewheel.add_timer(
+    timewheel.add_timer(
         1500, 0,
         [=](TimeWheel::timer_id_type id, uint64_t expires) {
-            int fd = g_server->get_socket();
+            int fd = server->get_socket();
             // int e = SockOperation::get_last_error(fd);
             // NUT_LOG_D(TAG, "current --> %d, %d: %s",
             //           SockOperation::is_valid(fd),
             //           e, strerror(e));
 
-            g_server->writeint(1);
+            server->writeint(1);
         });
 
-    g_timewheel.add_timer(
+    timewheel.add_timer(
         2000, 0,
         [=](TimeWheel::timer_id_type id, uint64_t expires) {
             NUT_LOG_D(TAG, "good");
@@ -178,10 +186,10 @@ void test_proact_package_manually()
 
 
     // loop
-    while (!g_server.is_null() || LOOFAH_INVALID_SOCKET_FD != client->get_socket())
+    while (!prepared || server != nullptr || client != nullptr)
     {
-        if (g_proactor.handle_events(TimeWheel::TICK_GRANULARITY_MS) < 0)
+        if (proactor.handle_events(TimeWheel::TICK_GRANULARITY_MS) < 0)
             break;
-        g_timewheel.tick();
+        timewheel.tick();
     }
 }

@@ -42,10 +42,12 @@ public:
     /**
      * ProactChannel 接口实现
      */
-    virtual void open(socket_t fd) final override;
+    virtual void open(socket_t fd) override;
+    virtual void handle_channel_connected() final override;
+
     virtual void handle_read_completed(size_t cb) final override;
     virtual void handle_write_completed(size_t cb) final override;
-    virtual void handle_exception(int err) override;
+    virtual void handle_io_exception(int err) override;
 
 private:
     virtual SockStream& get_sock_stream() final override;

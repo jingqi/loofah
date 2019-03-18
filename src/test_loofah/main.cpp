@@ -48,7 +48,7 @@ int main(int argc, char **argv)
     ConsoleTestLogger l;
     TestRunner runner(&l);
     runner.run_group("all");
-    // runner.run_fixture("TestProactPackageRST");
+    // runner.run_fixture("TestReactor");
     // runner.run_case("TestConcurrentHashMap", "test_multi_thread");
 
     // 手工测试

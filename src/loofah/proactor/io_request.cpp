@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <new>
+#include <algorithm> // for std::max()
 
 #include "io_request.h"
 
@@ -10,39 +11,38 @@ namespace loofah
 {
 
 #if NUT_PLATFORM_OS_WINDOWS
-IORequest::IORequest(int event_type_, size_t buf_count_,
-                     socket_t listening_socket_, socket_t accept_socket_)
-    : event_type(event_type_), listening_socket(listening_socket_),
-      accept_socket(accept_socket_), buf_count(buf_count_)
+IORequest::IORequest(ProactHandler *handler_, ProactHandler::mask_type event_type_,
+                     size_t buf_count_, socket_t accept_socket_)
+    : handler(handler_), event_type(event_type_), accept_socket(accept_socket_),
+      buf_count(buf_count_)
 {
-    assert(buf_count_ > 0);
+    assert(nullptr != handler_);
     ::memset(&overlapped, 0, sizeof(overlapped));
 }
 #else
-IORequest::IORequest(int event_type_, size_t buf_count_)
+IORequest::IORequest(ProactHandler::mask_type event_type_, size_t buf_count_)
     : event_type(event_type_), buf_count(buf_count_)
-{
-    assert(buf_count_ > 0);
-}
+{}
 #endif
 
 #if NUT_PLATFORM_OS_WINDOWS
-IORequest* IORequest::new_request(int event_type, size_t buf_count,
-                                  socket_t listening_socket, socket_t accept_socket)
+IORequest* IORequest::new_request(
+    ProactHandler *handler, ProactHandler::mask_type event_type, size_t buf_count,
+    socket_t accept_socket)
 {
-    assert(buf_count > 0);
-    IORequest *p = (IORequest*) ::malloc(sizeof(IORequest) +
-                                         sizeof(WSABUF) * (buf_count - 1));
+    assert(nullptr != handler);
+
+    const size_t size = sizeof(IORequest) + sizeof(WSABUF) * (std::max((size_t) 1, buf_count) - 1);
+    IORequest *p = (IORequest*) ::malloc(size);
     assert(nullptr != p);
-    new (p) IORequest(event_type, buf_count, listening_socket, accept_socket);
+    new (p) IORequest(handler, event_type, buf_count, accept_socket);
     return p;
 }
 #else
-IORequest* IORequest::new_request(int event_type, size_t buf_count)
+IORequest* IORequest::new_request(ProactHandler::mask_type event_type, size_t buf_count)
 {
-    assert(buf_count > 0);
-    IORequest *p = (IORequest*) ::malloc(sizeof(IORequest) +
-                                         sizeof(struct iovec) * (buf_count - 1));
+    const size_t size = sizeof(IORequest) + sizeof(struct iovec) * (std::max((size_t) 1, buf_count) - 1);
+    IORequest *p = (IORequest*) ::malloc(size);
     assert(nullptr != p);
     new (p) IORequest(event_type, buf_count);
     return p;

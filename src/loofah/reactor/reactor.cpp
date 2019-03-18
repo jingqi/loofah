@@ -1,5 +1,5 @@
 ﻿
-#include <assert.h>
+#include "../loofah_config.h"
 
 #include <nut/platform/platform.h>
 
@@ -18,19 +18,45 @@
 #   include <errno.h>
 #endif
 
+#include <assert.h>
 #include <string.h>
 
 #include <nut/logging/logger.h>
-#include <nut/rc/rc_new.h>
 
 #include "reactor.h"
 #include "../inet_base/error.h"
+#include "../inet_base/sock_operation.h"
 
 
-#define TAG "loofah.reactor.reactor"
+#define TAG "loofah.reactor"
 
 namespace loofah
 {
+
+namespace
+{
+
+#if NUT_PLATFORM_OS_WINDOWS && WINVER < _WIN32_WINNT_WINBLUE && !defined(FD_COPY)
+void FD_COPY(fd_set *dst, const fd_set *src)
+{
+    assert(nullptr != dst && nullptr != src);
+    const unsigned count = src->fd_count;
+    ::memcpy(dst->fd_array, src->fd_array, sizeof(src->fd_array[0]) * count);
+    dst->fd_count = count;
+}
+#endif
+
+ReactHandler::mask_type real_mask(ReactHandler::mask_type mask)
+{
+    ReactHandler::mask_type ret = 0;
+    if (0 != (mask & ReactHandler::ACCEPT_READ_MASK))
+        ret |= ReactHandler::READ_MASK;
+    if (0 != (mask & ReactHandler::CONNECT_WRITE_MASK))
+        ret |= ReactHandler::WRITE_MASK;
+    return ret;
+}
+
+}
 
 Reactor::Reactor()
 {
@@ -76,14 +102,14 @@ Reactor::~Reactor()
 
 void Reactor::shutdown_later()
 {
-    _closing_or_closed = true;
+    _closing_or_closed.store(true, std::memory_order_relaxed);
 }
 
 void Reactor::shutdown()
 {
     assert(is_in_loop_thread());
 
-    _closing_or_closed = true;
+    _closing_or_closed.store(true, std::memory_order_relaxed);
 
 #if NUT_PLATFORM_OS_WINDOWS && WINVER < _WIN32_WINNT_WINBLUE
     FD_ZERO(&_read_set);
@@ -144,7 +170,7 @@ ssize_t Reactor::binayr_search(ReactHandler *handler)
 }
 #endif
 
-void Reactor::register_handler_later(ReactHandler *handler, int mask)
+void Reactor::register_handler_later(ReactHandler *handler, ReactHandler::mask_type mask)
 {
     assert(nullptr != handler);
 
@@ -161,71 +187,23 @@ void Reactor::register_handler_later(ReactHandler *handler, int mask)
     }
 }
 
-void Reactor::register_handler(ReactHandler *handler, int mask)
+void Reactor::register_handler(ReactHandler *handler, ReactHandler::mask_type mask)
 {
-    assert(nullptr != handler);
+    assert(nullptr != handler && 0 == (mask & ~ReactHandler::ALL_MASK));
+    assert(nullptr == handler->_reactor && 0 == handler->_enabled_events);
     assert(is_in_loop_thread());
 
-    const socket_t fd = handler->get_socket();
-
-#if NUT_PLATFORM_OS_WINDOWS && WINVER < _WIN32_WINNT_WINBLUE
-    if (0 != (mask & ReactHandler::READ_MASK))
-        FD_SET(fd, &_read_set);
-    if (0 != (mask & ReactHandler::WRITE_MASK))
-        FD_SET(fd, &_write_set);
-    _socket_to_handler.insert(std::pair<socket_t,ReactHandler*>(fd, handler));
-#elif NUT_PLATFORM_OS_WINDOWS
-    ensure_capacity(_size + 1);
-    ssize_t index = binary_search(handler);
-    if (index >= 0)
-        return;
-    index = -index - 1;
-    if (index < _size)
-    {
-        ::memmove(_pollfds + index + 1, _pollfds + index, sizeof(WSAPOLLFD) * (_size - index));
-        ::memmove(_handlers + index + 1, _handlers + index, sizeof(ReactHandler*) * (_size - index));
-    }
-    _handlers[index] = handler;
-    _pollfds[index].fd = fd;
-    _pollfds[index].events = 0;
-    _pollfds[index].revents = 0;
-    if (0 != (mask & ReactHandler::READ_MASK))
-        _pollfds[index].events |= POLLIN;
-    if (0 != (mask & ReactHandler::WRITE_MASK))
-        _pollfds[index].events |= POLLOUT;
-    ++_size;
+#if NUT_PLATFORM_OS_WINDOWS && WINVER >= _WIN32_WINNT_WINBLUE
+    assert(!handler->_registered);
 #elif NUT_PLATFORM_OS_MAC
     assert(0 == handler->_registered_events);
-    struct kevent ev[2];
-    int n = 0;
-    if (0 != (mask & ReactHandler::READ_MASK))
-        EV_SET(ev + n++, fd, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, (void*) handler);
-    if (0 != (mask & ReactHandler::WRITE_MASK))
-        EV_SET(ev + n++, fd, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, (void*) handler);
-    if (0 != ::kevent(_kq, ev, n, nullptr, 0, nullptr))
-    {
-        LOOFAH_LOG_FD_ERRNO(kevent, fd);
-        return;
-    }
-    handler->_registered_events = mask;
 #elif NUT_PLATFORM_OS_LINUX
-    assert(0 == handler->_registered_events);
-    struct epoll_event epv;
-    ::memset(&epv, 0, sizeof(epv));
-    epv.data.ptr = (void*) handler;
-    if (0 != (mask & ReactHandler::READ_MASK))
-        epv.events |= EPOLLIN;
-    if (0 != (mask & ReactHandler::WRITE_MASK))
-        epv.events |= EPOLLOUT;
-    if (_edge_triggered)
-        epv.events |= EPOLLET;
-    if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, fd, &epv))
-    {
-        LOOFAH_LOG_FD_ERRNO(epoll_ctl, fd);
-        return;
-    }
-    handler->_registered_events = mask;
+    assert(!handler->_registered);
 #endif
+
+    handler->_reactor = this;
+
+    enable_handler(handler, mask);
 }
 
 void Reactor::unregister_handler_later(ReactHandler *handler)
@@ -247,53 +225,72 @@ void Reactor::unregister_handler_later(ReactHandler *handler)
 
 void Reactor::unregister_handler(ReactHandler *handler)
 {
-    assert(nullptr != handler);
+    assert(nullptr != handler && handler->_reactor == this);
     assert(is_in_loop_thread());
 
     const socket_t fd = handler->get_socket();
 
 #if NUT_PLATFORM_OS_WINDOWS && WINVER < _WIN32_WINNT_WINBLUE
-    if (FD_ISSET(fd, &_read_set))
+    if (0 != (handler->_enabled_events & ReactHandler::ACCEPT_READ_MASK))
         FD_CLR(fd, &_read_set);
-    if (FD_ISSET(fd, &_write_set))
+    if (0 != (handler->_enabled_events & ReactHandler::CONNECT_WRITE_MASK))
         FD_CLR(fd, &_write_set);
-    if (FD_ISSET(fd, &_except_set))
+    if (0 != handler->_enabled_events)
         FD_CLR(fd, &_except_set);
     _socket_to_handler.erase(fd);
+    handler->_enabled_events = 0;
+    handler->_reactor = nullptr;
 #elif NUT_PLATFORM_OS_WINDOWS
-    const ssize_t index = binary_search(handler);
-    if (index < 0)
-        return;
-    if (index + 1 < _size)
+    if (_handlers->_registered)
     {
-        ::memmove(_pollfds + index, _pollfds + index + 1, sizeof(WSAPOLLFD) * (_size - index - 1));
-        ::memmove(_handlers + index, _handlers + index + 1, sizeof(ReactHandler*) * (_size - index - 1));
+        const ssize_t index = binary_search(handler);
+        assert(index >= 0);
+        if (index + 1 < _size)
+        {
+            ::memmove(_pollfds + index, _pollfds + index + 1, sizeof(WSAPOLLFD) * (_size - index - 1));
+            ::memmove(_handlers + index, _handlers + index + 1, sizeof(ReactHandler*) * (_size - index - 1));
+        }
+        --_size;
     }
-    --_size;
+    handler->_registered = false;
+    handler->_enabled_events = 0;
+    handler->_reactor = nullptr;
 #elif NUT_PLATFORM_OS_MAC
     struct kevent ev[2];
-    EV_SET(ev, fd, EVFILT_READ, EV_DELETE, 0, 0, (void*) handler);
-    EV_SET(ev + 1, fd, EVFILT_WRITE, EV_DELETE, 0, 0, (void*) handler);
-    if (0 != ::kevent(_kq, ev, 2, nullptr, 0, nullptr))
+    int n = 0;
+    if (0 != (handler->_registered_events & ReactHandler::READ_MASK))
+        EV_SET(ev + n++, fd, EVFILT_READ, EV_DELETE, 0, 0, (void*) handler);
+    if (0 != (handler->_registered_events & ReactHandler::WRITE_MASK))
+        EV_SET(ev + n++, fd, EVFILT_WRITE, EV_DELETE, 0, 0, (void*) handler);
+    if (n > 0 && 0 != ::kevent(_kq, ev, n, nullptr, 0, nullptr))
     {
         LOOFAH_LOG_FD_ERRNO(kevent, fd);
+        handler->handle_io_exception(from_errno(errno));
         return;
     }
     handler->_registered_events = 0;
+    handler->_enabled_events = 0;
+    handler->_reactor = nullptr;
 #elif NUT_PLATFORM_OS_LINUX
-    struct epoll_event epv;
-    ::memset(&epv, 0, sizeof(epv));
-    epv.data.ptr = (void*) handler;
-    if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_DEL, fd, &epv))
+    if (handler->_registered)
     {
-        LOOFAH_LOG_FD_ERRNO(epoll_ctl, fd);
-        return;
+        struct epoll_event epv;
+        ::memset(&epv, 0, sizeof(epv));
+        epv.data.ptr = (void*) handler;
+        if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_DEL, fd, &epv))
+        {
+            LOOFAH_LOG_FD_ERRNO(epoll_ctl, fd);
+            handler->handle_io_exception(from_errno(errno));
+            return;
+        }
     }
-    handler->_registered_events = 0;
+    handler->_registered = false;
+    handler->_enabled_events = 0;
+    handler->_reactor = nullptr;
 #endif
 }
 
-void Reactor::enable_handler_later(ReactHandler *handler, int mask)
+void Reactor::enable_handler_later(ReactHandler *handler, ReactHandler::mask_type mask)
 {
     assert(nullptr != handler);
 
@@ -310,70 +307,111 @@ void Reactor::enable_handler_later(ReactHandler *handler, int mask)
     }
 }
 
-void Reactor::enable_handler(ReactHandler *handler, int mask)
+void Reactor::enable_handler(ReactHandler *handler, ReactHandler::mask_type mask)
 {
-    assert(nullptr != handler);
+    assert(nullptr != handler && 0 == (mask & ~ReactHandler::ALL_MASK));
+    assert(handler->_reactor == this);
     assert(is_in_loop_thread());
 
+    if (0 == mask)
+        return;
     const socket_t fd = handler->get_socket();
 
+    // NOTE
+    // - 异步 accept
+    //    - 有可读事件
+    // - 异步 connect
+    //   - 成功，有可写事件
+    //   - 失败，有可读、可写事件
 #if NUT_PLATFORM_OS_WINDOWS && WINVER < _WIN32_WINNT_WINBLUE
-    if (0 != (mask & ReactHandler::READ_MASK) && !FD_ISSET(fd, &_read_set))
+    const ReactHandler::mask_type need_enable = ~real_mask(handler->_enabled_events) & real_mask(mask);
+    if (0 != (need_enable & ReactHandler::READ_MASK))
         FD_SET(fd, &_read_set);
-    if (0 != (mask & ReactHandler::WRITE_MASK) && !FD_ISSET(fd, &_write_set))
+    if (0 != (need_enable & ReactHandler::WRITE_MASK))
         FD_SET(fd, &_write_set);
-    _socket_to_handler.insert(std::pair<socket_t,ReactHandler*>(fd, handler));
+    if (0 == handler->_enabled_events)
+        FD_SET(fd, &_except_set);
+    _socket_to_handler.emplace(fd, handler);
+    handler->_enabled_events |= mask;
 #elif NUT_PLATFORM_OS_WINDOWS
-    const ssize_t index = binary_search(handler);
-    if (index < 0)
-        return;
-    if (0 != (mask & ReactHandler::READ_MASK))
+    ssize_t index = binary_search(handler);
+    if (!handler->_registered)
+    {
+        assert(index < 0);
+        index = -index - 1;
+        ensure_capacity(_size + 1);
+        if (index < _size)
+        {
+            ::memmove(_pollfds + index + 1, _pollfds + index, sizeof(WSAPOLLFD) * (_size - index));
+            ::memmove(_handlers + index + 1, _handlers + index, sizeof(ReactHandler*) * (_size - index));
+        }
+        _handlers[index] = handler;
+        _pollfds[index].fd = fd;
+        _pollfds[index].events = 0;
+        _pollfds[index].revents = 0;
+        ++_size;
+    }
+    assert(index >= 0);
+
+    if (0 != (mask & ReactHandler::ACCEPT_READ_MASK))
         _pollfds[index].events |= POLLIN;
-    if (0 != (mask & ReactHandler::WRITE_MASK))
+    if (0 != (mask & ReactHandler::CONNECT_WRITE_MASK))
         _pollfds[index].events |= POLLOUT;
+    handler->_registered = true;
+    handler->_enabled_events |= mask;
 #elif NUT_PLATFORM_OS_MAC
     struct kevent ev[2];
     int n = 0;
-    if (0 != (mask & ReactHandler::READ_MASK))
+    const ReactHandler::mask_type need_enable = ~real_mask(handler->_enabled_events) & real_mask(mask);
+    if (0 != (need_enable & ReactHandler::READ_MASK))
     {
         if (0 != (handler->_registered_events & ReactHandler::READ_MASK))
             EV_SET(ev + n++, fd, EVFILT_READ, EV_ENABLE, 0, 0, (void*) handler);
         else
             EV_SET(ev + n++, fd, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, (void*) handler);
     }
-    if (0 != (mask & ReactHandler::WRITE_MASK))
+    if (0 != (need_enable & ReactHandler::WRITE_MASK))
     {
         if (0 != (handler->_registered_events & ReactHandler::WRITE_MASK))
             EV_SET(ev + n++, fd, EVFILT_WRITE, EV_ENABLE, 0, 0, (void*) handler);
         else
             EV_SET(ev + n++, fd, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, (void*) handler);
     }
-    if (0 != ::kevent(_kq, ev, n, nullptr, 0, nullptr))
+    if (n > 0 && 0 != ::kevent(_kq, ev, n, nullptr, 0, nullptr))
     {
         LOOFAH_LOG_FD_ERRNO(kevent, fd);
+        handler->handle_io_exception(from_errno(errno));
         return;
     }
-    handler->_registered_events |= mask;
+    handler->_registered_events |= need_enable;
+    handler->_enabled_events |= mask;
 #elif NUT_PLATFORM_OS_LINUX
-    struct epoll_event epv;
-    ::memset(&epv, 0, sizeof(epv));
-    epv.data.ptr = (void*) handler;
-    if (0 != (mask & ReactHandler::READ_MASK) || 0 != (handler->_registered_events & ReactHandler::READ_MASK))
-        epv.events |= EPOLLIN;
-    if (0 != (mask & ReactHandler::WRITE_MASK) || 0 != (handler->_registered_events & ReactHandler::WRITE_MASK))
-        epv.events |= EPOLLOUT;
-    if (_edge_triggered)
-        epv.events |= EPOLLET;
-    if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_MOD, fd, &epv))
+    const ReactHandler::mask_type need_enable = ~real_mask(handler->_enabled_events) & real_mask(mask);
+    if (0 != need_enable)
     {
-        LOOFAH_LOG_FD_ERRNO(epoll_ctl, fd);
-        return;
+        struct epoll_event epv;
+        ::memset(&epv, 0, sizeof(epv));
+        epv.data.ptr = (void*) handler;
+        const ReactHandler::mask_type final_enabled = handler->_enabled_events | mask;
+        if (0 != (final_enabled & ReactHandler::ACCEPT_READ_MASK))
+            epv.events |= EPOLLIN;
+        if (0 != (final_enabled & ReactHandler::CONNECT_WRITE_MASK))
+            epv.events |= EPOLLOUT;
+        if (_edge_triggered)
+            epv.events |= EPOLLET;
+        if (0 != ::epoll_ctl(_epoll_fd, (handler->_registered ? EPOLL_CTL_MOD : EPOLL_CTL_ADD), fd, &epv))
+        {
+            LOOFAH_LOG_FD_ERRNO(epoll_ctl, fd);
+            handler->handle_io_exception(from_errno(errno));
+            return;
+        }
     }
-    handler->_registered_events |= mask;
+    handler->_registered = true;
+    handler->_enabled_events |= mask;
 #endif
 }
 
-void Reactor::disable_handler_later(ReactHandler *handler, int mask)
+void Reactor::disable_handler_later(ReactHandler *handler, ReactHandler::mask_type mask)
 {
     assert(nullptr != handler);
 
@@ -390,61 +428,77 @@ void Reactor::disable_handler_later(ReactHandler *handler, int mask)
     }
 }
 
-void Reactor::disable_handler(ReactHandler *handler, int mask)
+void Reactor::disable_handler(ReactHandler *handler, ReactHandler::mask_type mask)
 {
-    assert(nullptr != handler);
+    assert(nullptr != handler && 0 == (mask & ~ReactHandler::ALL_MASK));
+    assert(handler->_reactor == this);
     assert(is_in_loop_thread());
 
+    if (0 == mask)
+        return;
     const socket_t fd = handler->get_socket();
+    const ReactHandler::mask_type final_enabled = real_mask(handler->_enabled_events & ~mask),
+        need_disable = real_mask(handler->_enabled_events) & ~final_enabled;
 
 #if NUT_PLATFORM_OS_WINDOWS && WINVER < _WIN32_WINNT_WINBLUE
-    if (0 != (mask & ReactHandler::READ_MASK) && FD_ISSET(fd, &_read_set))
+    if (0 != (need_disable & ReactHandler::READ_MASK))
         FD_CLR(fd, &_read_set);
-    if (0 != (mask & ReactHandler::WRITE_MASK) && FD_ISSET(fd, &_write_set))
+    if (0 != (need_disable & ReactHandler::WRITE_MASK))
         FD_CLR(fd, &_write_set);
+    if (0 != handler->_enabled_events && 0 == final_enabled)
+        FD_CLR(fd, &_except_set);
+    handler->_enabled_events &= ~mask;
 #elif NUT_PLATFORM_OS_WINDOWS
-    const ssize_t index = binary_search(handler);
-    if (index < 0)
-        return;
-    if (0 != (mask & ReactHandler::READ_MASK))
-        _pollfds[index].events &= ~POLLIN;
-    if (0 != (mask & ReactHandler::WRITE_MASK))
-        _pollfds[index].events &= ~POLLOUT;
+    if (0 != need_disable)
+    {
+        const ssize_t index = binary_search(handler);
+        assert(index >= 0);
+        if (0 != (need_disable & ReactHandler::READ_MASK))
+            _pollfds[index].events &= ~POLLIN;
+        if (0 != (need_disable & ReactHandler::WRITE_MASK))
+            _pollfds[index].events &= ~POLLOUT;
+    }
+    handler->_enabled_events &= ~mask;
 #elif NUT_PLATFORM_OS_MAC
     struct kevent ev[2];
     int n = 0;
-    if (0 != (mask & ReactHandler::READ_MASK))
+    if (0 != (need_disable & ReactHandler::READ_MASK))
         EV_SET(ev + n++, fd, EVFILT_READ, EV_DISABLE, 0, 0, (void*) handler);
-    if (0 != (mask & ReactHandler::WRITE_MASK))
+    if (0 != (need_disable & ReactHandler::WRITE_MASK))
         EV_SET(ev + n++, fd, EVFILT_WRITE, EV_DISABLE, 0, 0, (void*) handler);
-    if (0 != ::kevent(_kq, ev, n, nullptr, 0, nullptr))
+    if (n > 0 && 0 != ::kevent(_kq, ev, n, nullptr, 0, nullptr))
     {
         LOOFAH_LOG_FD_ERRNO(kevent, fd);
+        handler->handle_io_exception(from_errno(errno));
         return;
     }
-    handler->_registered_events &= ~mask;
+    handler->_enabled_events &= ~mask;
 #elif NUT_PLATFORM_OS_LINUX
-    struct epoll_event epv;
-    ::memset(&epv, 0, sizeof(epv));
-    epv.data.ptr = (void*) handler;
-    if (0 == (mask & ReactHandler::READ_MASK) && 0 != (handler->_registered_events & ReactHandler::READ_MASK))
-        epv.events |= EPOLLIN;
-    if (0 == (mask & ReactHandler::WRITE_MASK) && 0 != (handler->_registered_events & ReactHandler::WRITE_MASK))
-        epv.events |= EPOLLOUT;
-    if (_edge_triggered)
-        epv.events |= EPOLLET;
-    if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_MOD, fd, &epv))
+    if (0 != need_disable)
     {
-        LOOFAH_LOG_FD_ERRNO(epoll_ctl, fd);
-        return;
+        struct epoll_event epv;
+        ::memset(&epv, 0, sizeof(epv));
+        epv.data.ptr = (void*) handler;
+        if (0 != (final_enabled & ReactHandler::READ_MASK))
+            epv.events |= EPOLLIN;
+        if (0 != (final_enabled & ReactHandler::WRITE_MASK))
+            epv.events |= EPOLLOUT;
+        if (_edge_triggered)
+            epv.events |= EPOLLET;
+        if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_MOD, fd, &epv))
+        {
+            LOOFAH_LOG_FD_ERRNO(epoll_ctl, fd);
+            handler->handle_io_exception(from_errno(errno));
+            return;
+        }
     }
-    handler->_registered_events &= ~mask;
+    handler->_enabled_events &= ~mask;
 #endif
 }
 
 int Reactor::handle_events(int timeout_ms)
 {
-    if (_closing_or_closed)
+    if (_closing_or_closed.load(std::memory_order_relaxed))
         return -1;
 
     if (!is_in_loop_thread())
@@ -465,7 +519,10 @@ int Reactor::handle_events(int timeout_ms)
             ptimeout = &timeout;
         }
 
-        FD_SET read_set = _read_set, write_set = _write_set, except_set = _except_set;
+        fd_set read_set, write_set, except_set;
+        FD_COPY(&read_set, &_read_set);
+        FD_COPY(&write_set, &_write_set);
+        FD_COPY(&except_set, &_except_set);
 
         const int rs = ::select(0, &read_set, &write_set, &except_set, ptimeout);
         if (SOCKET_ERROR == rs)
@@ -481,7 +538,10 @@ int Reactor::handle_events(int timeout_ms)
                 continue;
             ReactHandler *handler = iter->second;
             assert(nullptr != handler);
-            handler->handle_read_ready();
+            if (0 != (handler->_enabled_events & ReactHandler::ACCEPT_MASK))
+                handler->handle_accept_ready();
+            else
+                handler->handle_read_ready();
         }
         for (unsigned i = 0; i < write_set.fd_count; ++i)
         {
@@ -491,7 +551,20 @@ int Reactor::handle_events(int timeout_ms)
                 continue;
             ReactHandler *handler = iter->second;
             assert(nullptr != handler);
-            handler->handle_write_ready();
+            if (0 != (handler->_enabled_events & ReactHandler::CONNECT_MASK))
+                handler->handle_connect_ready();
+            else
+                handler->handle_write_ready();
+        }
+        for (unsigned i = 0; i < except_set.fd_count; ++i)
+        {
+            socket_t fd = write_set.fd_array[i];
+            std::unordered_map<socket_t, ReactHandler*>::const_iterator iter = _socket_to_handler.find(fd);
+            if (iter == _socket_to_handler.end())
+                continue;
+            ReactHandler *handler = iter->second;
+            assert(nullptr != handler);
+            handler->handle_io_exception(SockOperation::get_last_error(fd));
         }
 #elif NUT_PLATFORM_OS_WINDOWS
         const int rs = ::WSAPoll(_pollfds, _size, timeout_ms);
@@ -500,7 +573,7 @@ int Reactor::handle_events(int timeout_ms)
             LOOFAH_LOG_ERRNO(WSAPoll);
             return -1;
         }
-        int found = 0;
+        size_t found = 0;
         for (ssize_t i = 0; i < (ssize_t) _size && found < rs; ++i)
         {
             const SHORT revents = _pollfds[i].revents;
@@ -523,15 +596,31 @@ int Reactor::handle_events(int timeout_ms)
              * POLLIN = POLLRDNORM | POLLRDBAND
              * POLLOUT = POLLWRNORM
              */
-            if (0 != (revents & POLLHUP) || 0 != (revents & POLLIN))
-                handler->handle_read_ready();
-            if (0 != (revents & POLLOUT))
-                handler->handle_write_ready();
-
             if (0 != (revents & POLLNVAL))
-                handler->handle_exception(LOOFAH_ERR_INVALID_FD);
+            {
+                handler->handle_io_exception(LOOFAH_ERR_INVALID_FD);
+            }
             else if (0 != (revents & POLLERR))
-                handler->handle_exception(LOOFAH_ERR_UNKNOWN);
+            {
+                handler->handle_io_exception(LOOFAH_ERR_UNKNOWN);
+            }
+            else
+            {
+                if (0 != (revents & POLLHUP) || 0 != (revents & POLLIN))
+                {
+                    if (0 != (handler->_enabled_events & ReactHandler::ACCEPT_MASK))
+                        handler->handle_accept_ready();
+                    else
+                        handler->handle_read_ready();
+                }
+                if (0 != (revents & POLLOUT))
+                {
+                    if (0 != (handler->_enabled_events & ReactHandler::CONNECT_MASK))
+                        handler->handle_connect_ready();
+                    else
+                        handler->handle_write_ready();
+                }
+            }
 
             // 如果结构发生改变，则重新定位搜索位置
             if (i >= _size || _handlers[i] != handler)
@@ -547,24 +636,30 @@ int Reactor::handle_events(int timeout_ms)
         timeout.tv_nsec = (timeout_ms % 1000) * 1000 * 1000;
         struct kevent active_evs[LOOFAH_MAX_ACTIVE_EVENTS];
 
-        int n = ::kevent(_kq, nullptr, 0, active_evs, LOOFAH_MAX_ACTIVE_EVENTS, &timeout);
+        const int n = ::kevent(_kq, nullptr, 0, active_evs, LOOFAH_MAX_ACTIVE_EVENTS, &timeout);
         for (int i = 0; i < n; ++i)
         {
             ReactHandler *handler = (ReactHandler*) active_evs[i].udata;
             assert(nullptr != handler);
 
-            int events = active_evs[i].filter;
-            if (events == EVFILT_READ)
+            const int filter = active_evs[i].filter;
+            if (filter == EVFILT_READ)
             {
-                handler->handle_read_ready();
+                if (0 != (handler->_enabled_events & ReactHandler::ACCEPT_MASK))
+                    handler->handle_accept_ready();
+                else
+                    handler->handle_read_ready();
             }
-            else if (events == EVFILT_WRITE)
+            else if (filter == EVFILT_WRITE)
             {
-                handler->handle_write_ready();
+                if (0 != (handler->_enabled_events & ReactHandler::CONNECT_MASK))
+                    handler->handle_connect_ready();
+                else
+                    handler->handle_write_ready();
             }
             else
             {
-                NUT_LOG_E(TAG, "unknown kevent type %d", events);
+                NUT_LOG_E(TAG, "unknown kevent filter type %d", filter);
                 return -1;
             }
         }
@@ -582,10 +677,28 @@ int Reactor::handle_events(int timeout_ms)
             ReactHandler *handler = (ReactHandler*) events[i].data.ptr;
             assert(nullptr != handler);
 
-            if (0 != (events[i].events & EPOLLIN))
-                handler->handle_read_ready();
-            if (0 != (events[i].events & EPOLLOUT))
-                handler->handle_write_ready();
+            if (0 != (events[i].events & EPOLLERR))
+            {
+                const int errcode = SockOperation::get_last_error(handler->get_socket());
+                handler->handle_io_exception(from_errno(errcode));
+            }
+            else
+            {
+                if (0 != (events[i].events & EPOLLIN))
+                {
+                    if (0 != (handler->_enabled_events & ReactHandler::ACCEPT_MASK))
+                        handler->handle_accept_ready();
+                    else
+                        handler->handle_read_ready();
+                }
+                if (0 != (events[i].events & EPOLLOUT))
+                {
+                    if (0 != (handler->_enabled_events & ReactHandler::CONNECT_MASK))
+                        handler->handle_connect_ready();
+                    else
+                        handler->handle_write_ready();
+                }
+            }
         }
 #endif
 

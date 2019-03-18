@@ -21,6 +21,7 @@ ns.set_default_target(join(CWD, out_dir, 'test_loofah' + ns['PROGRAM_SUFFIX']))
 
 # run
 ns.add_dep('@run', 'test_loofah|@run')
+ns.add_dep('@valgrind', 'test_loofah|@valgrind')
 
 # clean
 def clean(target):

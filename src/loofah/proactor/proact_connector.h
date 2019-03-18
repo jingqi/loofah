@@ -2,28 +2,38 @@
 #ifndef ___HEADFILE_69C06121_0AC2_4D52_A730_FD4112450B43_
 #define ___HEADFILE_69C06121_0AC2_4D52_A730_FD4112450B43_
 
-#include "../inet_base/connector_base.h"
+#include <assert.h>
+
+#include <nut/rc/rc_new.h>
+
+#include "proact_handler.h"
+#include "../inet_base/inet_addr.h"
 
 
 namespace loofah
 {
 
-template <typename CHANNEL>
-class ProactConnector : public ConnectorBase
+class ProactChannel;
+
+class LOOFAH_API ProactConnectorBase
 {
 public:
-    static nut::rc_ptr<CHANNEL> connect(const InetAddr& address)
-    {
-        nut::rc_ptr<CHANNEL> channel = nut::rc_new<CHANNEL>();
-        assert(nullptr != channel);
-        channel->initialize();
-        if (!ConnectorBase::connect(channel, address))
-            channel.set_null();
-        return channel;
-    }
+    virtual ~ProactConnectorBase() = default;
 
-private:
-    ProactConnector() = delete;
+    bool connect(Proactor *proactor, const InetAddr& address);
+
+protected:
+    virtual nut::rc_ptr<ProactChannel> create_channel() = 0;
+};
+
+template <typename CHANNEL>
+class ProactConnector : public ProactConnectorBase
+{
+protected:
+    virtual nut::rc_ptr<ProactChannel> create_channel() final override
+    {
+        return nut::rc_new<CHANNEL>();
+    }
 };
 
 }

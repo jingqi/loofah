@@ -17,9 +17,14 @@ using namespace loofah;
 namespace
 {
 
-Proactor g_proactor;
 class ServerChannel;
-std::vector<rc_ptr<ServerChannel> > g_server_channels;
+class ClientChannel;
+
+Proactor proactor;
+
+rc_ptr<ServerChannel> server;
+rc_ptr<ClientChannel> client;
+bool prepared = false;
 
 class ServerChannel : public ProactChannel
 {
@@ -29,18 +34,19 @@ class ServerChannel : public ProactChannel
 public:
     virtual void initialize() override
     {
-        g_server_channels.push_back(this);
+        server = this;
+        prepared = true;
     }
 
-    virtual void handle_connected() override
+    virtual void handle_channel_connected() override
     {
         NUT_LOG_D(TAG, "server got a connection, fd %d", get_socket());
 
-        g_proactor.register_handler(this);
+        proactor.register_handler(this);
 
         void *buf = &_tmp;
         size_t len = sizeof(_tmp);
-        g_proactor.launch_read(this, &buf, &len, 1);
+        proactor.launch_read(this, &buf, &len, 1);
     }
 
     virtual void handle_read_completed(size_t cb) override
@@ -49,17 +55,9 @@ public:
         if (0 == cb) // 正常结束
         {
             NUT_LOG_D(TAG, "server will close");
-            g_proactor.unregister_handler(this);
+            proactor.unregister_handler(this);
             _sock_stream.close();
-            for (size_t i = 0, sz = g_server_channels.size(); i < sz; ++i)
-            {
-                if (g_server_channels.at(i).pointer() == this)
-                {
-                    g_server_channels.erase(g_server_channels.begin() + i);
-                    break;
-
-                }
-            }
+            server = nullptr;
             return;
         }
 
@@ -69,7 +67,7 @@ public:
 
         void *buf = &_counter;
         size_t len = sizeof(_counter);
-        g_proactor.launch_write(this, &buf, &len, 1);
+        proactor.launch_write(this, &buf, &len, 1);
     }
 
     virtual void handle_write_completed(size_t cb) override
@@ -80,10 +78,10 @@ public:
 
         void *buf = &_tmp;
         size_t len = sizeof(_tmp);
-        g_proactor.launch_read(this, &buf, &len, 1);
+        proactor.launch_read(this, &buf, &len, 1);
     }
 
-    virtual void handle_exception(int err) override
+    virtual void handle_io_exception(int err) override
     {
         NUT_LOG_E(TAG, "server exception %d", err);
     }
@@ -96,17 +94,19 @@ class ClientChannel : public ProactChannel
 
 public:
     virtual void initialize() override
-    {}
+    {
+        client = this;
+    }
 
-    virtual void handle_connected() override
+    virtual void handle_channel_connected() override
     {
         NUT_LOG_D(TAG, "client make a connection, fd %d", get_socket());
 
-        g_proactor.register_handler(this);
+        proactor.register_handler(this);
 
         void *buf = &_counter;
         size_t len = sizeof(_counter);
-        g_proactor.launch_write(this, &buf, &len, 1);
+        proactor.launch_write(this, &buf, &len, 1);
     }
 
     virtual void handle_read_completed(size_t cb) override
@@ -115,8 +115,9 @@ public:
         if (0 == cb) // 正常结束
         {
             NUT_LOG_D(TAG, "client will close");
-            g_proactor.unregister_handler(this);
+            proactor.unregister_handler(this);
             _sock_stream.close();
+            client = nullptr;
             return;
         }
 
@@ -127,14 +128,15 @@ public:
         if (_counter > 20)
         {
             NUT_LOG_D(TAG, "client will close");
-            g_proactor.unregister_handler(this);
+            proactor.unregister_handler(this);
             _sock_stream.close();
+            client = nullptr;
             return;
         }
 
         void *buf = &_counter;
         size_t len = sizeof(_counter);
-        g_proactor.launch_write(this, &buf, &len, 1);
+        proactor.launch_write(this, &buf, &len, 1);
     }
 
     virtual void handle_write_completed(size_t cb) override
@@ -145,10 +147,10 @@ public:
 
         void *buf = &_tmp;
         size_t len = sizeof(_tmp);
-        g_proactor.launch_read(this, &buf, &len, 1);
+        proactor.launch_read(this, &buf, &len, 1);
     }
 
-    virtual void handle_exception(int err) override
+    virtual void handle_io_exception(int err) override
     {
         NUT_LOG_E(TAG, "client exception %d", err);
     }
@@ -166,21 +168,22 @@ class TestProactor : public TestFixture
     void test_proactor()
     {
         // start server
-        rc_ptr<ProactAcceptor<ServerChannel>> acc = rc_new<ProactAcceptor<ServerChannel>>();
         InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
-        acc->open(addr);
-        g_proactor.register_handler_later(acc);
-        g_proactor.launch_accept_later(acc);
+        rc_ptr<ProactAcceptor<ServerChannel>> acc = rc_new<ProactAcceptor<ServerChannel>>();
+        acc->listen(addr);
+        proactor.register_handler_later(acc);
+        proactor.launch_accept_later(acc);
         NUT_LOG_D(TAG, "server listening at %s, fd %d", addr.to_string().c_str(), acc->get_socket());
 
         // start client
         NUT_LOG_D(TAG, "client will connect to %s", addr.to_string().c_str());
-        rc_ptr<ClientChannel> client = ProactConnector<ClientChannel>::connect(addr);
+        ProactConnector<ClientChannel> con;
+        con.connect(&proactor, addr);
 
         // loop
-        while (!g_server_channels.empty() || LOOFAH_INVALID_SOCKET_FD != client->get_socket())
+        while (!prepared || server != nullptr || client != nullptr)
         {
-            if (g_proactor.handle_events() < 0)
+            if (proactor.handle_events() < 0)
                 break;
         }
     }

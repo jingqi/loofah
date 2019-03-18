@@ -17,9 +17,13 @@ using namespace loofah;
 namespace
 {
 
-Reactor g_reactor;
 class ServerChannel;
-std::vector<rc_ptr<ServerChannel> > g_server_channels;
+class ClientChannel;
+
+Reactor reactor;
+rc_ptr<ServerChannel> server;
+rc_ptr<ClientChannel> client;
+bool prepared = false;
 
 class ServerChannel : public ReactChannel
 {
@@ -28,14 +32,15 @@ class ServerChannel : public ReactChannel
 public:
     virtual void initialize() override
     {
-        g_server_channels.push_back(this);
+        server = this;
+		prepared = true;
     }
 
-    virtual void handle_connected() override
+    virtual void handle_channel_connected() override
     {
         NUT_LOG_D(TAG, "server got a connection, fd %d", get_socket());
-        g_reactor.register_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
-        g_reactor.disable_handler(this, ReactHandler::WRITE_MASK);
+        reactor.register_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
+        reactor.disable_handler(this, ReactHandler::WRITE_MASK);
     }
 
     virtual void handle_read_ready() override
@@ -46,17 +51,9 @@ public:
         if (0 == rs) // 正常结束
         {
             NUT_LOG_D(TAG, "server will close");
-            g_reactor.unregister_handler(this);
+            reactor.unregister_handler(this);
             _sock_stream.close();
-            for (size_t i = 0, sz = g_server_channels.size(); i < sz; ++i)
-            {
-                if (g_server_channels.at(i).pointer() == this)
-                {
-                    g_server_channels.erase(g_server_channels.begin() + i);
-                    break;
-
-                }
-            }
+            server = nullptr;
             return;
         }
 
@@ -64,7 +61,7 @@ public:
         assert(seq == _counter);
         ++_counter;
 
-        g_reactor.enable_handler(this, ReactHandler::WRITE_MASK);
+        reactor.enable_handler(this, ReactHandler::WRITE_MASK);
     }
 
     virtual void handle_write_ready() override
@@ -73,10 +70,10 @@ public:
         NUT_LOG_D(TAG, "server send %d bytes: %d", rs, _counter);
         assert(rs == sizeof(_counter));
         ++_counter;
-        g_reactor.disable_handler(this, ReactHandler::WRITE_MASK);
+        reactor.disable_handler(this, ReactHandler::WRITE_MASK);
     }
 
-    virtual void handle_exception(int err) override
+    virtual void handle_io_exception(int err) override
     {
         NUT_LOG_E(TAG, "server exception %d", err);
     }
@@ -88,13 +85,15 @@ class ClientChannel : public ReactChannel
 
 public:
     virtual void initialize() override
-    {}
+    {
+        client = this;
+    }
 
-    virtual void handle_connected() override
+    virtual void handle_channel_connected() override
     {
         NUT_LOG_D(TAG, "client make a connection, fd %d", get_socket());
-        g_reactor.register_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
-        //g_reactor.disable_handler(this, ReactHandler::WRITE_MASK);
+        reactor.register_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
+        //reactor.disable_handler(this, ReactHandler::WRITE_MASK);
     }
 
     virtual void handle_read_ready() override
@@ -105,8 +104,9 @@ public:
         if (0 == rs) // 正常结束
         {
             NUT_LOG_D(TAG, "client will close");
-            g_reactor.unregister_handler(this);
+            reactor.unregister_handler(this);
             _sock_stream.close();
+            client = nullptr;
             return;
         }
 
@@ -117,11 +117,12 @@ public:
         if (_counter > 20)
         {
             NUT_LOG_D(TAG, "client will close");
-            g_reactor.unregister_handler(this);
+            reactor.unregister_handler(this);
             _sock_stream.close();
+            client = nullptr;
             return;
         }
-        g_reactor.enable_handler(this, ReactHandler::WRITE_MASK);
+        reactor.enable_handler(this, ReactHandler::WRITE_MASK);
     }
 
     virtual void handle_write_ready() override
@@ -130,10 +131,10 @@ public:
         NUT_LOG_D(TAG, "client send %d bytes: %d", rs, _counter);
         assert(rs == sizeof(_counter));
         ++_counter;
-        g_reactor.disable_handler(this, ReactHandler::WRITE_MASK);
+        reactor.disable_handler(this, ReactHandler::WRITE_MASK);
     }
 
-    virtual void handle_exception(int err) override
+    virtual void handle_io_exception(int err) override
     {
         NUT_LOG_E(TAG, "client exception %d", err);
     }
@@ -151,20 +152,21 @@ class TestReactor : public TestFixture
     void test_reactor()
     {
         // start server
-        rc_ptr<ReactAcceptor<ServerChannel> > acc = rc_new<ReactAcceptor<ServerChannel> >();
         InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
-        acc->open(addr);
-        g_reactor.register_handler_later(acc, ReactHandler::READ_MASK);
+        rc_ptr<ReactAcceptor<ServerChannel>> acc = rc_new<ReactAcceptor<ServerChannel>>();
+        acc->listen(addr);
+        reactor.register_handler_later(acc, ReactHandler::ACCEPT_MASK);
         NUT_LOG_D(TAG, "server listening at %s, fd %d", addr.to_string().c_str(), acc->get_socket());
 
         // start client
         NUT_LOG_D(TAG, "client will connect to %s", addr.to_string().c_str());
-        nut::rc_ptr<ClientChannel> client = ReactConnector<ClientChannel>::connect(addr);
+        ReactConnector<ClientChannel> con;
+        con.connect(&reactor, addr);
 
         // loop
-        while (!g_server_channels.empty() || LOOFAH_INVALID_SOCKET_FD != client->get_socket())
+        while (!prepared || server != nullptr || client != nullptr)
         {
-            if (g_reactor.handle_events() < 0)
+            if (reactor.handle_events() < 0)
                 break;
         }
     }

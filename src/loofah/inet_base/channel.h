@@ -31,7 +31,7 @@ public:
     /**
      * 链接已经建立
      */
-    virtual void handle_connected() = 0;
+    virtual void handle_channel_connected() = 0;
 
 private:
     Channel(const Channel&) = delete;

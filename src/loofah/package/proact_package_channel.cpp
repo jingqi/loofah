@@ -38,13 +38,20 @@ SockStream& ProactPackageChannel::get_sock_stream()
 void ProactPackageChannel::open(socket_t fd)
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(nullptr != _actor && _actor->is_in_loop_thread());
     assert(_sock_stream.is_null());
 
     ProactChannel::open(fd);
+}
+
+void ProactPackageChannel::handle_channel_connected()
+{
+    NUT_DEBUGGING_ASSERT_ALIVE;
+    assert(nullptr != _actor && _actor->is_in_loop_thread());
 
     ((Proactor*) _actor)->register_handler(this);
     launch_read();
+
+    handle_connected();
 }
 
 void ProactPackageChannel::close(bool discard_write)
@@ -53,7 +60,7 @@ void ProactPackageChannel::close(bool discard_write)
     assert(nullptr != _actor && _actor->is_in_loop_thread());
 
     // 设置关闭标记
-    _closing = true;
+    _closing.store(true, std::memory_order_relaxed);
 
     // 直接强制关闭
     if (discard_write || 0 == LOOFAH_FORCE_CLOSE_DELAY ||
@@ -102,7 +109,7 @@ void ProactPackageChannel::launch_read()
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(nullptr != _actor && _actor->is_in_loop_thread());
     assert(!_sock_stream.is_null() && !_sock_stream.is_reading_shutdown());
-    assert(!_closing);
+    assert(!_closing.load(std::memory_order_relaxed));
 
     if (nullptr == _reading_pkg)
     {
@@ -126,15 +133,15 @@ void ProactPackageChannel::handle_read_completed(size_t cb)
         // Read channel closed
         const bool old_reading_shutdown = _sock_stream.is_reading_shutdown();
         _sock_stream.mark_reading_shutdown();
-        if (!_closing && !old_reading_shutdown)
+        if (!_closing.load(std::memory_order_relaxed) && !old_reading_shutdown)
             handle_read(nullptr);
         return;
     }
 
-    if (!_closing && !_sock_stream.is_reading_shutdown())
+    if (!_closing.load(std::memory_order_relaxed) && !_sock_stream.is_reading_shutdown())
         split_and_handle_packages(cb);
 
-    if (!_closing && !_sock_stream.is_reading_shutdown())
+    if (!_closing.load(std::memory_order_relaxed) && !_sock_stream.is_reading_shutdown())
         launch_read();
 }
 
@@ -145,9 +152,9 @@ void ProactPackageChannel::write(Package *pkg)
     assert(nullptr != _actor && _actor->is_in_loop_thread());
     assert(!_sock_stream.is_null());
 
-    if (_closing || _sock_stream.is_writing_shutdown())
+    if (_closing.load(std::memory_order_relaxed) || _sock_stream.is_writing_shutdown())
     {
-        if (_closing)
+        if (_closing.load(std::memory_order_relaxed))
             NUT_LOG_W(TAG, "channel is closing, writing package discard. fd %d", get_socket());
         else
             NUT_LOG_W(TAG, "write channel is closed, writing package discard. fd %d", get_socket());
@@ -172,7 +179,7 @@ void ProactPackageChannel::launch_write()
     const int err = _sock_stream.get_last_error();
     if (0 != err)
     {
-        handle_exception(err);
+        handle_io_exception(err);
         return;
     }
 
@@ -228,11 +235,11 @@ void ProactPackageChannel::handle_write_completed(size_t cb)
     }
 
     // 如果本地写队列空了，并且处于关闭流程中，则关闭 socket
-    if (_closing)
+    if (_closing.load(std::memory_order_relaxed))
         force_close();
 }
 
-void ProactPackageChannel::handle_exception(int err)
+void ProactPackageChannel::handle_io_exception(int err)
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(nullptr != _actor && _actor->is_in_loop_thread());
@@ -240,10 +247,10 @@ void ProactPackageChannel::handle_exception(int err)
     _sock_stream.mark_reading_shutdown();
     _sock_stream.mark_writing_shutdown();
 
-    if (_closing)
+    if (_closing.load(std::memory_order_relaxed))
         force_close();
     else
-        handle_error(err);
+        handle_exception(err);
 }
 
 }

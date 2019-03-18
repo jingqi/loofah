@@ -38,14 +38,21 @@ SockStream& ReactPackageChannel::get_sock_stream()
 void ReactPackageChannel::open(socket_t fd)
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(nullptr != _actor && _actor->is_in_loop_thread());
     assert(_sock_stream.is_null());
 
     ReactChannel::open(fd);
+}
+
+void ReactPackageChannel::handle_channel_connected()
+{
+    NUT_DEBUGGING_ASSERT_ALIVE;
+    assert(nullptr != _actor && _actor->is_in_loop_thread());
 
     Reactor *reactor = (Reactor*) _actor;
     reactor->register_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
     reactor->disable_handler(this, ReactHandler::WRITE_MASK);
+
+    handle_connected();
 }
 
 void ReactPackageChannel::close(bool discard_write)
@@ -54,7 +61,7 @@ void ReactPackageChannel::close(bool discard_write)
     assert(nullptr != _actor && _actor->is_in_loop_thread());
 
     // 设置关闭标记
-    _closing = true;
+    _closing.store(true, std::memory_order_relaxed);
 
     // 直接强制关闭
     if (discard_write || 0 == LOOFAH_FORCE_CLOSE_DELAY ||
@@ -120,7 +127,7 @@ void ReactPackageChannel::handle_read_ready()
             const bool old_reading_shutdown = _sock_stream.is_reading_shutdown();
             _sock_stream.mark_reading_shutdown();
             reactor->disable_handler(this, ReactHandler::READ_MASK);
-            if (!_closing && !old_reading_shutdown)
+            if (!_closing.load(std::memory_order_relaxed) && !old_reading_shutdown)
                 handle_read(nullptr);
             return;
         }
@@ -133,11 +140,11 @@ void ReactPackageChannel::handle_read_ready()
         {
             // Error
             reactor->disable_handler(this, ReactHandler::READ_MASK);
-            handle_exception(rs);
+            handle_io_exception(rs);
             return;
         }
 
-        if (!_closing && !_sock_stream.is_reading_shutdown())
+        if (!_closing.load(std::memory_order_relaxed) && !_sock_stream.is_reading_shutdown())
             split_and_handle_packages((size_t) rs);
     }
 }
@@ -149,9 +156,9 @@ void ReactPackageChannel::write(Package *pkg)
     assert(nullptr != _actor && _actor->is_in_loop_thread());
     assert(!_sock_stream.is_null());
 
-    if (_closing || _sock_stream.is_writing_shutdown())
+    if (_closing.load(std::memory_order_relaxed) || _sock_stream.is_writing_shutdown())
     {
-        if (_closing)
+        if (_closing.load(std::memory_order_relaxed))
             NUT_LOG_W(TAG, "channel is closing, writing package discard. fd %d", get_socket());
         else
             NUT_LOG_W(TAG, "write channel is closed, writing package discard. fd %d", get_socket());
@@ -179,7 +186,7 @@ void ReactPackageChannel::handle_write_ready()
         if (0 != err)
         {
             reactor->disable_handler(this, ReactHandler::WRITE_MASK);
-            handle_exception(err);
+            handle_io_exception(err);
             return;
         }
 
@@ -208,7 +215,7 @@ void ReactPackageChannel::handle_write_ready()
             {
                 // Error
                 reactor->disable_handler(this, ReactHandler::WRITE_MASK);
-                handle_exception(rs);
+                handle_io_exception(rs);
                 return;
             }
 #if NUT_PLATFORM_OS_MAX || NUT_PLATFORM_OS_LINUX
@@ -254,7 +261,7 @@ void ReactPackageChannel::handle_write_ready()
             {
                 // Error
                 reactor->disable_handler(this, ReactHandler::WRITE_MASK);
-                handle_exception(rs);
+                handle_io_exception(rs);
                 return;
             }
         }
@@ -267,12 +274,12 @@ void ReactPackageChannel::handle_write_ready()
         reactor->disable_handler(this, ReactHandler::WRITE_MASK);
 
         // 如果本地写队列空了，并且处于关闭流程中，则关闭 socket
-        if (_closing)
+        if (_closing.load(std::memory_order_relaxed))
             force_close();
     }
 }
 
-void ReactPackageChannel::handle_exception(int err)
+void ReactPackageChannel::handle_io_exception(int err)
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(nullptr != _actor && _actor->is_in_loop_thread());
@@ -281,10 +288,10 @@ void ReactPackageChannel::handle_exception(int err)
     _sock_stream.mark_reading_shutdown();
     _sock_stream.mark_writing_shutdown();
 
-    if (_closing)
+    if (_closing.load(std::memory_order_relaxed))
         force_close();
     else
-        handle_error(err);
+        handle_exception(err);
 }
 
 }

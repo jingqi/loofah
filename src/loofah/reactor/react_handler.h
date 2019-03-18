@@ -4,6 +4,8 @@
 
 #include "../loofah_config.h"
 
+#include <stdint.h>
+
 #include <nut/rc/rc_ptr.h>
 
 
@@ -16,17 +18,23 @@ class ReactHandler
 {
     NUT_REF_COUNTABLE
 
-#if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
     friend class Reactor;
-#endif
 
 public:
     enum EventType
     {
-        READ_MASK = 0x01,
-        WRITE_MASK = 0x02,
-        EXCEPT_MASK = 0x04,
+        ACCEPT_MASK = 0x01,
+        CONNECT_MASK = 0x02,
+        READ_MASK = 0x04,
+        WRITE_MASK = 0x08,
+
+        ACCEPT_READ_MASK = ACCEPT_MASK | READ_MASK,
+        CONNECT_WRITE_MASK = CONNECT_MASK | WRITE_MASK,
+        READ_WRITE_MASK = READ_MASK | WRITE_MASK,
+        ALL_MASK = ACCEPT_MASK | CONNECT_MASK | READ_MASK | WRITE_MASK,
     };
+
+    typedef uint8_t mask_type;
 
 public:
     ReactHandler() = default;
@@ -36,7 +44,16 @@ public:
     virtual socket_t get_socket() const = 0;
 
     /**
-     * acceptor 可接受链接;
+     * acceptor 有新链接
+     */
+    virtual void handle_accept_ready() = 0;
+
+    /**
+     * connector 即将完成
+     */
+    virtual void handle_connect_ready() = 0;
+
+    /**
      * channel 可接收数据; 如果读到数据长度为 0, 则是读通道关闭事件
      */
     virtual void handle_read_ready() = 0;
@@ -47,20 +64,31 @@ public:
     virtual void handle_write_ready() = 0;
 
     /**
-     * channel 出错
+     * 出错
      *
      * @param err 错误码，如 LOOFAH_ERR_PKG_OVERSIZE 等
      */
-    virtual void handle_exception(int err) = 0;
+    virtual void handle_io_exception(int err) = 0;
 
 private:
     ReactHandler(const ReactHandler&) = delete;
     ReactHandler& operator=(const ReactHandler&) = delete;
 
+protected:
+    Reactor *_reactor = nullptr;
+
 private:
-#if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
+    // ACCEPT_MASK, CONNECT_MASK, READ_MASK, WRITE_MASK
+    mask_type _enabled_events = 0;
+
     // 用于记录注册状态，参见 Reactor 的实现
-    int _registered_events = 0;
+#if NUT_PLATFORM_OS_WINDOWS && WINVER >= _WIN32_WINNT_WINBLUE
+    bool _registered = false;
+#elif NUT_PLATFORM_OS_MAC
+    // READ_MASK, WRITE_MASK
+    mask_type _registered_events = 0;
+#elif NUT_PLATFORM_OS_LINUX
+    bool _registered = false;
 #endif
 };
 

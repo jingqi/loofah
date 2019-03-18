@@ -27,7 +27,7 @@ Proactor proactor;
 TimeWheel timewheel;
 
 rc_ptr<ServerChannel> server;
-ClientChannel *client = nullptr;
+rc_ptr<ClientChannel> client;
 int prepared = 0;
 
 void testing();
@@ -74,7 +74,7 @@ public:
         NUT_LOG_D(TAG, "server received %d bytes: %d", rs, data);
     }
 
-    virtual void handle_error(int err) override
+    virtual void handle_exception(int err) override
     {
         NUT_LOG_E(TAG, "server error %d: %s", err, str_error(err));
     }
@@ -116,9 +116,10 @@ public:
         NUT_LOG_D(TAG, "client close");
         proactor.unregister_handler(this);
         _sock_stream.close();
+        client = nullptr;
     }
 
-    virtual void handle_connected() override
+    virtual void handle_channel_connected() override
     {
         NUT_LOG_D(TAG, "client make a connection, fd %d", get_socket());
 
@@ -140,7 +141,7 @@ public:
         NUT_LOG_D(TAG, "client send %d bytes", cb);
     }
 
-    virtual void handle_exception(int err) override
+    virtual void handle_io_exception(int err) override
     {
         NUT_LOG_E(TAG, "client exception %d: %s", err, str_error(err));
     }
@@ -189,19 +190,20 @@ class TestProactPackageRST : public TestFixture
     void test_proact_pkg_rst()
     {
         // start server
-        rc_ptr<ProactAcceptor<ServerChannel>> acc = rc_new<ProactAcceptor<ServerChannel>>();
         InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
-        acc->open(addr);
+        rc_ptr<ProactAcceptor<ServerChannel>> acc = rc_new<ProactAcceptor<ServerChannel>>();
+        acc->listen(addr);
         proactor.register_handler_later(acc);
         proactor.launch_accept_later(acc);
         NUT_LOG_D(TAG, "server listening at %s, fd %d", addr.to_string().c_str(), acc->get_socket());
 
         // start client
         NUT_LOG_D(TAG, "client will connect to %s", addr.to_string().c_str());
-        nut::rc_ptr<ClientChannel> client = ProactConnector<ClientChannel>::connect(addr);
+        ProactConnector<ClientChannel> con;
+        con.connect(&proactor, addr);
 
         // loop
-        while (server != nullptr || LOOFAH_INVALID_SOCKET_FD != client->get_socket())
+        while (!prepared || server != nullptr || client != nullptr)
         {
             if (proactor.handle_events(TimeWheel::TICK_GRANULARITY_MS) < 0)
                 break;

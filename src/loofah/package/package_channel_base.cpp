@@ -49,7 +49,7 @@ void PackageChannelBase::close_later(bool discard_write)
     NUT_DEBUGGING_ASSERT_ALIVE;
 
     // 设置关闭标记
-    _closing = true;
+    _closing.store(true, std::memory_order_relaxed);
 
     assert(nullptr != _actor);
     if (_actor->is_in_loop_thread())
@@ -98,7 +98,7 @@ void PackageChannelBase::split_and_handle_packages(size_t extra_readed)
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(nullptr != _actor && _actor->is_in_loop_thread());
 
-    if (_closing || get_sock_stream().is_reading_shutdown())
+    if (_closing.load(std::memory_order_relaxed) || get_sock_stream().is_reading_shutdown())
         return;
 
     // 分包
@@ -196,14 +196,15 @@ void PackageChannelBase::split_and_handle_packages(size_t extra_readed)
 
         pkg->skip_read(sizeof(Package::header_type));
         handle_read(pkg);
-        if (_closing || get_sock_stream().is_reading_shutdown())
+        if (_closing.load(std::memory_order_relaxed) || get_sock_stream().is_reading_shutdown())
             break;
     }
-    if (payload_oversize && !_closing && !get_sock_stream().is_reading_shutdown())
-        handle_exception(LOOFAH_ERR_PKG_OVERSIZE);
+    if (payload_oversize && !_closing.load(std::memory_order_relaxed) &&
+        !get_sock_stream().is_reading_shutdown())
+        handle_io_exception(LOOFAH_ERR_PKG_OVERSIZE);
 }
 
-void PackageChannelBase::handle_error(int err)
+void PackageChannelBase::handle_exception(int err)
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(nullptr != _actor && _actor->is_in_loop_thread());
@@ -217,10 +218,10 @@ void PackageChannelBase::write_later(Package *pkg)
     assert(nullptr != pkg);
     NUT_DEBUGGING_ASSERT_ALIVE;
 
-    if (_closing || get_sock_stream().is_writing_shutdown())
+    if (_closing.load(std::memory_order_relaxed) || get_sock_stream().is_writing_shutdown())
     {
         const socket_t fd = get_sock_stream().get_socket();
-        if (_closing)
+        if (_closing.load(std::memory_order_relaxed))
             NUT_LOG_W(TAG, "channel is closing, writing package discard. fd %d", fd);
         else
             NUT_LOG_W(TAG, "write channel is closed, writing package discard. fd %d", fd);

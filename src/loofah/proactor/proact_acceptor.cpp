@@ -1,28 +1,32 @@
 ﻿
+#include "../loofah_config.h"
+
 #include <assert.h>
-#include <new>
 
 #include <nut/platform/platform.h>
-
-#if NUT_PLATFORM_OS_WINDOWS
-#   include <winsock2.h>
-#   include <windows.h>
-#endif
-
 #include <nut/logging/logger.h>
 
 #include "proact_acceptor.h"
+#include "proact_channel.h"
+#include "proactor.h"
 #include "../inet_base/utils.h"
 #include "../inet_base/sock_operation.h"
 #include "../inet_base/error.h"
 
 
-#define TAG "loofah.proactor.proact_acceptor"
+#define TAG "loofah.proact_acceptor"
 
 namespace loofah
 {
 
-bool ProactAcceptorBase::open(const InetAddr& addr, int listen_num)
+ProactAcceptorBase::~ProactAcceptorBase()
+{
+    if (LOOFAH_INVALID_SOCKET_FD != _listening_socket)
+        SockOperation::close(_listening_socket);
+    _listening_socket = LOOFAH_INVALID_SOCKET_FD;
+}
+
+bool ProactAcceptorBase::listen(const InetAddr& addr, int listen_num)
 {
     // Create socket
     const int domain = addr.is_ipv6() ? AF_INET6 : AF_INET;
@@ -92,19 +96,34 @@ socket_t ProactAcceptorBase::get_socket() const
     return _listening_socket;
 }
 
+void ProactAcceptorBase::handle_accept_completed(socket_t fd)
+{
+    nut::rc_ptr<ProactChannel> channel = create_channel();
+    channel->initialize();
+    channel->open(fd);
+    channel->handle_channel_connected();
+
+    _proactor->launch_accept(this);
+}
+
+void ProactAcceptorBase::handle_connect_completed()
+{
+    assert(false); // Should not run into this place
+}
+
 void ProactAcceptorBase::handle_read_completed(size_t cb)
 {
     UNUSED(cb);
-    // Dummy for an acceptor
+    assert(false); // Should not run into this place
 }
 
 void ProactAcceptorBase::handle_write_completed(size_t cb)
 {
     UNUSED(cb);
-    // Dummy for an acceptor
+    assert(false); // Should not run into this place
 }
 
-void ProactAcceptorBase::handle_exception(int err)
+void ProactAcceptorBase::handle_io_exception(int err)
 {
     NUT_LOG_E(TAG, "fd %d, loofah error raised %d: %s", get_socket(),
               err, str_error(err));
