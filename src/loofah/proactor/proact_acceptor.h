@@ -31,7 +31,7 @@ public:
     virtual void handle_exception(int err) final override;
 
 private:
-    socket_t _listener_socket = LOOFAH_INVALID_SOCKET_FD;
+    socket_t _listening_socket = LOOFAH_INVALID_SOCKET_FD;
 };
 
 template <typename CHANNEL>

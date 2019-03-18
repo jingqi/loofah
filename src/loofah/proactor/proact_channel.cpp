@@ -25,6 +25,7 @@ SockStream& ProactChannel::get_sock_stream()
 
 void ProactChannel::handle_accept_completed(socket_t fd)
 {
+    UNUSED(fd);
     // Dummy for a channel
 }
 

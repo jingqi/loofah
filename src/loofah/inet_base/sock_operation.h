@@ -46,14 +46,14 @@ public:
     static int get_last_error(socket_t socket_fd);
 
     ////////////////////////////////////////////////////////////////////////////
-    // Listener socket operations
+    // Listening socket operations
 
     /**
      * 让监听的端口可以被复用
      * NOTE 必须在 bind() 之前调用
      */
-    static bool set_reuse_addr(socket_t listener_socket_fd);
-    static bool set_reuse_port(socket_t listener_socket_fd);
+    static bool set_reuse_addr(socket_t listening_socket_fd);
+    static bool set_reuse_port(socket_t listening_socket_fd);
 
     ////////////////////////////////////////////////////////////////////////////
     // Socket connection operations

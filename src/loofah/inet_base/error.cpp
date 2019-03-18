@@ -17,6 +17,7 @@ namespace loofah
 int from_errno(int err)
 {
 #if NUT_PLATFORM_OS_WINDOWS
+    // Check https://docs.microsoft.com/zh-cn/windows/desktop/WinSock/windows-sockets-error-codes-2
     switch (err)
     {
         CASE_MAP(WSA_INVALID_HANDLE, LOOFAH_ERR_INVALID_FD);
@@ -24,23 +25,22 @@ int from_errno(int err)
         CASE_MAP(WSAENOTCONN, LOOFAH_ERR_NOT_CONNECTED);
         CASE_MAP(WSAECONNRESET, LOOFAH_ERR_CONNECTION_RESET);
         CASE_MAP(WSAECONNABORTED, LOOFAH_ERR_CONNECTION_ABORTED);
-
-    // case WSAESHUTDOWN:
     }
+    NUT_LOG_W(TAG, "unmanaged error for errno %d", err);
 #else
     switch (err)
     {
         CASE_MAP(EAGAIN, LOOFAH_ERR_WOULD_BLOCK);
-#if defined(EWOULDBLOCK) && EWOULDBLOCK != EAGAIN
+#   if defined(EWOULDBLOCK) && EWOULDBLOCK != EAGAIN
         CASE_MAP(EWOULDBLOCK, LOOFAH_ERR_WOULD_BLOCK);
-#endif
+#   endif
         CASE_MAP(ENOTCONN, LOOFAH_ERR_NOT_CONNECTED);
         CASE_MAP(ECONNRESET, LOOFAH_ERR_CONNECTION_RESET);
         CASE_MAP(ECONNABORTED, LOOFAH_ERR_CONNECTION_ABORTED);
     }
+    NUT_LOG_W(TAG, "unmanaged error for errno %d: %s", err, ::strerror(err));
 #endif
 
-    NUT_LOG_W(TAG, "unmanaged error for errno %d", err);
     return LOOFAH_ERR_UNKNOWN;
 }
 

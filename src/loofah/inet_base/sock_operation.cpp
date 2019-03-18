@@ -119,41 +119,41 @@ int SockOperation::get_last_error(socket_t socket_fd)
 #endif
 }
 
-bool SockOperation::set_reuse_addr(socket_t listener_socket_fd)
+bool SockOperation::set_reuse_addr(socket_t listening_socket_fd)
 {
 #if NUT_PLATFORM_OS_WINDOWS
     // NOTE 在 Windows 上，设置 ReuseAddr 与在 *nix 上不同，参见
     // http://stackoverflow.com/questions/17212789/multiple-processes-listening-on-the-same-port
     BOOL optval = TRUE;
-    const int rs = ::setsockopt(listener_socket_fd, SOL_SOCKET, SO_REUSEADDR,
+    const int rs = ::setsockopt(listening_socket_fd, SOL_SOCKET, SO_REUSEADDR,
                                 (char*) &optval, sizeof(optval));
 #else
     int optval = 1;
-    const int rs = ::setsockopt(listener_socket_fd, SOL_SOCKET, SO_REUSEADDR,
+    const int rs = ::setsockopt(listening_socket_fd, SOL_SOCKET, SO_REUSEADDR,
                                 &optval, sizeof(optval));
 #endif
 
     if (0 != rs)
-        LOOFAH_LOG_FD_ERRNO(setsockopt, listener_socket_fd);
+        LOOFAH_LOG_FD_ERRNO(setsockopt, listening_socket_fd);
     return 0 == rs;
 }
 
-bool SockOperation::set_reuse_port(socket_t listener_socket_fd)
+bool SockOperation::set_reuse_port(socket_t listening_socket_fd)
 {
 #if NUT_PLATFORM_OS_WINDOWS
     // NOTE 在 Windows 上，设置 ReuseAddr 与在 *nix 上不同，参见
     // http://stackoverflow.com/questions/17212789/multiple-processes-listening-on-the-same-port
     BOOL optval = TRUE;
-    const int rs = ::setsockopt(listener_socket_fd, SOL_SOCKET, SO_REUSEADDR,
+    const int rs = ::setsockopt(listening_socket_fd, SOL_SOCKET, SO_REUSEADDR,
                                 (char*) &optval, sizeof(optval));
 #else
     int optval = 1;
-    const int rs = ::setsockopt(listener_socket_fd, SOL_SOCKET, SO_REUSEPORT,
+    const int rs = ::setsockopt(listening_socket_fd, SOL_SOCKET, SO_REUSEPORT,
                                 &optval, sizeof(optval));
 #endif
 
     if (0 != rs)
-        LOOFAH_LOG_FD_ERRNO(setsockopt, listener_socket_fd);
+        LOOFAH_LOG_FD_ERRNO(setsockopt, listening_socket_fd);
     return 0 == rs;
 }
 

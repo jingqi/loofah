@@ -10,9 +10,10 @@ namespace loofah
 {
 
 #if NUT_PLATFORM_OS_WINDOWS
-IORequest::IORequest(int event_type_, size_t buf_count_, socket_t accept_socket_)
-    : event_type(event_type_), accept_socket(accept_socket_),
-      buf_count(buf_count_)
+IORequest::IORequest(int event_type_, size_t buf_count_,
+                     socket_t listening_socket_, socket_t accept_socket_)
+    : event_type(event_type_), listening_socket(listening_socket_),
+      accept_socket(accept_socket_), buf_count(buf_count_)
 {
     assert(buf_count_ > 0);
     ::memset(&overlapped, 0, sizeof(overlapped));
@@ -27,13 +28,13 @@ IORequest::IORequest(int event_type_, size_t buf_count_)
 
 #if NUT_PLATFORM_OS_WINDOWS
 IORequest* IORequest::new_request(int event_type, size_t buf_count,
-                                  socket_t accept_socket)
+                                  socket_t listening_socket, socket_t accept_socket)
 {
     assert(buf_count > 0);
     IORequest *p = (IORequest*) ::malloc(sizeof(IORequest) +
                                          sizeof(WSABUF) * (buf_count - 1));
     assert(nullptr != p);
-    new (p) IORequest(event_type, buf_count, accept_socket);
+    new (p) IORequest(event_type, buf_count, listening_socket, accept_socket);
     return p;
 }
 #else

@@ -273,11 +273,12 @@ void Proactor::launch_accept(ProactHandler *handler)
     assert(nullptr != handler);
     assert(is_in_loop_thread());
 
-    const socket_t listener_socket = handler->get_socket();
+    const socket_t listening_socket = handler->get_socket();
 
 #if NUT_PLATFORM_OS_WINDOWS
     // Create socket
-    socket_t accept_socket = ::WSASocket(AF_INET, SOCK_STREAM, 0, nullptr, 0, WSA_FLAG_OVERLAPPED);
+    const socket_t accept_socket = ::WSASocket(AF_INET, SOCK_STREAM, 0, nullptr,
+                                               0, WSA_FLAG_OVERLAPPED);
     if (INVALID_SOCKET == accept_socket)
     {
         LOOFAH_LOG_ERRNO(WSASocket);
@@ -285,8 +286,10 @@ void Proactor::launch_accept(ProactHandler *handler)
     }
 
     // Call ::AcceptEx()
-    IORequest *io_request = IORequest::new_request(ProactHandler::ACCEPT_MASK,
-                                                   1, accept_socket);
+    // NOTE 'buf' 中存放本地地址、对端地址、首个接收数据(可以是0长度)。且存放地
+    //      址的空间必须比所用传输协议的最大地址大16个字节
+    IORequest *io_request = IORequest::new_request(
+        ProactHandler::ACCEPT_MASK, 1, listening_socket, accept_socket);
     assert(nullptr != io_request);
     const size_t buf_len = 2 * (sizeof(struct sockaddr_in) + 16);
     void *buf = ::malloc(2 * (sizeof(struct sockaddr_in) + 16));
@@ -295,7 +298,7 @@ void Proactor::launch_accept(ProactHandler *handler)
 
     DWORD bytes = 0;
     assert(nullptr != func_AcceptEx);
-    const BOOL rs = func_AcceptEx(listener_socket,
+    const BOOL rs = func_AcceptEx(listening_socket,
                                   accept_socket,
                                   buf,
                                   buf_len - 2 * (sizeof(struct sockaddr_in) + 16), // substract address length
@@ -309,7 +312,7 @@ void Proactor::launch_accept(ProactHandler *handler)
         // NOTE ERROR_IO_PENDING 说明异步调用没有可立即处理的数据，属于正常情况
         if (ERROR_IO_PENDING != errcode)
         {
-            LOOFAH_LOG_FD_ERRNO(AcceptEx, listener_socket);
+            LOOFAH_LOG_FD_ERRNO(AcceptEx, listening_socket);
             if (0 != ::closesocket(accept_socket))
                 LOOFAH_LOG_FD_ERRNO(closesocket, accept_socket);
             handler->handle_exception(from_errno(errcode));
@@ -321,10 +324,10 @@ void Proactor::launch_accept(ProactHandler *handler)
     if (0 == (handler->_registered_events & ProactHandler::READ_MASK))
     {
         struct kevent ev;
-        EV_SET(&ev, listener_socket, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, (void*) handler);
+        EV_SET(&ev, listening_socket, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, (void*) handler);
         if (0 != ::kevent(_kq, &ev, 1, nullptr, 0, nullptr))
         {
-            LOOFAH_LOG_FD_ERRNO(kevent, listener_socket);
+            LOOFAH_LOG_FD_ERRNO(kevent, listening_socket);
             handler->handle_exception(from_errno(errno));
             return;
         }
@@ -340,9 +343,9 @@ void Proactor::launch_accept(ProactHandler *handler)
         epv.events = EPOLLIN;
         if (0 != (handler->_registered_events & EPOLLOUT))
             epv.events |= EPOLLOUT;
-        if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_MOD, listener_socket, &epv))
+        if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_MOD, listening_socket, &epv))
         {
-            LOOFAH_LOG_FD_ERRNO(epoll_ctl, listener_socket);
+            LOOFAH_LOG_FD_ERRNO(epoll_ctl, listening_socket);
             handler->handle_exception(from_errno(errno));
             return;
         }
@@ -613,7 +616,10 @@ int Proactor::handle_events(int timeout_ms)
         {
             ProactHandler *handler = (ProactHandler*) key;
             assert(nullptr != handler);
-            handler->handle_exception(from_errno(errcode)); // 连接错误
+            // FIXME 因为 ::GetQueuedCompletionStatus() 不返回底层网络驱动的错误
+            //       码，导致低层网络驱动错误码被丢失
+            //       Also see https://stackoverflow.com/questions/28925003/calling-wsagetlasterror-from-an-iocp-thread-return-incorrect-result
+            handler->handle_exception(LOOFAH_ERR_UNKNOWN); // 连接错误
         }
         else
         {
@@ -630,24 +636,41 @@ int Proactor::handle_events(int timeout_ms)
             {
             case ProactHandler::ACCEPT_MASK:
             {
-                /* Get peer address
+                /*
+                 * Get peer address if needed:
                  *
-                struct sockaddr_in *remote_addr = nullptr, *local_addr = nullptr;
-                int remote_len = sizeof(struct sockaddr_in), local_len = sizeof(struct sockaddr_in);
-                assert(nullptr != func_GetAcceptExSockaddrs);
-                func_GetAcceptExSockaddrs(io_request->wsabuf.buf,
-                                          io_request->wsabuf.len - 2 * (sizeof(struct sockaddr_in) + 16),
-                                          sizeof(struct sockaddr_in) + 16,
-                                          sizeof(struct sockaddr_in) + 16,
-                                          (LPSOCKADDR*)&local_addr,
-                                          &local_len,
-                                          (LPSOCKADDR*)&remote_addr,
-                                          &remote_len);
+                 * struct sockaddr_in *remote_addr = nullptr, *local_addr = nullptr;
+                 * int remote_len = sizeof(struct sockaddr_in), local_len = sizeof(struct sockaddr_in);
+                 * assert(nullptr != func_GetAcceptExSockaddrs);
+                 * func_GetAcceptExSockaddrs(io_request->wsabuf.buf,
+                 *                           io_request->wsabuf.len - 2 * (sizeof(struct sockaddr_in) + 16),
+                 *                           sizeof(struct sockaddr_in) + 16,
+                 *                           sizeof(struct sockaddr_in) + 16,
+                 *                           (LPSOCKADDR*)&local_addr,
+                 *                           &local_len,
+                 *                           (LPSOCKADDR*)&remote_addr,
+                 *                           &remote_len);
                  */
                 assert(1 == io_request->buf_count && nullptr != io_request->wsabufs[0].buf);
                 ::free(io_request->wsabufs[0].buf);
 
-                handler->handle_accept_completed(io_request->accept_socket);
+                // 把 listening 套结字一些属性(包括 socket 内部接受/发送缓存大小
+                // 等等)拷贝到新建立的套结字，可以使后续的 shutdown() 调用成功
+                const socket_t listening_socket = io_request->listening_socket,
+                    accept_socket = io_request->accept_socket;
+                const int opt_rs = ::setsockopt(
+                    accept_socket, SOL_SOCKET, SO_UPDATE_ACCEPT_CONTEXT,
+                    (char*) &listening_socket, sizeof(listening_socket));
+                if (0 != opt_rs)
+                {
+                    const int errcode = ::WSAGetLastError();
+                    if (0 != ::closesocket(accept_socket))
+                        LOOFAH_LOG_FD_ERRNO(closesocket, accept_socket);
+                    handler->handle_exception(from_errno(errcode));
+                    break;
+                }
+
+                handler->handle_accept_completed(accept_socket);
                 break;
             }
 

@@ -85,7 +85,7 @@ public:
 
     virtual void handle_exception(int err) override
     {
-        NUT_LOG_D(TAG, "server exception %d", err);
+        NUT_LOG_E(TAG, "server exception %d", err);
     }
 };
 
@@ -150,7 +150,7 @@ public:
 
     virtual void handle_exception(int err) override
     {
-        NUT_LOG_D(TAG, "client exception %d", err);
+        NUT_LOG_E(TAG, "client exception %d", err);
     }
 };
 

@@ -24,6 +24,7 @@ class IORequest
 public:
 #if NUT_PLATFORM_OS_WINDOWS
     static IORequest* new_request(int event_type, size_t buf_count,
+                                  socket_t listening_socket = LOOFAH_INVALID_SOCKET_FD,
                                   socket_t accept_socket = LOOFAH_INVALID_SOCKET_FD);
 #else
     static IORequest* new_request(int event_type, size_t buf_count);
@@ -36,7 +37,8 @@ public:
 
 private:
 #if NUT_PLATFORM_OS_WINDOWS
-    IORequest(int event_type_, size_t buf_count_, socket_t accept_socket_);
+    IORequest(int event_type_, size_t buf_count_, socket_t listening_socket,
+              socket_t accept_socket_);
 #else
     IORequest(int event_type_, size_t buf_count_);
 #endif
@@ -55,6 +57,8 @@ public:
     // 事件类型
     int event_type = 0;
 
+    // 为 AcceptEx() 准备的数据
+    socket_t listening_socket = LOOFAH_INVALID_SOCKET_FD;
     socket_t accept_socket = LOOFAH_INVALID_SOCKET_FD;
 
     const size_t buf_count = 0;

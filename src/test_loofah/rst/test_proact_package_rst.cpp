@@ -76,7 +76,7 @@ public:
 
     virtual void handle_error(int err) override
     {
-        NUT_LOG_D(TAG, "server error %d: %s", err, str_error(err));
+        NUT_LOG_E(TAG, "server error %d: %s", err, str_error(err));
     }
 
     virtual void handle_close() override
@@ -142,7 +142,7 @@ public:
 
     virtual void handle_exception(int err) override
     {
-        NUT_LOG_D(TAG, "client exception %d: %s", err, str_error(err));
+        NUT_LOG_E(TAG, "client exception %d: %s", err, str_error(err));
     }
 };
 
