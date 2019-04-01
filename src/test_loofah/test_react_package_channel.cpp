@@ -166,7 +166,9 @@ class TestReactPackageChannel : public TestFixture
         // Loop
         while (!prepared || server != nullptr || client != nullptr)
         {
-            if (reactor.handle_events(TimeWheel::TICK_GRANULARITY_MS) < 0)
+            const uint64_t idle_ms = std::min<uint64_t>(
+                60 * 1000, std::max<uint64_t>(TimeWheel::RESOLUTION_MS, timewheel.get_idle()));
+            if (reactor.handle_events(idle_ms) < 0)
                 break;
             timewheel.tick();
         }

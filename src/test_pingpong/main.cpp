@@ -155,7 +155,7 @@ int main(int argc, char *argv[])
     start_server();
     start_client();
     g_global.timewheel.add_timer(
-        g_global.seconds * 1000, 0, 
+        g_global.seconds * 1000, 0,
         [=](nut::TimeWheel::timer_id_type id, uint64_t expires)
         {
             g_global.proactor.shutdown_later();
@@ -163,7 +163,9 @@ int main(int argc, char *argv[])
 
     while (true)
     {
-        if (g_global.proactor.handle_events(TimeWheel::TICK_GRANULARITY_MS) < 0)
+        const uint64_t idle_ms = std::min<uint64_t>(
+            60 * 1000, std::max<uint64_t>(TimeWheel::RESOLUTION_MS, g_global.timewheel.get_idle()));
+        if (g_global.proactor.handle_events(idle_ms) < 0)
             break;
         g_global.timewheel.tick();
     }

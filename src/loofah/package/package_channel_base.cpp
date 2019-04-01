@@ -76,7 +76,7 @@ void PackageChannelBase::setup_force_close_timer()
 
     _force_close_timer = _time_wheel->add_timer(
         LOOFAH_FORCE_CLOSE_DELAY, 0,
-        [=] (nut::TimeWheel::timer_id_type id, uint64_t expires) {
+        [=] (nut::TimeWheel::timer_id_type id, int64_t expires) {
             _force_close_timer = NUT_INVALID_TIMER_ID;
             force_close();
         });
