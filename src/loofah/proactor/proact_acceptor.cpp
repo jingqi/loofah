@@ -6,12 +6,12 @@
 #include <nut/platform/platform.h>
 #include <nut/logging/logger.h>
 
-#include "proact_acceptor.h"
-#include "proact_channel.h"
-#include "proactor.h"
 #include "../inet_base/utils.h"
 #include "../inet_base/sock_operation.h"
 #include "../inet_base/error.h"
+#include "proact_acceptor.h"
+#include "proact_channel.h"
+#include "proactor.h"
 
 
 #define TAG "loofah.proact_acceptor"

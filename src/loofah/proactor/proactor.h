@@ -9,9 +9,9 @@
 
 #include <nut/platform/platform.h>
 
+#include "proact_handler.h"
 #include "../inet_base/event_loop_base.h"
 #include "../inet_base/inet_addr.h"
-#include "proact_handler.h"
 
 
 namespace loofah

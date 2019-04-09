@@ -2,9 +2,9 @@
 #ifndef ___HEADFILE_B0333459_F9CF_4935_A74F_41D0071CE268_
 #define ___HEADFILE_B0333459_F9CF_4935_A74F_41D0071CE268_
 
-#include <string>
-
 #include "../loofah_config.h"
+
+#include <string>
 
 #include <nut/platform/platform.h>
 

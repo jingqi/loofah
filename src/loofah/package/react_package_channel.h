@@ -25,6 +25,8 @@ public:
     void set_reactor(Reactor *reactor);
     Reactor* get_reactor() const;
 
+    virtual SockStream& get_sock_stream() final override;
+
     /**
      * 写数据
      */
@@ -49,8 +51,6 @@ public:
     virtual void handle_io_exception(int err) final override;
 
 private:
-    virtual SockStream& get_sock_stream() final override;
-
     // 关闭连接
     virtual void force_close() final override;
 };

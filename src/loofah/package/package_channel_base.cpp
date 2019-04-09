@@ -4,8 +4,8 @@
 #include <nut/rc/rc_new.h>
 #include <nut/logging/logger.h>
 
-#include "package_channel_base.h"
 #include "../inet_base/error.h"
+#include "package_channel_base.h"
 
 
 #define TAG "loofah.package.package_channel_base"

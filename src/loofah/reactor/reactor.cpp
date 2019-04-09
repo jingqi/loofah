@@ -23,9 +23,9 @@
 
 #include <nut/logging/logger.h>
 
-#include "reactor.h"
 #include "../inet_base/error.h"
 #include "../inet_base/sock_operation.h"
+#include "reactor.h"
 
 
 #define TAG "loofah.reactor"

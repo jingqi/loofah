@@ -7,8 +7,8 @@
 #include <nut/rc/rc_new.h>
 #include <nut/logging/logger.h>
 
-#include "react_package_channel.h"
 #include "../inet_base/error.h"
+#include "react_package_channel.h"
 
 
 #define TAG "loofah.package.react_package_channel"

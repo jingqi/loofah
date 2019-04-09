@@ -5,6 +5,9 @@
 
 #include "../loofah_config.h"
 
+#include <assert.h>
+#include <string.h>
+
 #include <nut/platform/platform.h>
 
 #if NUT_PLATFORM_OS_WINDOWS
@@ -22,17 +25,14 @@
 #   include <errno.h>
 #endif
 
-#include <assert.h>
-#include <string.h>
-
 #include <nut/logging/logger.h>
 
-#include "proactor.h"
-#include "io_request.h"
 #include "../reactor/react_acceptor.h"
 #include "../inet_base/utils.h"
 #include "../inet_base/error.h"
 #include "../inet_base/sock_operation.h"
+#include "proactor.h"
+#include "io_request.h"
 
 
 #define TAG "loofah.proactor"

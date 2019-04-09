@@ -11,9 +11,9 @@
 #include <nut/time/time_wheel.h>
 #include <nut/debugging/destroy_checker.h>
 
-#include "package.h"
 #include "../inet_base/event_loop_base.h"
 #include "../inet_base/sock_stream.h"
+#include "package.h"
 
 
 namespace loofah
@@ -34,6 +34,8 @@ public:
 
     void set_max_payload_size(size_t max_size);
     size_t get_max_payload_size() const;
+
+    virtual SockStream& get_sock_stream() = 0;
 
     /**
      * 连接完成
@@ -78,7 +80,6 @@ public:
     void close_later(bool discard_write = false);
 
 protected:
-    virtual SockStream& get_sock_stream() = 0;
     virtual void handle_io_exception(int err) = 0;
 
     /**

@@ -26,6 +26,8 @@ public:
     void set_proactor(Proactor *proactor);
     Proactor* get_proactor() const;
 
+    virtual SockStream& get_sock_stream() final override;
+
     /**
      * 写数据
      */
@@ -50,8 +52,6 @@ public:
     virtual void handle_io_exception(int err) override;
 
 private:
-    virtual SockStream& get_sock_stream() final override;
-
     // 向 proactor 请求 read 操作
     void launch_read();
     // 向 proactor 请求 write 操作

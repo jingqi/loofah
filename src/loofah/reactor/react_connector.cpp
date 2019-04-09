@@ -4,12 +4,12 @@
 #include <nut/platform/platform.h>
 #include <nut/logging/logger.h>
 
-#include "react_connector.h"
-#include "react_channel.h"
-#include "reactor.h"
 #include "../inet_base/utils.h"
 #include "../inet_base/sock_operation.h"
 #include "../inet_base/error.h"
+#include "react_connector.h"
+#include "react_channel.h"
+#include "reactor.h"
 
 
 #define TAG "loofah.react_connector"

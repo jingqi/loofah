@@ -6,11 +6,11 @@
 #include <nut/platform/platform.h>
 #include <nut/logging/logger.h>
 
-#include "react_acceptor.h"
-#include "react_channel.h"
 #include "../inet_base/utils.h"
 #include "../inet_base/sock_operation.h"
 #include "../inet_base/error.h"
+#include "react_acceptor.h"
+#include "react_channel.h"
 
 
 #define TAG "loofah.react_acceptor"

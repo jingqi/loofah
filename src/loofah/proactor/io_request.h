@@ -4,6 +4,8 @@
 
 #include "../loofah_config.h"
 
+#include <string.h> // for size_t
+
 #include <nut/platform/platform.h>
 
 #if NUT_PLATFORM_OS_WINDOWS
@@ -12,8 +14,6 @@
 #else
 #   include <sys/uio.h> // for ::readv()
 #endif
-
-#include <string.h> // for size_t
 
 #include "proact_handler.h"
 

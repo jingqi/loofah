@@ -6,8 +6,8 @@
 
 #include <nut/rc/rc_new.h>
 
-#include "proact_handler.h"
 #include "../inet_base/inet_addr.h"
+#include "proact_handler.h"
 
 
 namespace loofah
