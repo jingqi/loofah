@@ -127,7 +127,7 @@ void Proactor::shutdown()
         while (true)
         {
             DWORD bytes_transfered = 0;
-            ULONG key = 0;
+            ULONG_PTR key = 0;
             OVERLAPPED *io_overlapped = nullptr;
             // Get the next asynchronous operation that completes
             const BOOL rs = ::GetQueuedCompletionStatus(_iocp, &bytes_transfered,
@@ -662,7 +662,7 @@ int Proactor::handle_events(int timeout_ms)
 
 #if NUT_PLATFORM_OS_WINDOWS
         DWORD bytes_transfered = 0;
-        ULONG key = 0;
+        ULONG_PTR key = 0;
         OVERLAPPED *io_overlapped = nullptr;
         assert(nullptr != _iocp);
         /**
