@@ -1,4 +1,4 @@
-
+﻿
 #include "proact_handler.h"
 #include "io_request.h"
 
@@ -6,7 +6,7 @@
 namespace loofah
 {
 
-#if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
+#if NUT_PLATFORM_OS_MACOS || NUT_PLATFORM_OS_LINUX
 ProactHandler::~ProactHandler()
 {
     while (!_read_queue.empty())

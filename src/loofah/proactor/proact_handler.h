@@ -47,7 +47,7 @@ public:
 public:
     ProactHandler() = default;
 
-#if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
+#if NUT_PLATFORM_OS_MACOS || NUT_PLATFORM_OS_LINUX
     virtual ~ProactHandler();
 #endif
 
@@ -93,7 +93,7 @@ protected:
     Proactor *_proactor = nullptr;
 
 private:
-#if NUT_PLATFORM_OS_MAC | NUT_PLATFORM_OS_LINUX
+#if NUT_PLATFORM_OS_MACOS | NUT_PLATFORM_OS_LINUX
     // ACCEPT_MASK, CONNECT_MASK, READ_MASK, WRITE_MASK
     mask_type _enabled_events = 0;
 
@@ -105,7 +105,7 @@ private:
 #endif
 
     // 用于记录注册状态，参见 Proactor 的实现
-#if NUT_PLATFORM_OS_MAC
+#if NUT_PLATFORM_OS_MACOS
     // READ_MASK, WRITE_MASK
     mask_type _registered_events = 0;
 #elif NUT_PLATFORM_OS_LINUX

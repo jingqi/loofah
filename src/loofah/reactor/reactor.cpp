@@ -6,7 +6,7 @@
 #if NUT_PLATFORM_OS_WINDOWS
 #   include <winsock2.h>
 #   include <windows.h>
-#elif NUT_PLATFORM_OS_MAC
+#elif NUT_PLATFORM_OS_MACOS
 #   include <sys/types.h>
 #   include <sys/event.h>
 #   include <sys/time.h>
@@ -67,7 +67,7 @@ Reactor::Reactor()
 #elif NUT_PLATFORM_OS_WINDOWS
     _pollfds = (WSAPOLLFD*) ::malloc(sizeof(WSAPOLLFD) * _capacity);
     _handlers = (ReactHandler**) ::malloc(sizeof(ReactHandler*) * _capacity);
-#elif NUT_PLATFORM_OS_MAC
+#elif NUT_PLATFORM_OS_MACOS
     _kq = ::kqueue();
     if (-1 == _kq)
     {
@@ -118,7 +118,7 @@ void Reactor::shutdown()
     _socket_to_handler.clear();
 #elif NUT_PLATFORM_OS_WINDOWS
     _size = 0;
-#elif NUT_PLATFORM_OS_MAC
+#elif NUT_PLATFORM_OS_MACOS
     if (-1 != _kq)
     {
         if (0 != ::close(_kq))
@@ -195,7 +195,7 @@ void Reactor::register_handler(ReactHandler *handler, ReactHandler::mask_type ma
 
 #if NUT_PLATFORM_OS_WINDOWS && WINVER >= _WIN32_WINNT_WINBLUE
     assert(!handler->_registered);
-#elif NUT_PLATFORM_OS_MAC
+#elif NUT_PLATFORM_OS_MACOS
     assert(0 == handler->_registered_events);
 #elif NUT_PLATFORM_OS_LINUX
     assert(!handler->_registered);
@@ -255,7 +255,7 @@ void Reactor::unregister_handler(ReactHandler *handler)
     handler->_registered = false;
     handler->_enabled_events = 0;
     handler->_reactor = nullptr;
-#elif NUT_PLATFORM_OS_MAC
+#elif NUT_PLATFORM_OS_MACOS
     struct kevent ev[2];
     int n = 0;
     if (0 != (handler->_registered_events & ReactHandler::READ_MASK))
@@ -359,7 +359,7 @@ void Reactor::enable_handler(ReactHandler *handler, ReactHandler::mask_type mask
         _pollfds[index].events |= POLLOUT;
     handler->_registered = true;
     handler->_enabled_events |= mask;
-#elif NUT_PLATFORM_OS_MAC
+#elif NUT_PLATFORM_OS_MACOS
     struct kevent ev[2];
     int n = 0;
     const ReactHandler::mask_type need_enable = ~real_mask(handler->_enabled_events) & real_mask(mask);
@@ -459,7 +459,7 @@ void Reactor::disable_handler(ReactHandler *handler, ReactHandler::mask_type mas
             _pollfds[index].events &= ~POLLOUT;
     }
     handler->_enabled_events &= ~mask;
-#elif NUT_PLATFORM_OS_MAC
+#elif NUT_PLATFORM_OS_MACOS
     struct kevent ev[2];
     int n = 0;
     if (0 != (need_disable & ReactHandler::READ_MASK))
@@ -630,7 +630,7 @@ int Reactor::handle_events(int timeout_ms)
                     i = -i - 2; // NOTE 'i' 可能取到 -1
             }
         }
-#elif NUT_PLATFORM_OS_MAC
+#elif NUT_PLATFORM_OS_MACOS
         struct timespec timeout;
         timeout.tv_sec = timeout_ms / 1000;
         timeout.tv_nsec = (timeout_ms % 1000) * 1000 * 1000;

@@ -84,7 +84,7 @@ private:
     // 用于记录注册状态，参见 Reactor 的实现
 #if NUT_PLATFORM_OS_WINDOWS && WINVER >= _WIN32_WINNT_WINBLUE
     bool _registered = false;
-#elif NUT_PLATFORM_OS_MAC
+#elif NUT_PLATFORM_OS_MACOS
     // READ_MASK, WRITE_MASK
     mask_type _registered_events = 0;
 #elif NUT_PLATFORM_OS_LINUX

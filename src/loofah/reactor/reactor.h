@@ -65,7 +65,7 @@ private:
     ReactHandler **_handlers = nullptr;
     size_t _capacity = 16;
     size_t _size = 0;
-#elif NUT_PLATFORM_OS_MAC
+#elif NUT_PLATFORM_OS_MACOS
     // 使用 ::kqueue() 实现
     int _kq = -1;
 #elif NUT_PLATFORM_OS_LINUX

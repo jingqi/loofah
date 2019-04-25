@@ -62,7 +62,7 @@ public:
     int handle_events(int timeout_ms = 1000);
 
 protected:
-#if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
+#if NUT_PLATFORM_OS_MACOS || NUT_PLATFORM_OS_LINUX
     void enable_handler(ProactHandler *handler, ProactHandler::mask_type mask);
     void disable_handler(ProactHandler *handler, ProactHandler::mask_type mask);
 #endif
@@ -75,7 +75,7 @@ private:
     //      INVALID_HANDLE_VALUE, 所以需要将 nullptr 作为无效值
     HANDLE _iocp = nullptr;
     std::unordered_set<socket_t> _associated_sockets;
-#elif NUT_PLATFORM_OS_MAC
+#elif NUT_PLATFORM_OS_MACOS
     int _kq = -1;
 #elif NUT_PLATFORM_OS_LINUX
     int _epoll_fd = -1;

@@ -13,7 +13,7 @@
 #if NUT_PLATFORM_OS_WINDOWS
 #   include <winsock2.h>
 #   include <windows.h>
-#elif NUT_PLATFORM_OS_MAC
+#elif NUT_PLATFORM_OS_MACOS
 #   include <sys/types.h>
 #   include <sys/event.h>
 #   include <sys/time.h>
@@ -71,7 +71,7 @@ public:
     size_t *len_ptrs = nullptr;
 };
 
-#if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
+#if NUT_PLATFORM_OS_MACOS || NUT_PLATFORM_OS_LINUX
 ProactHandler::mask_type real_mask(ProactHandler::mask_type mask)
 {
     ProactHandler::mask_type ret = 0;
@@ -92,7 +92,7 @@ Proactor::Proactor()
     _iocp = ::CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, concurrent_threads);
     if (nullptr == _iocp)
         NUT_LOG_E(TAG, "failed to call CreateIoCompletionPort() with GetLastError() %d", ::GetLastError());
-#elif NUT_PLATFORM_OS_MAC
+#elif NUT_PLATFORM_OS_MACOS
     _kq = ::kqueue();
     if (-1 == _kq)
         LOOFAH_LOG_ERRNO(kqueue);
@@ -142,7 +142,7 @@ void Proactor::shutdown()
             NUT_LOG_E(TAG, "failed to call CloseHandle() with GetLastError() %d", ::GetLastError());
     }
     _iocp = nullptr;
-#elif NUT_PLATFORM_OS_MAC
+#elif NUT_PLATFORM_OS_MACOS
     if (-1 != _kq)
     {
         if (0 != ::close(_kq))
@@ -196,7 +196,7 @@ void Proactor::register_handler(ProactHandler *handler)
         assert(rs == _iocp);
         _associated_sockets.insert(fd);
     }
-#elif NUT_PLATFORM_OS_MAC
+#elif NUT_PLATFORM_OS_MACOS
     assert(0 == handler->_registered_events && 0 == handler->_enabled_events);
 #elif NUT_PLATFORM_OS_LINUX
     assert(!handler->_registered && 0 == handler->_enabled_events);
@@ -230,7 +230,7 @@ void Proactor::unregister_handler(ProactHandler *handler)
 #if NUT_PLATFORM_OS_WINDOWS
     // FIXME 对于 Windows 下的 IOCP，是无法取消 socket 与 iocp 的关联的
     handler->_proactor = nullptr;
-#elif NUT_PLATFORM_OS_MAC
+#elif NUT_PLATFORM_OS_MACOS
     const socket_t fd = handler->get_socket();
     struct kevent ev[2];
     int n = 0;
@@ -333,7 +333,7 @@ void Proactor::launch_accept(ProactHandler *handler)
             return;
         }
     }
-#elif NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
+#elif NUT_PLATFORM_OS_MACOS || NUT_PLATFORM_OS_LINUX
     ++handler->_request_accept;
     enable_handler(handler, ProactHandler::ACCEPT_MASK);
 #endif
@@ -467,7 +467,7 @@ void Proactor::launch_read(ProactHandler *handler, void* const *buf_ptrs,
             return;
         }
     }
-#elif NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
+#elif NUT_PLATFORM_OS_MACOS || NUT_PLATFORM_OS_LINUX
     IORequest *io_request = IORequest::new_request(ProactHandler::READ_MASK, buf_count);
     assert(nullptr != io_request);
     io_request->set_bufs(buf_ptrs, len_ptrs);
@@ -527,7 +527,7 @@ void Proactor::launch_write(ProactHandler *handler, void* const *buf_ptrs,
             return;
         }
     }
-#elif NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
+#elif NUT_PLATFORM_OS_MACOS || NUT_PLATFORM_OS_LINUX
     IORequest *io_request = IORequest::new_request(ProactHandler::WRITE_MASK, buf_count);
     assert(nullptr != io_request);
     io_request->set_bufs(buf_ptrs, len_ptrs);
@@ -537,7 +537,7 @@ void Proactor::launch_write(ProactHandler *handler, void* const *buf_ptrs,
 #endif
 }
 
-#if NUT_PLATFORM_OS_MAC || NUT_PLATFORM_OS_LINUX
+#if NUT_PLATFORM_OS_MACOS || NUT_PLATFORM_OS_LINUX
 void Proactor::enable_handler(ProactHandler *handler, ProactHandler::mask_type mask)
 {
     assert(nullptr != handler && 0 == (mask & ~ProactHandler::ALL_MASK));
@@ -549,7 +549,7 @@ void Proactor::enable_handler(ProactHandler *handler, ProactHandler::mask_type m
     const socket_t fd = handler->get_socket();
     const ProactHandler::mask_type need_enable = ~real_mask(handler->_enabled_events) & real_mask(mask);
 
-#if NUT_PLATFORM_OS_MAC
+#if NUT_PLATFORM_OS_MACOS
     struct kevent ev[2];
     int n = 0;
     if (0 != (need_enable & ProactHandler::READ_MASK))
@@ -609,7 +609,7 @@ void Proactor::disable_handler(ProactHandler *handler, ProactHandler::mask_type 
     const ProactHandler::mask_type final_enabled = real_mask(handler->_enabled_events & ~mask),
         need_disable = real_mask(handler->_enabled_events) & ~final_enabled;
 
-#if NUT_PLATFORM_OS_MAC
+#if NUT_PLATFORM_OS_MACOS
     struct kevent ev[2];
     int n = 0;
     if (0 != (need_disable & ProactHandler::READ_MASK))
@@ -787,7 +787,7 @@ int Proactor::handle_events(int timeout_ms)
             }
             IORequest::delete_request(io_request);
         }
-#elif NUT_PLATFORM_OS_MAC
+#elif NUT_PLATFORM_OS_MACOS
         struct timespec timeout;
         timeout.tv_sec = timeout_ms / 1000;
         timeout.tv_nsec = (timeout_ms % 1000) * 1000 * 1000;
