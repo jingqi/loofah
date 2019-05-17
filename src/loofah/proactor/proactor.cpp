@@ -43,34 +43,6 @@ namespace loofah
 namespace
 {
 
-class BufferHolder
-{
-    NUT_REF_COUNTABLE
-
-public:
-    BufferHolder(void* const *bp, const size_t *lp, size_t bc)
-    {
-        buf_ptrs = (void**) ::malloc(sizeof(void*) * bc);
-        ::memcpy(buf_ptrs, bp, sizeof(void*) * bc);
-        len_ptrs = (size_t*) ::malloc(sizeof(size_t) * bc);
-        ::memcpy(len_ptrs, lp, sizeof(size_t) * bc);
-    }
-
-    virtual ~BufferHolder()
-    {
-        ::free(buf_ptrs);
-        ::free(len_ptrs);
-    }
-
-private:
-    BufferHolder(const BufferHolder&) = delete;
-    BufferHolder& operator=(const BufferHolder&) = delete;
-
-public:
-    void **buf_ptrs = nullptr;
-    size_t *len_ptrs = nullptr;
-};
-
 #if NUT_PLATFORM_OS_MACOS || NUT_PLATFORM_OS_LINUX
 ProactHandler::mask_type real_mask(ProactHandler::mask_type mask)
 {
@@ -431,8 +403,16 @@ void Proactor::launch_read_later(ProactHandler *handler, void* const *buf_ptrs,
     {
         // Asynchronize
         nut::rc_ptr<ProactHandler> ref_handler(handler);
-        nut::rc_ptr<BufferHolder> buf_holder = nut::rc_new<BufferHolder>(buf_ptrs, len_ptrs, buf_count);
-        add_later_task([=] { launch_read(ref_handler, buf_holder->buf_ptrs, buf_holder->len_ptrs, buf_count); });
+
+        void **dup_buf_ptrs = (void**) ::malloc(sizeof(void*) * buf_count + sizeof(size_t) * buf_count);
+        ::memcpy(dup_buf_ptrs, buf_ptrs, sizeof(void*) * buf_count);
+        size_t *dup_len_ptrs = (size_t*) (dup_buf_ptrs + buf_count);
+        ::memcpy(dup_len_ptrs, len_ptrs, sizeof(size_t) * buf_count);
+        
+        add_later_task([=] {
+            launch_read(ref_handler, dup_buf_ptrs, dup_len_ptrs, buf_count);
+            ::free(dup_buf_ptrs);
+        });
     }
 }
 
@@ -491,8 +471,16 @@ void Proactor::launch_write_later(ProactHandler *handler, void* const *buf_ptrs,
     {
         // Asynchronize
         nut::rc_ptr<ProactHandler> ref_handler(handler);
-        nut::rc_ptr<BufferHolder> buf_holder = nut::rc_new<BufferHolder>(buf_ptrs, len_ptrs, buf_count);
-        add_later_task([=] { launch_write(ref_handler, buf_holder->buf_ptrs, buf_holder->len_ptrs, buf_count); });
+
+        void **dup_buf_ptrs = (void**) ::malloc(sizeof(void*) * buf_count + sizeof(size_t) * buf_count);
+        ::memcpy(dup_buf_ptrs, buf_ptrs, sizeof(void*) * buf_count);
+        size_t *dup_len_ptrs = (size_t*) (dup_buf_ptrs + buf_count);
+        ::memcpy(dup_len_ptrs, len_ptrs, sizeof(size_t) * buf_count);
+
+        add_later_task([=] {
+            launch_write(ref_handler, dup_buf_ptrs, dup_len_ptrs, buf_count);
+            ::free(dup_buf_ptrs);
+        });
     }
 }
 
