@@ -156,9 +156,10 @@ void ReactPackageChannel::write(Package *pkg)
     assert(nullptr != _actor && _actor->is_in_loop_thread());
     assert(!_sock_stream.is_null());
 
-    if (_closing.load(std::memory_order_relaxed) || _sock_stream.is_writing_shutdown())
+    const bool closing = _closing.load(std::memory_order_relaxed);
+    if (closing || _sock_stream.is_writing_shutdown())
     {
-        if (_closing.load(std::memory_order_relaxed))
+        if (closing)
             NUT_LOG_W(TAG, "channel is closing, writing package discard. fd %d", get_socket());
         else
             NUT_LOG_W(TAG, "write channel is closed, writing package discard. fd %d", get_socket());
@@ -190,7 +191,7 @@ void ReactPackageChannel::handle_write_ready()
             return;
         }
 
-#if NUT_PLATFORM_OS_MAX || NUT_PLATFORM_OS_LINUX
+#if NUT_PLATFORM_OS_MACOS || NUT_PLATFORM_OS_LINUX
         if (1 == _pkg_write_queue.size())
         {
 #endif
@@ -218,7 +219,7 @@ void ReactPackageChannel::handle_write_ready()
                 handle_io_exception(rs);
                 return;
             }
-#if NUT_PLATFORM_OS_MAX || NUT_PLATFORM_OS_LINUX
+#if NUT_PLATFORM_OS_MACOS || NUT_PLATFORM_OS_LINUX
         }
         else
         {
@@ -235,6 +236,7 @@ void ReactPackageChannel::handle_write_ready()
                 lens[i] = pkg->readable_size();
             }
 
+            // FIXME Windows 下 writev() 返回字节数不可靠, 参看 SockOperation::writev() 的实现
             ssize_t rs = _sock_stream.writev(bufs, lens, buf_count);
             while (rs > 0)
             {

@@ -152,9 +152,10 @@ void ProactPackageChannel::write(Package *pkg)
     assert(nullptr != _actor && _actor->is_in_loop_thread());
     assert(!_sock_stream.is_null());
 
-    if (_closing.load(std::memory_order_relaxed) || _sock_stream.is_writing_shutdown())
+    const bool closing = _closing.load(std::memory_order_relaxed);
+    if (closing || _sock_stream.is_writing_shutdown())
     {
-        if (_closing.load(std::memory_order_relaxed))
+        if (closing)
             NUT_LOG_W(TAG, "channel is closing, writing package discard. fd %d", get_socket());
         else
             NUT_LOG_W(TAG, "write channel is closed, writing package discard. fd %d", get_socket());

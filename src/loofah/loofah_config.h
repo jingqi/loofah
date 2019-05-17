@@ -25,17 +25,16 @@ typedef int socklen_t;
 #endif
 
 // epoll_wait() / kevent() 单次查询最多返回事件数
-#define LOOFAH_MAX_ACTIVE_EVENTS 32
+#define LOOFAH_MAX_ACTIVE_EVENTS 64
 
-// 读操作时的初始 package payload 最大大小，避免未认证连接发送超大数据包，可在认
-// 证后再将其改大
+// 读操作的初始预分配 package payload 大小
 #define LOOFAH_INIT_READ_PKG_SIZE 1024
 
 // 默认最大 package payload 大小
 #define LOOFAH_DEFAULT_MAX_PKG_SIZE (64 * 1024 * 1024)
 
 // 强制关闭连接延时(毫秒)
-// <0 表示不强制关闭, 0 表示立即关闭, >0 表示超时强制关闭
+// <0 表示不强制关闭, 0 表示立即关闭(可能会丢失未写完的数据), >0 表示超时强制关闭
 #define LOOFAH_FORCE_CLOSE_DELAY -1
 
 namespace loofah

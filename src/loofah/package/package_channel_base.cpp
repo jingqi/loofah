@@ -218,10 +218,11 @@ void PackageChannelBase::write_later(Package *pkg)
     assert(nullptr != pkg);
     NUT_DEBUGGING_ASSERT_ALIVE;
 
-    if (_closing.load(std::memory_order_relaxed) || get_sock_stream().is_writing_shutdown())
+    const bool closing = _closing.load(std::memory_order_relaxed);
+    if (closing || get_sock_stream().is_writing_shutdown())
     {
         const socket_t fd = get_sock_stream().get_socket();
-        if (_closing.load(std::memory_order_relaxed))
+        if (closing)
             NUT_LOG_W(TAG, "channel is closing, writing package discard. fd %d", fd);
         else
             NUT_LOG_W(TAG, "write channel is closed, writing package discard. fd %d", fd);
