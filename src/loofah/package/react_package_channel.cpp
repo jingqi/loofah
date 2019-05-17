@@ -222,9 +222,9 @@ void ReactPackageChannel::handle_write_ready()
         }
         else
         {
-            void *bufs[LOOFAH_STACK_BUFFER_LENGTH];
-            size_t lens[LOOFAH_STACK_BUFFER_LENGTH];
-            const size_t buf_count = std::min((size_t) LOOFAH_STACK_BUFFER_LENGTH, _pkg_write_queue.size());
+            const size_t buf_count = _pkg_write_queue.size();
+            void **bufs = (void**) ::alloca(sizeof(void*) * buf_count + sizeof(size_t) * buf_count);
+            size_t *lens = (size_t*) (bufs + buf_count);
 
             queue_t::const_iterator iter = _pkg_write_queue.begin();
             for (size_t i = 0; i < buf_count; ++i, ++iter)
@@ -234,6 +234,7 @@ void ReactPackageChannel::handle_write_ready()
                 bufs[i] = (void*) pkg->readable_data();
                 lens[i] = pkg->readable_size();
             }
+
             ssize_t rs = _sock_stream.writev(bufs, lens, buf_count);
             while (rs > 0)
             {

@@ -27,10 +27,8 @@ typedef int socklen_t;
 // epoll_wait() / kevent() 单次查询最多返回事件数
 #define LOOFAH_MAX_ACTIVE_EVENTS 32
 
-// 传入 writev() / readv() 栈上数组大小(元素个数)
-#define LOOFAH_STACK_BUFFER_LENGTH 64
-
-// 读操作时的初始 package payload 大小
+// 读操作时的初始 package payload 最大大小，避免未认证连接发送超大数据包，可在认
+// 证后再将其改大
 #define LOOFAH_INIT_READ_PKG_SIZE 1024
 
 // 默认最大 package payload 大小

@@ -227,12 +227,7 @@ ssize_t SockOperation::readv(socket_t socket_fd, void* const *buf_ptrs,
     assert(nullptr != buf_ptrs && nullptr != len_ptrs);
 
 #if NUT_PLATFORM_OS_WINDOWS
-    WSABUF stack_wsabufs[LOOFAH_STACK_BUFFER_LENGTH], *wsabufs = nullptr;
-    if (buf_count > LOOFAH_STACK_BUFFER_LENGTH)
-        wsabufs = (WSABUF*) ::malloc(sizeof(WSABUF) * buf_count);
-    else
-        wsabufs = stack_wsabufs;
-
+    WSABUF *wsabufs = (WSABUF*) ::alloca(sizeof(WSABUF) * buf_count);
     size_t total_bytes = 0;
     for (size_t i = 0; i < buf_count; ++i)
     {
@@ -283,12 +278,7 @@ ssize_t SockOperation::readv(socket_t socket_fd, void* const *buf_ptrs,
     LOOFAH_LOG_FD_ERRNO(WSARecv, socket_fd);
     return from_errno(err);
 #else
-    struct iovec stack_iovs[LOOFAH_STACK_BUFFER_LENGTH], *iovs = nullptr;
-    if (buf_count > LOOFAH_STACK_BUFFER_LENGTH)
-        iovs = (struct iovec*) ::malloc(sizeof(struct iovec) * buf_count);
-    else
-        iovs = stack_iovs;
-
+    struct iovec *iovs = (struct iovec*) ::alloca(sizeof(struct iovec) * buf_count);
     for (size_t i = 0; i < buf_count; ++i)
     {
         iovs[i].iov_base = (char*) *buf_ptrs;
@@ -299,9 +289,6 @@ ssize_t SockOperation::readv(socket_t socket_fd, void* const *buf_ptrs,
     }
 
     const ssize_t rs = ::readv(socket_fd, iovs, buf_count);
-    if (buf_count > LOOFAH_STACK_BUFFER_LENGTH)
-        ::free(iovs);
-
     if (rs >= 0)
         return rs;
     else if (EAGAIN == errno || EWOULDBLOCK == errno)
@@ -352,12 +339,7 @@ ssize_t SockOperation::writev(socket_t socket_fd, const void* const *buf_ptrs,
     assert(nullptr != buf_ptrs && nullptr != len_ptrs);
 
 #if NUT_PLATFORM_OS_WINDOWS
-    WSABUF stack_wsabufs[LOOFAH_STACK_BUFFER_LENGTH], *wsabufs = nullptr;
-    if (buf_count > LOOFAH_STACK_BUFFER_LENGTH)
-        wsabufs = (WSABUF*) ::malloc(sizeof(WSABUF) * buf_count);
-    else
-        wsabufs = stack_wsabufs;
-
+    WSABUF *wsabufs = (WSABUF*) ::alloca(sizeof(WSABUF) * buf_count);
     size_t total_bytes = 0;
     for (size_t i = 0; i < buf_count; ++i)
     {
@@ -402,12 +384,7 @@ ssize_t SockOperation::writev(socket_t socket_fd, const void* const *buf_ptrs,
     LOOFAH_LOG_FD_ERRNO(WSASend, socket_fd);
     return from_errno(err);
 #else
-    struct iovec stack_iovs[LOOFAH_STACK_BUFFER_LENGTH], *iovs = nullptr;
-    if (buf_count > LOOFAH_STACK_BUFFER_LENGTH)
-        iovs = (struct iovec*) ::malloc(sizeof(struct iovec) * buf_count);
-    else
-        iovs = stack_iovs;
-
+    struct iovec *iovs = (struct iovec*) ::alloca(sizeof(struct iovec) * buf_count);
     for (size_t i = 0; i < buf_count; ++i)
     {
         iovs[i].iov_base = (char*) *buf_ptrs;
@@ -418,9 +395,6 @@ ssize_t SockOperation::writev(socket_t socket_fd, const void* const *buf_ptrs,
     }
 
     const ssize_t rs = ::writev(socket_fd, iovs, buf_count);
-    if (buf_count > LOOFAH_STACK_BUFFER_LENGTH)
-        ::free(iovs);
-
     if (rs >= 0)
         return rs;
     else if (EAGAIN == errno || EWOULDBLOCK == errno)
