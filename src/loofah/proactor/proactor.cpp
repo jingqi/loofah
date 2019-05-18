@@ -96,20 +96,10 @@ void Proactor::shutdown()
 #if NUT_PLATFORM_OS_WINDOWS
     if (nullptr != _iocp)
     {
-        while (true)
-        {
-            DWORD bytes_transfered = 0;
-            ULONG_PTR key = 0;
-            OVERLAPPED *io_overlapped = nullptr;
-            // Get the next asynchronous operation that completes
-            const BOOL rs = ::GetQueuedCompletionStatus(_iocp, &bytes_transfered,
-                                                        &key, &io_overlapped, 0);
-            if (FALSE == rs || nullptr == io_overlapped)
-                break;
-            IORequest *io_request = CONTAINING_RECORD(io_overlapped, IORequest, overlapped);
-            assert(nullptr != io_request);
-            IORequest::delete_request(io_request);
-        }
+        // 如果有多个线程等待在这个 iocp 上，下面这句可以唤醒所有等待线程，不过
+        // 这里我们只有一个线程且并非处于等待状态，不需要
+        // ::PostQueuedCompletionStatus(_iocp, 0, 0, nullptr);
+
         if (FALSE == ::CloseHandle(_iocp))
             NUT_LOG_E(TAG, "failed to call CloseHandle() with GetLastError() %d", ::GetLastError());
     }
@@ -198,10 +188,14 @@ void Proactor::unregister_handler(ProactHandler *handler)
 {
     assert(nullptr != handler && handler->_registered_proactor == this);
     assert(is_in_loop_thread());
+    
 
 #if NUT_PLATFORM_OS_WINDOWS
     // FIXME 对于 Windows 下的 IOCP，是无法取消 socket 与 iocp 的关联的
+    const socket_t fd = handler->get_socket();
+    ::CancelIo((HANDLE) fd); // 取消等待执行的异步操作
     handler->_registered_proactor = nullptr;
+    handler->delete_requests();
 #elif NUT_PLATFORM_OS_MACOS
     const socket_t fd = handler->get_socket();
     struct kevent ev[2];
@@ -219,6 +213,7 @@ void Proactor::unregister_handler(ProactHandler *handler)
     handler->_registered_events = 0;
     handler->_enabled_events = 0;
     handler->_registered_proactor = nullptr;
+    handler->delete_requests();
 #elif NUT_PLATFORM_OS_LINUX
     if (handler->_registered)
     {
@@ -236,6 +231,7 @@ void Proactor::unregister_handler(ProactHandler *handler)
     handler->_registered = false;
     handler->_enabled_events = 0;
     handler->_registered_proactor = nullptr;
+    handler->delete_requests();
 #endif
 }
 
@@ -301,10 +297,12 @@ void Proactor::launch_accept(ProactHandler *handler)
             LOOFAH_LOG_FD_ERRNO(AcceptEx, listening_socket);
             if (0 != ::closesocket(accept_socket))
                 LOOFAH_LOG_FD_ERRNO(closesocket, accept_socket);
+            IORequest::delete_request(io_request);
             handler->handle_io_error(from_errno(errcode));
             return;
         }
     }
+    handler->_read_queue.push(io_request);
 #elif NUT_PLATFORM_OS_MACOS || NUT_PLATFORM_OS_LINUX
     ++handler->_request_accept;
     enable_handler(handler, ProactHandler::ACCEPT_MASK);
@@ -373,10 +371,12 @@ void Proactor::launch_connect(ProactHandler *handler, const InetAddr& address)
         if (ERROR_IO_PENDING != errcode)
         {
             LOOFAH_LOG_FD_ERRNO(ConnectEx, fd);
+            IORequest::delete_request(io_request);
             handler->handle_io_error(from_errno(errcode));
             return;
         }
     }
+    handler->_write_queue.push(io_request);
 }
 #else
 void Proactor::launch_connect(ProactHandler *handler)
@@ -443,10 +443,12 @@ void Proactor::launch_read(ProactHandler *handler, void* const *buf_ptrs,
         if (ERROR_IO_PENDING != errcode)
         {
             LOOFAH_LOG_FD_ERRNO(WSARecv, fd);
+            IORequest::delete_request(io_request);
             handler->handle_io_error(from_errno(errcode));
             return;
         }
     }
+    handler->_read_queue.push(io_request);
 #elif NUT_PLATFORM_OS_MACOS || NUT_PLATFORM_OS_LINUX
     IORequest *io_request = IORequest::new_request(ProactHandler::READ_MASK, buf_count);
     assert(nullptr != io_request);
@@ -511,10 +513,12 @@ void Proactor::launch_write(ProactHandler *handler, void* const *buf_ptrs,
         if (ERROR_IO_PENDING != errcode)
         {
             LOOFAH_LOG_FD_ERRNO(WSASend, fd);
+            IORequest::delete_request(io_request);
             handler->handle_io_error(from_errno(errcode));
             return;
         }
     }
+    handler->_write_queue.push(io_request);
 #elif NUT_PLATFORM_OS_MACOS || NUT_PLATFORM_OS_LINUX
     IORequest *io_request = IORequest::new_request(ProactHandler::WRITE_MASK, buf_count);
     assert(nullptr != io_request);
@@ -684,6 +688,18 @@ int Proactor::handle_events(int timeout_ms)
 
             ProactHandler *handler = io_request->handler;
             assert(nullptr != handler);
+            if (0 != (io_request->event_type & ProactHandler::ACCEPT_READ_MASK))
+            {
+                assert(io_request == handler->_read_queue.front());
+                handler->_read_queue.pop();
+            }
+            else
+            {
+                assert(io_request == handler->_write_queue.front());
+                handler->_write_queue.pop();
+            }
+            IORequest::delete_request(io_request);
+
             // FIXME 因为 ::GetQueuedCompletionStatus() 不返回底层网络驱动的错误
             //       码，导致低层网络驱动错误码被丢失
             //       Also see https://stackoverflow.com/questions/28925003/calling-wsagetlasterror-from-an-iocp-thread-return-incorrect-result
@@ -770,8 +786,18 @@ int Proactor::handle_events(int timeout_ms)
 
             default:
                 NUT_LOG_E(TAG, "unknown event type %d", io_request->event_type);
-                IORequest::delete_request(io_request);
-                return -1;
+                assert(false);
+            }
+
+            if (0 != (io_request->event_type & ProactHandler::ACCEPT_READ_MASK))
+            {
+                assert(io_request == handler->_read_queue.front());
+                handler->_read_queue.pop();
+            }
+            else
+            {
+                assert(io_request == handler->_write_queue.front());
+                handler->_write_queue.pop();
             }
             IORequest::delete_request(io_request);
         }

@@ -46,10 +46,7 @@ public:
 
 public:
     ProactHandler() = default;
-
-#if NUT_PLATFORM_OS_MACOS || NUT_PLATFORM_OS_LINUX
     virtual ~ProactHandler();
-#endif
 
     virtual socket_t get_socket() const = 0;
 
@@ -89,20 +86,23 @@ private:
     ProactHandler(const ProactHandler&) = delete;
     ProactHandler& operator=(const ProactHandler&) = delete;
 
+    // 删除所有未完成的 IORequest
+    void delete_requests();
+
 protected:
     Proactor *_registered_proactor = nullptr;
 
 private:
-#if NUT_PLATFORM_OS_MACOS | NUT_PLATFORM_OS_LINUX
+#if NUT_PLATFORM_OS_MACOS || NUT_PLATFORM_OS_LINUX
     // ACCEPT_MASK, CONNECT_MASK, READ_MASK, WRITE_MASK
     mask_type _enabled_events = 0;
 
     // accept 请求数
     size_t _request_accept = 0;
+#endif
 
     // 读写请求队列
     std::queue<IORequest*> _read_queue, _write_queue;
-#endif
 
     // 用于记录注册状态，参见 Proactor 的实现
 #if NUT_PLATFORM_OS_MACOS
