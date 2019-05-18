@@ -464,4 +464,25 @@ bool SockOperation::set_keep_alive(socket_t socket_fd, bool keep_alive)
     return 0 == rs;
 }
 
+bool SockOperation::set_linger(socket_t socket_fd, bool on, unsigned time)
+{
+#if NUT_PLATFORM_OS_WINDOWS
+    struct linger so_linger;
+    so_linger.l_onoff = (on ? TRUE : FALSE);
+    so_linger.l_linger = time;
+    const int rs = ::setsockopt(socket_fd, SOL_SOCKET, SO_LINGER,
+                                (char*) &so_linger, sizeof(so_linger));
+#else
+    struct linger so_linger;
+    so_linger.l_onoff = (on ? 1 : 0);
+    so_linger.l_linger = time;
+    const int rs = ::setsockopt(socket_fd, SOL_SOCKET, SO_LINGER,
+                                &so_linger, sizeof(so_linger));
+#endif
+
+    if (0 != rs)
+        LOOFAH_LOG_FD_ERRNO(setsockopt, socket_fd);
+    return 0 == rs;
+}
+
 }

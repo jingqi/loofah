@@ -35,7 +35,7 @@ typedef int socklen_t;
 
 // 强制关闭连接延时(毫秒)
 // <0 表示不强制关闭, 0 表示立即关闭(可能会丢失未写完的数据), >0 表示超时强制关闭
-#define LOOFAH_FORCE_CLOSE_DELAY -1
+#define LOOFAH_FORCE_CLOSE_DELAY (20 * 1000)
 
 namespace loofah
 {

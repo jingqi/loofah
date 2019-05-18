@@ -96,20 +96,33 @@ socket_t ReactAcceptorBase::accept(socket_t listening_socket)
 {
     InetAddr peer_addr;
     socklen_t rsz = peer_addr.get_max_sockaddr_size();
-    socket_t fd = ::accept(listening_socket, peer_addr.cast_to_sockaddr(), &rsz);
-    if (LOOFAH_INVALID_SOCKET_FD == fd)
+    socket_t fd = LOOFAH_INVALID_SOCKET_FD;
+    while (true)
     {
+        fd = ::accept(listening_socket, peer_addr.cast_to_sockaddr(), &rsz);
+        if (LOOFAH_INVALID_SOCKET_FD != fd)
+            break;
+
 #if NUT_PLATFORM_OS_WINDOWS
+        // 错误码 WSAEWOULDBLOCK 表示已经没有资源了，等待下次异步通知，是正常的
         const int errcode = ::WSAGetLastError();
-        // NOTE 错误码 WSAEWOULDBLOCK 表示已经没有资源了，等待下次异步通知，是正常的
-        if (WSAEWOULDBLOCK != errcode)
-            LOOFAH_LOG_FD_ERRNO(accept, listening_socket);
-#else
-        // NOTE 错误码 EAGAIN 表示已经没有资源了，等待下次异步通知，是正常的
-        if (EAGAIN != errno)
-            LOOFAH_LOG_FD_ERRNO(accept, listening_socket);
-#endif
+        if (WSAEWOULDBLOCK == errcode)
+            return LOOFAH_INVALID_SOCKET_FD;
+
+        LOOFAH_LOG_FD_ERRNO(accept, listening_socket);
         return LOOFAH_INVALID_SOCKET_FD;
+#else
+        // 错误码 EINTR 表示操作被打断，需要重新尝试
+        if (EINTR == errno)
+            continue;
+
+        // 错误码 EAGAIN 表示已经没有资源了，等待下次异步通知，是正常的
+        if (EAGAIN == errno)
+            return LOOFAH_INVALID_SOCKET_FD;
+
+        LOOFAH_LOG_FD_ERRNO(accept, listening_socket);
+        return LOOFAH_INVALID_SOCKET_FD;
+#endif
     }
 
     if (!SockOperation::set_nonblocking(fd))

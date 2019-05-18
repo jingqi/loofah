@@ -63,12 +63,12 @@ void ReactPackageChannel::close(bool discard_write)
     {
         if (_sock_stream.is_reading_shutdown())
         {
-            // Peer 发起的关闭连接
+            // 被动关闭连接
             force_close();
             return;
         }
 
-        // Local 主动发起关闭连接
+        // 主动关闭连接
         ((Reactor*) _actor)->disable_handler(this, ReactHandler::WRITE_MASK);
         _sock_stream.shutdown_write();
     }
@@ -126,9 +126,9 @@ void ReactPackageChannel::handle_read_ready()
             reactor->disable_handler(this, ReactHandler::READ_MASK);
             _sock_stream.mark_reading_shutdown();
             if (_sock_stream.is_writing_shutdown())
-                force_close(); // Local 主动发起的关闭连接
+                force_close(); // 主动关闭连接
             else
-                close(); // Peer 发起的关闭连接
+                close(); // 被动关闭连接
             return;
         }
         else if (LOOFAH_ERR_WOULD_BLOCK == rs)
@@ -178,7 +178,10 @@ void ReactPackageChannel::handle_write_ready()
     Reactor *const reactor = (Reactor*) _actor;
     while (!_pkg_write_queue.empty())
     {
-        // NOTE 写入前需要检查 RST 错误
+#if !NUT_PLATFORM_OS_LINUX
+        // 写入前需要检查 RST 错误
+        // FIXME linux 下无法通过 get_last_error() 来检查到 RST 包导致的错误, 而
+        //       是根据 epoll() 结果中的 EPIPE 错误来判定
         const int err = _sock_stream.get_last_error();
         if (0 != err)
         {
@@ -186,6 +189,7 @@ void ReactPackageChannel::handle_write_ready()
             handle_io_error(err);
             return;
         }
+#endif
 
 #if NUT_PLATFORM_OS_MACOS || NUT_PLATFORM_OS_LINUX
         if (1 == _pkg_write_queue.size())
@@ -274,9 +278,9 @@ void ReactPackageChannel::handle_write_ready()
 
         // 如果本地写队列空了，并且处于关闭流程中，则关闭写通道
         if (_sock_stream.is_reading_shutdown())
-            force_close(); // Peer 发起的关闭连接
+            force_close(); // 被动关闭连接
         else if (_closing.load(std::memory_order_relaxed))
-            _sock_stream.shutdown_write(); // Local 主动发起关闭连接
+            _sock_stream.shutdown_write(); // 主动关闭连接
     }
 }
 

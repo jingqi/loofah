@@ -37,6 +37,7 @@ int from_errno(int err)
         CASE_MAP(ENOTCONN, LOOFAH_ERR_NOT_CONNECTED);
         CASE_MAP(ECONNRESET, LOOFAH_ERR_CONNECTION_RESET);
         CASE_MAP(ECONNABORTED, LOOFAH_ERR_CONNECTION_ABORTED);
+        CASE_MAP(EPIPE, LOOFAH_ERR_BROKEN_PIPE);
     }
     NUT_LOG_W(TAG, "unmanaged error for errno %d: %s", err, ::strerror(err));
 #endif
@@ -58,6 +59,7 @@ const char* str_error(int err)
         CASE_MAP(LOOFAH_ERR_NOT_CONNECTED, "Socket is not connected");
         CASE_MAP(LOOFAH_ERR_CONNECTION_RESET, "Connection reset by peer");
         CASE_MAP(LOOFAH_ERR_CONNECTION_ABORTED, "Software caused connection abort");
+        CASE_MAP(LOOFAH_ERR_BROKEN_PIPE, "Broken pipe");
         CASE_MAP(LOOFAH_ERR_PKG_OVERSIZE, "Package payload size is too big");
     }
     return "Undefined error";

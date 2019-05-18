@@ -110,6 +110,18 @@ public:
 
     static bool set_keep_alive(socket_t socket_fd, bool keep_alive = true);
 
+    /**
+     * - on=false: 丢弃发送缓存中的数据，发送 FIN 包
+     * - on=true, time>0: 等待一段时间，在这段时间内尽量发送缓冲区中的数据。如果
+     *   超时未发送完，不会发送 FIN 包。
+     *   阻塞式 socket close() 会阻塞一段时间，超时未发送完则返回 EWOULDBLOCK。
+     *   非阻塞式 socket close() 会根据当前缓冲区内是否有数据返回 EWOULDBLOCK。
+     * - on=true, time=0: 主动关闭时不会发送 FIN 来结束连接，而是直接将连接设置为
+     *   CLOSE 状态，清除套接字中的发送和接收缓冲区。如果存在未读数据，直接对对
+     *   端发送 RST 包。可以用来减少 TIME_WAIT 套接字的数量
+     */
+    static bool set_linger(socket_t socket_fd, bool on, unsigned time);
+
 private:
     SockOperation() = delete;
 };

@@ -62,12 +62,12 @@ void ProactPackageChannel::close(bool discard_write)
     {
         if (_sock_stream.is_reading_shutdown())
         {
-            // Peer 发起的关闭连接
+            // 被动关闭连接
             force_close();
             return;
         }
 
-        // Local 主动发起关闭连接
+        // 主动关闭连接
         _sock_stream.shutdown_write();
     }
 
@@ -132,9 +132,9 @@ void ProactPackageChannel::handle_read_completed(size_t cb)
         // Read channel closed
         _sock_stream.mark_reading_shutdown();
         if (_sock_stream.is_writing_shutdown())
-            force_close(); // Local 主动发起的关闭连接
+            force_close(); // 主动关闭连接
         else
-            close(); // Peer 发起的关闭连接
+            close(); // 被动关闭连接
         return;
     }
 
@@ -170,13 +170,17 @@ void ProactPackageChannel::launch_write()
 
     // NOTE '_closing' 可能为 true, 做关闭前最后的写入
 
+#if !NUT_PLATFORM_OS_LINUX
     // NOTE 写入前需要检查 RST 错误
+    // FIXME linux 下无法通过 get_last_error() 来检查到 RST 包导致的错误, 而是根
+    //       据 epoll() 结果中的 EPIPE 错误来判定
     const int err = _sock_stream.get_last_error();
     if (0 != err)
     {
         handle_io_error(err);
         return;
     }
+#endif
 
     assert(!_pkg_write_queue.empty());
     const size_t buf_count = _pkg_write_queue.size();
@@ -231,9 +235,9 @@ void ProactPackageChannel::handle_write_completed(size_t cb)
 
     // 如果本地写队列空了，并且处于关闭流程中，则关闭写通道
     if (_sock_stream.is_reading_shutdown())
-        force_close(); // Peer 发起的关闭连接
+        force_close(); // 被动关闭连接
     else if (_closing.load(std::memory_order_relaxed))
-        _sock_stream.shutdown_write(); // Local 主动发起关闭连接
+        _sock_stream.shutdown_write(); // 主动关闭连接
 }
 
 void ProactPackageChannel::handle_io_error(int err)

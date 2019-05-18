@@ -35,8 +35,11 @@
 // NOTE 对端发送了 FIN 之后又发送了 RST 包
 #define LOOFAH_ERR_CONNECTION_ABORTED -6
 
+// linux 上收到 RST 包之后，继续 write 会触发该错误，并且会收到 SIGPIPE 信号
+#define LOOFAH_ERR_BROKEN_PIPE -7
+
 // package 大小超限
-#define LOOFAH_ERR_PKG_OVERSIZE -7
+#define LOOFAH_ERR_PKG_OVERSIZE -8
 
 
 // logging errno
