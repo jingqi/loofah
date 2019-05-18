@@ -66,11 +66,6 @@ public:
         NUT_LOG_D(TAG, "server received %d bytes: %d", rs, data);
     }
 
-    virtual void handle_exception(int err) override
-    {
-        NUT_LOG_D(TAG, "server error %d", err);
-    }
-
     virtual void handle_close() override
     {
         NUT_LOG_D(TAG, "server closed");
@@ -141,7 +136,7 @@ public:
         reactor.disable_handler(this, ReactHandler::WRITE_MASK);
     }
 
-    virtual void handle_io_exception(int err) override
+    virtual void handle_io_error(int err) override
     {
         NUT_LOG_D(TAG, "client exception %d", err);
     }

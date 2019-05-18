@@ -23,7 +23,6 @@ class LOOFAH_API ReactPackageChannel : public ReactChannel, public PackageChanne
 
 public:
     void set_reactor(Reactor *reactor);
-    Reactor* get_reactor() const;
 
     virtual SockStream& get_sock_stream() final override;
 
@@ -48,7 +47,7 @@ public:
 
     virtual void handle_read_ready() final override;
     virtual void handle_write_ready() final override;
-    virtual void handle_io_exception(int err) final override;
+    virtual void handle_io_error(int err) final override;
 
 private:
     // 关闭连接

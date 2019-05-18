@@ -133,7 +133,7 @@ void ReactAcceptorBase::handle_write_ready()
     assert(false); // Should not run into this place
 }
 
-void ReactAcceptorBase::handle_io_exception(int err)
+void ReactAcceptorBase::handle_io_error(int err)
 {
     NUT_LOG_E(TAG, "fd %d, loofah error raised %d: %s", get_socket(),
               err, str_error(err));

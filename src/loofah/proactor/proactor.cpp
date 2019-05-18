@@ -150,7 +150,7 @@ void Proactor::register_handler_later(ProactHandler *handler)
 
 void Proactor::register_handler(ProactHandler *handler)
 {
-    assert(nullptr != handler && nullptr == handler->_proactor);
+    assert(nullptr != handler && nullptr == handler->_registered_proactor);
     assert(is_in_loop_thread());
 
 #if NUT_PLATFORM_OS_WINDOWS
@@ -162,7 +162,7 @@ void Proactor::register_handler(ProactHandler *handler)
         if (nullptr == rs)
         {
             NUT_LOG_E(TAG, "failed to call CreateIoCompletionPort() with GetLastError() %d", ::GetLastError());
-            handler->handle_io_exception(LOOFAH_ERR_UNKNOWN);
+            handler->handle_io_error(LOOFAH_ERR_UNKNOWN);
             return;
         }
         assert(rs == _iocp);
@@ -174,7 +174,7 @@ void Proactor::register_handler(ProactHandler *handler)
     assert(!handler->_registered && 0 == handler->_enabled_events);
 #endif
 
-    handler->_proactor = this;
+    handler->_registered_proactor = this;
 }
 
 void Proactor::unregister_handler_later(ProactHandler *handler)
@@ -196,12 +196,12 @@ void Proactor::unregister_handler_later(ProactHandler *handler)
 
 void Proactor::unregister_handler(ProactHandler *handler)
 {
-    assert(nullptr != handler && handler->_proactor == this);
+    assert(nullptr != handler && handler->_registered_proactor == this);
     assert(is_in_loop_thread());
 
 #if NUT_PLATFORM_OS_WINDOWS
     // FIXME 对于 Windows 下的 IOCP，是无法取消 socket 与 iocp 的关联的
-    handler->_proactor = nullptr;
+    handler->_registered_proactor = nullptr;
 #elif NUT_PLATFORM_OS_MACOS
     const socket_t fd = handler->get_socket();
     struct kevent ev[2];
@@ -213,12 +213,12 @@ void Proactor::unregister_handler(ProactHandler *handler)
     if (n > 0 && 0 != ::kevent(_kq, ev, n, nullptr, 0, nullptr))
     {
         LOOFAH_LOG_FD_ERRNO(kevent, fd);
-        handler->handle_io_exception(from_errno(errno));
+        handler->handle_io_error(from_errno(errno));
         return;
     }
     handler->_registered_events = 0;
     handler->_enabled_events = 0;
-    handler->_proactor = nullptr;
+    handler->_registered_proactor = nullptr;
 #elif NUT_PLATFORM_OS_LINUX
     if (handler->_registered)
     {
@@ -229,13 +229,13 @@ void Proactor::unregister_handler(ProactHandler *handler)
         if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_DEL, fd, &epv))
         {
             LOOFAH_LOG_FD_ERRNO(epoll_ctl, fd);
-            handler->handle_io_exception(from_errno(errno));
+            handler->handle_io_error(from_errno(errno));
             return;
         }
     }
     handler->_registered = false;
     handler->_enabled_events = 0;
-    handler->_proactor = nullptr;
+    handler->_registered_proactor = nullptr;
 #endif
 }
 
@@ -258,7 +258,7 @@ void Proactor::launch_accept_later(ProactHandler *handler)
 
 void Proactor::launch_accept(ProactHandler *handler)
 {
-    assert(nullptr != handler && handler->_proactor == this);
+    assert(nullptr != handler && handler->_registered_proactor == this);
     assert(is_in_loop_thread());
 
 #if NUT_PLATFORM_OS_WINDOWS
@@ -301,7 +301,7 @@ void Proactor::launch_accept(ProactHandler *handler)
             LOOFAH_LOG_FD_ERRNO(AcceptEx, listening_socket);
             if (0 != ::closesocket(accept_socket))
                 LOOFAH_LOG_FD_ERRNO(closesocket, accept_socket);
-            handler->handle_io_exception(from_errno(errcode));
+            handler->handle_io_error(from_errno(errcode));
             return;
         }
     }
@@ -351,7 +351,7 @@ void Proactor::launch_connect_later(ProactHandler *handler)
 #if NUT_PLATFORM_OS_WINDOWS
 void Proactor::launch_connect(ProactHandler *handler, const InetAddr& address)
 {
-    assert(nullptr != handler && handler->_proactor == this);
+    assert(nullptr != handler && handler->_registered_proactor == this);
     assert(is_in_loop_thread());
 
     IORequest *io_request = IORequest::new_request(handler, ProactHandler::CONNECT_MASK);
@@ -373,7 +373,7 @@ void Proactor::launch_connect(ProactHandler *handler, const InetAddr& address)
         if (ERROR_IO_PENDING != errcode)
         {
             LOOFAH_LOG_FD_ERRNO(ConnectEx, fd);
-            handler->handle_io_exception(from_errno(errcode));
+            handler->handle_io_error(from_errno(errcode));
             return;
         }
     }
@@ -381,7 +381,7 @@ void Proactor::launch_connect(ProactHandler *handler, const InetAddr& address)
 #else
 void Proactor::launch_connect(ProactHandler *handler)
 {
-    assert(nullptr != handler && handler->_proactor == this);
+    assert(nullptr != handler && handler->_registered_proactor == this);
     assert(is_in_loop_thread());
     assert(0 == (handler->_enabled_events & ProactHandler::CONNECT_MASK));
     enable_handler(handler, ProactHandler::CONNECT_MASK);
@@ -420,7 +420,7 @@ void Proactor::launch_read(ProactHandler *handler, void* const *buf_ptrs,
                            const size_t *len_ptrs, size_t buf_count)
 {
     assert(nullptr != handler && nullptr != buf_ptrs && nullptr != len_ptrs && buf_count > 0);
-    assert(handler->_proactor == this);
+    assert(handler->_registered_proactor == this);
     assert(is_in_loop_thread());
 
 #if NUT_PLATFORM_OS_WINDOWS
@@ -443,7 +443,7 @@ void Proactor::launch_read(ProactHandler *handler, void* const *buf_ptrs,
         if (ERROR_IO_PENDING != errcode)
         {
             LOOFAH_LOG_FD_ERRNO(WSARecv, fd);
-            handler->handle_io_exception(from_errno(errcode));
+            handler->handle_io_error(from_errno(errcode));
             return;
         }
     }
@@ -488,7 +488,7 @@ void Proactor::launch_write(ProactHandler *handler, void* const *buf_ptrs,
                             const size_t *len_ptrs, size_t buf_count)
 {
     assert(nullptr != handler && nullptr != buf_ptrs && nullptr != len_ptrs && buf_count > 0);
-    assert(handler->_proactor == this);
+    assert(handler->_registered_proactor == this);
     assert(is_in_loop_thread());
 
 #if NUT_PLATFORM_OS_WINDOWS
@@ -511,7 +511,7 @@ void Proactor::launch_write(ProactHandler *handler, void* const *buf_ptrs,
         if (ERROR_IO_PENDING != errcode)
         {
             LOOFAH_LOG_FD_ERRNO(WSASend, fd);
-            handler->handle_io_exception(from_errno(errcode));
+            handler->handle_io_error(from_errno(errcode));
             return;
         }
     }
@@ -529,7 +529,7 @@ void Proactor::launch_write(ProactHandler *handler, void* const *buf_ptrs,
 void Proactor::enable_handler(ProactHandler *handler, ProactHandler::mask_type mask)
 {
     assert(nullptr != handler && 0 == (mask & ~ProactHandler::ALL_MASK));
-    assert(handler->_proactor == this);
+    assert(handler->_registered_proactor == this);
     assert(is_in_loop_thread());
 
     if (0 == mask)
@@ -557,7 +557,7 @@ void Proactor::enable_handler(ProactHandler *handler, ProactHandler::mask_type m
     if (n > 0 && 0 != ::kevent(_kq, ev, n, nullptr, 0, nullptr))
     {
         LOOFAH_LOG_FD_ERRNO(kevent, fd);
-        handler->handle_io_exception(from_errno(errno));
+        handler->handle_io_error(from_errno(errno));
         return;
     }
     handler->_registered_events |= need_enable;
@@ -576,7 +576,7 @@ void Proactor::enable_handler(ProactHandler *handler, ProactHandler::mask_type m
         if (0 != ::epoll_ctl(_epoll_fd, (handler->_registered ? EPOLL_CTL_MOD : EPOLL_CTL_ADD), fd, &epv))
         {
             LOOFAH_LOG_FD_ERRNO(epoll_ctl, fd);
-            handler->handle_io_exception(from_errno(errno));
+            handler->handle_io_error(from_errno(errno));
             return;
         }
     }
@@ -588,7 +588,7 @@ void Proactor::enable_handler(ProactHandler *handler, ProactHandler::mask_type m
 void Proactor::disable_handler(ProactHandler *handler, ProactHandler::mask_type mask)
 {
     assert(nullptr != handler && 0 == (mask & ~ProactHandler::ALL_MASK));
-    assert(handler->_proactor == this);
+    assert(handler->_registered_proactor == this);
     assert(is_in_loop_thread());
 
     if (0 == mask)
@@ -607,7 +607,7 @@ void Proactor::disable_handler(ProactHandler *handler, ProactHandler::mask_type 
     if (n > 0 && 0 != ::kevent(_kq, ev, n, nullptr, 0, nullptr))
     {
         LOOFAH_LOG_FD_ERRNO(kevent, fd);
-        handler->handle_io_exception(from_errno(errno));
+        handler->handle_io_error(from_errno(errno));
         return;
     }
     handler->_enabled_events &= ~mask;
@@ -625,7 +625,7 @@ void Proactor::disable_handler(ProactHandler *handler, ProactHandler::mask_type 
         if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_MOD, fd, &epv))
         {
             LOOFAH_LOG_FD_ERRNO(epoll_ctl, fd);
-            handler->handle_io_exception(from_errno(errno));
+            handler->handle_io_error(from_errno(errno));
             return;
         }
     }
@@ -687,7 +687,7 @@ int Proactor::handle_events(int timeout_ms)
             // FIXME 因为 ::GetQueuedCompletionStatus() 不返回底层网络驱动的错误
             //       码，导致低层网络驱动错误码被丢失
             //       Also see https://stackoverflow.com/questions/28925003/calling-wsagetlasterror-from-an-iocp-thread-return-incorrect-result
-            handler->handle_io_exception(LOOFAH_ERR_UNKNOWN); // 连接错误
+            handler->handle_io_error(LOOFAH_ERR_UNKNOWN); // 连接错误
         }
         else
         {
@@ -734,7 +734,7 @@ int Proactor::handle_events(int timeout_ms)
                     const int errcode = ::WSAGetLastError();
                     if (0 != ::closesocket(accept_socket))
                         LOOFAH_LOG_FD_ERRNO(closesocket, accept_socket);
-                    handler->handle_io_exception(from_errno(errcode));
+                    handler->handle_io_error(from_errno(errcode));
                     break;
                 }
 
@@ -752,7 +752,7 @@ int Proactor::handle_events(int timeout_ms)
                 if (0 != opt_rs)
                 {
                     LOOFAH_LOG_FD_ERRNO(setsockopt, fd);
-                    handler->handle_io_exception(from_errno(::WSAGetLastError()));
+                    handler->handle_io_error(from_errno(::WSAGetLastError()));
                     break;
                 }
 
@@ -820,7 +820,7 @@ int Proactor::handle_events(int timeout_ms)
                     if (readed >= 0)
                         handler->handle_read_completed((size_t) readed);
                     else
-                        handler->handle_io_exception(from_errno(errno));
+                        handler->handle_io_error(from_errno(errno));
 
                     IORequest::delete_request(io_request);
                 }
@@ -834,7 +834,7 @@ int Proactor::handle_events(int timeout_ms)
                     if (0 == errcode)
                         handler->handle_connect_completed();
                     else
-                        handler->handle_io_exception(errcode);
+                        handler->handle_io_error(errcode);
                 }
                 else
                 {
@@ -850,7 +850,7 @@ int Proactor::handle_events(int timeout_ms)
                     if (wrote >= 0)
                         handler->handle_write_completed((size_t) wrote);
                     else
-                        handler->handle_io_exception(from_errno(errno));
+                        handler->handle_io_error(from_errno(errno));
 
                     IORequest::delete_request(io_request);
                 }
@@ -901,7 +901,7 @@ int Proactor::handle_events(int timeout_ms)
                     if (readed >= 0)
                         handler->handle_read_completed((size_t) readed);
                     else
-                        handler->handle_io_exception(from_errno(errno));
+                        handler->handle_io_error(from_errno(errno));
 
                     IORequest::delete_request(io_request);
                 }
@@ -915,7 +915,7 @@ int Proactor::handle_events(int timeout_ms)
                     if (0 == errcode)
                         handler->handle_connect_completed();
                     else
-                        handler->handle_io_exception(errcode);
+                        handler->handle_io_error(errcode);
                 }
                 else
                 {
@@ -931,7 +931,7 @@ int Proactor::handle_events(int timeout_ms)
                     if (wrote >= 0)
                         handler->handle_write_completed((size_t) wrote);
                     else
-                        handler->handle_io_exception(from_errno(errno));
+                        handler->handle_io_error(from_errno(errno));
 
                     IORequest::delete_request(io_request);
                 }

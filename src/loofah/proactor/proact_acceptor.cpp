@@ -103,7 +103,7 @@ void ProactAcceptorBase::handle_accept_completed(socket_t fd)
     channel->open(fd);
     channel->handle_channel_connected();
 
-    _proactor->launch_accept(this);
+    _registered_proactor->launch_accept(this);
 }
 
 void ProactAcceptorBase::handle_connect_completed()
@@ -123,7 +123,7 @@ void ProactAcceptorBase::handle_write_completed(size_t cb)
     assert(false); // Should not run into this place
 }
 
-void ProactAcceptorBase::handle_io_exception(int err)
+void ProactAcceptorBase::handle_io_error(int err)
 {
     NUT_LOG_E(TAG, "fd %d, loofah error raised %d: %s", get_socket(),
               err, str_error(err));

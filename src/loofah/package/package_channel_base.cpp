@@ -70,10 +70,20 @@ void PackageChannelBase::setup_force_close_timer()
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(nullptr != _actor && _actor->is_in_loop_thread());
 
-    if (nullptr == _time_wheel || NUT_INVALID_TIMER_ID != _force_close_timer ||
-        LOOFAH_FORCE_CLOSE_DELAY <= 0)
+    // 不强制关闭
+    if (LOOFAH_FORCE_CLOSE_DELAY <= 0)
         return;
 
+    // 立即关闭
+    if (LOOFAH_FORCE_CLOSE_DELAY == 0)
+    {
+        force_close();
+        return;
+    }
+
+    // 超时强制关闭
+    if (nullptr == _time_wheel || NUT_INVALID_TIMER_ID != _force_close_timer)
+        return;
     _force_close_timer = _time_wheel->add_timer(
         LOOFAH_FORCE_CLOSE_DELAY, 0,
         [=] (nut::TimeWheel::timer_id_type id, int64_t expires) {
@@ -97,9 +107,6 @@ void PackageChannelBase::split_and_handle_packages(size_t extra_readed)
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(nullptr != _actor && _actor->is_in_loop_thread());
-
-    if (_closing.load(std::memory_order_relaxed) || get_sock_stream().is_reading_shutdown())
-        return;
 
     // 分包
     nut::rc_ptr<Package> buffer_pkg = _reading_pkg;
@@ -196,21 +203,9 @@ void PackageChannelBase::split_and_handle_packages(size_t extra_readed)
 
         pkg->skip_read(sizeof(Package::header_type));
         handle_read(pkg);
-        if (_closing.load(std::memory_order_relaxed) || get_sock_stream().is_reading_shutdown())
-            break;
     }
-    if (payload_oversize && !_closing.load(std::memory_order_relaxed) &&
-        !get_sock_stream().is_reading_shutdown())
-        handle_io_exception(LOOFAH_ERR_PKG_OVERSIZE);
-}
-
-void PackageChannelBase::handle_exception(int err)
-{
-    NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(nullptr != _actor && _actor->is_in_loop_thread());
-
-    NUT_LOG_E(TAG, "loofah error raised %d: %s", err, str_error(err));
-    force_close();
+    if (payload_oversize)
+        handle_io_error(LOOFAH_ERR_PKG_OVERSIZE);
 }
 
 void PackageChannelBase::write_later(Package *pkg)
@@ -218,14 +213,10 @@ void PackageChannelBase::write_later(Package *pkg)
     assert(nullptr != pkg);
     NUT_DEBUGGING_ASSERT_ALIVE;
 
-    const bool closing = _closing.load(std::memory_order_relaxed);
-    if (closing || get_sock_stream().is_writing_shutdown())
+    if (_closing.load(std::memory_order_relaxed))
     {
         const socket_t fd = get_sock_stream().get_socket();
-        if (closing)
-            NUT_LOG_W(TAG, "channel is closing, writing package discard. fd %d", fd);
-        else
-            NUT_LOG_W(TAG, "write channel is closed, writing package discard. fd %d", fd);
+        NUT_LOG_W(TAG, "channel is closing or closed, writing package discard. fd %d", fd);
         return;
     }
 

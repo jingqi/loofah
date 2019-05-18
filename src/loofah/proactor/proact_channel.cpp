@@ -33,7 +33,7 @@ void ProactChannel::handle_accept_completed(socket_t fd)
 
 void ProactChannel::handle_connect_completed()
 {
-    _proactor->unregister_handler(this);
+    _registered_proactor->unregister_handler(this);
     handle_channel_connected();
 }
 

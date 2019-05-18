@@ -30,7 +30,7 @@ public:
     virtual void handle_connect_ready() final override;
     virtual void handle_read_ready() final override;
     virtual void handle_write_ready() final override;
-    virtual void handle_io_exception(int err) final override;
+    virtual void handle_io_error(int err) final override;
 
     static socket_t accept(socket_t listening_socket);
 

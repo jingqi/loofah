@@ -83,14 +83,14 @@ public:
      *
      * @param err 错误码, 如 LOOFAH_ERR_PKG_OVERSIZE 等
      */
-    virtual void handle_io_exception(int err) = 0;
+    virtual void handle_io_error(int err) = 0;
 
 private:
     ProactHandler(const ProactHandler&) = delete;
     ProactHandler& operator=(const ProactHandler&) = delete;
 
 protected:
-    Proactor *_proactor = nullptr;
+    Proactor *_registered_proactor = nullptr;
 
 private:
 #if NUT_PLATFORM_OS_MACOS | NUT_PLATFORM_OS_LINUX

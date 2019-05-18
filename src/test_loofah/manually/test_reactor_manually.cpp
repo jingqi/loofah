@@ -89,7 +89,7 @@ public:
         reactor.disable_handler(this, ReactHandler::WRITE_MASK);
     }
 
-    virtual void handle_io_exception(int err) override
+    virtual void handle_io_error(int err) override
     {
         NUT_LOG_D(TAG, "server exception %d", err);
     }
@@ -157,7 +157,7 @@ public:
         reactor.disable_handler(this, ReactHandler::WRITE_MASK);
     }
 
-    virtual void handle_io_exception(int err) override
+    virtual void handle_io_error(int err) override
     {
         NUT_LOG_D(TAG, "client exception %d", err);
     }

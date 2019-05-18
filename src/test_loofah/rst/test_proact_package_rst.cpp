@@ -74,11 +74,6 @@ public:
         NUT_LOG_D(TAG, "server received %d bytes: %d", rs, data);
     }
 
-    virtual void handle_exception(int err) override
-    {
-        NUT_LOG_E(TAG, "server error %d: %s", err, str_error(err));
-    }
-
     virtual void handle_close() override
     {
         NUT_LOG_D(TAG, "server closed");
@@ -141,7 +136,7 @@ public:
         NUT_LOG_D(TAG, "client send %d bytes", cb);
     }
 
-    virtual void handle_io_exception(int err) override
+    virtual void handle_io_error(int err) override
     {
         NUT_LOG_E(TAG, "client exception %d: %s", err, str_error(err));
     }
@@ -153,11 +148,13 @@ void testing()
         50, 0,
         [=](TimeWheel::timer_id_type id, uint64_t expires) {
             // 关闭 server 读通道，仅仅依靠写通道的自检来处理 RST 状态
-            SockOperation::shutdown_read(server->get_socket());
+            // FIXME 使用优雅的双通道关闭流程之后，这里 shutdown_read() 将会触发关闭连接流程....
+            // SockOperation::shutdown_read(server->get_socket());
 
             // 1. client 不读数据
             // 2. 向 client 写数据
             // 3. 由于存在未读数据，client.close() 将发送 RST 包给 server
+            // FIXME 由 epoll() 等模拟实现的 Proactor 会读取数据并缓存下来，导致没有发送 RST 包
             server->writeint(1);
             client->close();
         });

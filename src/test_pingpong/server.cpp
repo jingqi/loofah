@@ -72,7 +72,7 @@ public:
         g_global.proactor.launch_read(this, &_buf, &g_global.block_size, 1);
     }
 
-    virtual void handle_io_exception(int err) final override
+    virtual void handle_io_error(int err) final override
     {
         NUT_LOG_D(TAG, "server exception %d: %s", err, str_error(err));
     }

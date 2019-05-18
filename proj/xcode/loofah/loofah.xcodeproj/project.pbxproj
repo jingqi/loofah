@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		2E5217842146E513009F80AC /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 2E5217832146E513009F80AC /* Info.plist */; };
 		2E5217892146E54A009F80AC /* loofah.h in Headers */ = {isa = PBXBuildFile; fileRef = 2E5217872146E54A009F80AC /* loofah.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		2E52178A2146E54A009F80AC /* loofah_config.h in Headers */ = {isa = PBXBuildFile; fileRef = 2E5217882146E54A009F80AC /* loofah_config.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		2E5217942146E565009F80AC /* react_handler.h in Headers */ = {isa = PBXBuildFile; fileRef = 2E52178C2146E565009F80AC /* react_handler.h */; };
@@ -31,16 +30,12 @@
 		2E5217B22146E57F009F80AC /* proact_handler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2E5217A72146E57F009F80AC /* proact_handler.cpp */; };
 		2E5217B82146E594009F80AC /* package.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2E5217B42146E594009F80AC /* package.cpp */; };
 		2E5217B92146E594009F80AC /* package.h in Headers */ = {isa = PBXBuildFile; fileRef = 2E5217B52146E594009F80AC /* package.h */; };
-		2E5217BA2146E594009F80AC /* package_channel.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2E5217B62146E594009F80AC /* package_channel.cpp */; };
-		2E5217BB2146E594009F80AC /* package_channel.h in Headers */ = {isa = PBXBuildFile; fileRef = 2E5217B72146E594009F80AC /* package_channel.h */; };
 		2E5217CA2146E5AF009F80AC /* inet_addr.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2E5217BD2146E5AF009F80AC /* inet_addr.cpp */; };
 		2E5217CB2146E5AF009F80AC /* utils.h in Headers */ = {isa = PBXBuildFile; fileRef = 2E5217BE2146E5AF009F80AC /* utils.h */; };
 		2E5217CC2146E5AF009F80AC /* event_loop_base.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2E5217BF2146E5AF009F80AC /* event_loop_base.cpp */; };
 		2E5217CD2146E5AF009F80AC /* sock_operation.h in Headers */ = {isa = PBXBuildFile; fileRef = 2E5217C02146E5AF009F80AC /* sock_operation.h */; };
 		2E5217CE2146E5AF009F80AC /* channel.h in Headers */ = {isa = PBXBuildFile; fileRef = 2E5217C12146E5AF009F80AC /* channel.h */; };
 		2E5217CF2146E5AF009F80AC /* sock_stream.h in Headers */ = {isa = PBXBuildFile; fileRef = 2E5217C22146E5AF009F80AC /* sock_stream.h */; };
-		2E5217D02146E5AF009F80AC /* connector_base.h in Headers */ = {isa = PBXBuildFile; fileRef = 2E5217C32146E5AF009F80AC /* connector_base.h */; };
-		2E5217D12146E5AF009F80AC /* connector_base.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2E5217C42146E5AF009F80AC /* connector_base.cpp */; };
 		2E5217D22146E5AF009F80AC /* event_loop_base.h in Headers */ = {isa = PBXBuildFile; fileRef = 2E5217C52146E5AF009F80AC /* event_loop_base.h */; };
 		2E5217D32146E5AF009F80AC /* inet_addr.h in Headers */ = {isa = PBXBuildFile; fileRef = 2E5217C62146E5AF009F80AC /* inet_addr.h */; };
 		2E5217D42146E5AF009F80AC /* sock_operation.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2E5217C72146E5AF009F80AC /* sock_operation.cpp */; };
@@ -50,7 +45,6 @@
 		2E5217EE21480E7C009F80AC /* test_proactor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2E5217EA21480E7C009F80AC /* test_proactor.cpp */; };
 		2E5217EF21480E7C009F80AC /* test_reactor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2E5217EB21480E7C009F80AC /* test_reactor.cpp */; };
 		2E5217F021480E7C009F80AC /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2E5217EC21480E7C009F80AC /* main.cpp */; };
-		2E5217F121480E7C009F80AC /* test_package_channel.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2E5217ED21480E7C009F80AC /* test_package_channel.cpp */; };
 		2E52180221480EE0009F80AC /* server.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2E5217FE21480EDF009F80AC /* server.cpp */; };
 		2E52180321480EE0009F80AC /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2E5217FF21480EDF009F80AC /* main.cpp */; };
 		2E52180421480EE0009F80AC /* client.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2E52180021480EE0009F80AC /* client.cpp */; };
@@ -58,6 +52,23 @@
 		2E52180621480EEE009F80AC /* nut.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2E5217DC2146EAF3009F80AC /* nut.framework */; };
 		2E52180721480EF6009F80AC /* loofah.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2EE082F82146DAC8008E4587 /* loofah.framework */; };
 		2E52180821480EF6009F80AC /* nut.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2E5217DC2146EAF3009F80AC /* nut.framework */; };
+		2E72DEF722900BA70083E17E /* package_channel_base.h in Headers */ = {isa = PBXBuildFile; fileRef = 2E72DEF122900BA70083E17E /* package_channel_base.h */; };
+		2E72DEF822900BA70083E17E /* package_channel_base.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2E72DEF222900BA70083E17E /* package_channel_base.cpp */; };
+		2E72DEF922900BA70083E17E /* proact_package_channel.h in Headers */ = {isa = PBXBuildFile; fileRef = 2E72DEF322900BA70083E17E /* proact_package_channel.h */; };
+		2E72DEFA22900BA70083E17E /* react_package_channel.h in Headers */ = {isa = PBXBuildFile; fileRef = 2E72DEF422900BA70083E17E /* react_package_channel.h */; };
+		2E72DEFB22900BA70083E17E /* proact_package_channel.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2E72DEF522900BA70083E17E /* proact_package_channel.cpp */; };
+		2E72DEFC22900BA70083E17E /* react_package_channel.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2E72DEF622900BA70083E17E /* react_package_channel.cpp */; };
+		2E72DEFF22900BE20083E17E /* test_react_package_channel.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2E72DEFD22900BE20083E17E /* test_react_package_channel.cpp */; };
+		2E72DF0022900BE20083E17E /* test_proact_package_channel.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2E72DEFE22900BE20083E17E /* test_proact_package_channel.cpp */; };
+		2E72DF0522900BFF0083E17E /* test_proact_package_rst.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2E72DF0322900BFF0083E17E /* test_proact_package_rst.cpp */; };
+		2E72DF0622900BFF0083E17E /* test_react_package_rst.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2E72DF0422900BFF0083E17E /* test_react_package_rst.cpp */; };
+		2E72DF0A22900C120083E17E /* test_react_package_manually.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2E72DF0722900C120083E17E /* test_react_package_manually.cpp */; };
+		2E72DF0B22900C120083E17E /* test_reactor_manually.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2E72DF0822900C120083E17E /* test_reactor_manually.cpp */; };
+		2E72DF0C22900C120083E17E /* test_proact_package_manually.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2E72DF0922900C120083E17E /* test_proact_package_manually.cpp */; };
+		2E72DF0F22900C600083E17E /* error.h in Headers */ = {isa = PBXBuildFile; fileRef = 2E72DF0D22900C600083E17E /* error.h */; };
+		2E72DF1022900C600083E17E /* error.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2E72DF0E22900C600083E17E /* error.cpp */; };
+		2E72DF1222900CA10083E17E /* proact_connector.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2E72DF1122900CA10083E17E /* proact_connector.cpp */; };
+		2E72DF1422900CB40083E17E /* react_connector.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2E72DF1322900CB40083E17E /* react_connector.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -106,16 +117,12 @@
 		2E5217A72146E57F009F80AC /* proact_handler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = proact_handler.cpp; path = ../../../src/loofah/proactor/proact_handler.cpp; sourceTree = "<group>"; };
 		2E5217B42146E594009F80AC /* package.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = package.cpp; path = ../../../src/loofah/package/package.cpp; sourceTree = "<group>"; };
 		2E5217B52146E594009F80AC /* package.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = package.h; path = ../../../src/loofah/package/package.h; sourceTree = "<group>"; };
-		2E5217B62146E594009F80AC /* package_channel.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = package_channel.cpp; path = ../../../src/loofah/package/package_channel.cpp; sourceTree = "<group>"; };
-		2E5217B72146E594009F80AC /* package_channel.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = package_channel.h; path = ../../../src/loofah/package/package_channel.h; sourceTree = "<group>"; };
 		2E5217BD2146E5AF009F80AC /* inet_addr.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = inet_addr.cpp; path = ../../../src/loofah/inet_base/inet_addr.cpp; sourceTree = "<group>"; };
 		2E5217BE2146E5AF009F80AC /* utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = utils.h; path = ../../../src/loofah/inet_base/utils.h; sourceTree = "<group>"; };
 		2E5217BF2146E5AF009F80AC /* event_loop_base.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = event_loop_base.cpp; path = ../../../src/loofah/inet_base/event_loop_base.cpp; sourceTree = "<group>"; };
 		2E5217C02146E5AF009F80AC /* sock_operation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sock_operation.h; path = ../../../src/loofah/inet_base/sock_operation.h; sourceTree = "<group>"; };
 		2E5217C12146E5AF009F80AC /* channel.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = channel.h; path = ../../../src/loofah/inet_base/channel.h; sourceTree = "<group>"; };
 		2E5217C22146E5AF009F80AC /* sock_stream.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sock_stream.h; path = ../../../src/loofah/inet_base/sock_stream.h; sourceTree = "<group>"; };
-		2E5217C32146E5AF009F80AC /* connector_base.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = connector_base.h; path = ../../../src/loofah/inet_base/connector_base.h; sourceTree = "<group>"; };
-		2E5217C42146E5AF009F80AC /* connector_base.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = connector_base.cpp; path = ../../../src/loofah/inet_base/connector_base.cpp; sourceTree = "<group>"; };
 		2E5217C52146E5AF009F80AC /* event_loop_base.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = event_loop_base.h; path = ../../../src/loofah/inet_base/event_loop_base.h; sourceTree = "<group>"; };
 		2E5217C62146E5AF009F80AC /* inet_addr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = inet_addr.h; path = ../../../src/loofah/inet_base/inet_addr.h; sourceTree = "<group>"; };
 		2E5217C72146E5AF009F80AC /* sock_operation.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = sock_operation.cpp; path = ../../../src/loofah/inet_base/sock_operation.cpp; sourceTree = "<group>"; };
@@ -126,12 +133,28 @@
 		2E5217EA21480E7C009F80AC /* test_proactor.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = test_proactor.cpp; path = ../../../src/test_loofah/test_proactor.cpp; sourceTree = "<group>"; };
 		2E5217EB21480E7C009F80AC /* test_reactor.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = test_reactor.cpp; path = ../../../src/test_loofah/test_reactor.cpp; sourceTree = "<group>"; };
 		2E5217EC21480E7C009F80AC /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = main.cpp; path = ../../../src/test_loofah/main.cpp; sourceTree = "<group>"; };
-		2E5217ED21480E7C009F80AC /* test_package_channel.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = test_package_channel.cpp; path = ../../../src/test_loofah/test_package_channel.cpp; sourceTree = "<group>"; };
 		2E5217F621480EA3009F80AC /* test_pingpong */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = test_pingpong; sourceTree = BUILT_PRODUCTS_DIR; };
 		2E5217FE21480EDF009F80AC /* server.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = server.cpp; path = ../../../src/test_pingpong/server.cpp; sourceTree = "<group>"; };
 		2E5217FF21480EDF009F80AC /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = main.cpp; path = ../../../src/test_pingpong/main.cpp; sourceTree = "<group>"; };
 		2E52180021480EE0009F80AC /* client.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = client.cpp; path = ../../../src/test_pingpong/client.cpp; sourceTree = "<group>"; };
 		2E52180121480EE0009F80AC /* declares.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = declares.h; path = ../../../src/test_pingpong/declares.h; sourceTree = "<group>"; };
+		2E72DEF122900BA70083E17E /* package_channel_base.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = package_channel_base.h; path = ../../../src/loofah/package/package_channel_base.h; sourceTree = "<group>"; };
+		2E72DEF222900BA70083E17E /* package_channel_base.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = package_channel_base.cpp; path = ../../../src/loofah/package/package_channel_base.cpp; sourceTree = "<group>"; };
+		2E72DEF322900BA70083E17E /* proact_package_channel.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = proact_package_channel.h; path = ../../../src/loofah/package/proact_package_channel.h; sourceTree = "<group>"; };
+		2E72DEF422900BA70083E17E /* react_package_channel.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = react_package_channel.h; path = ../../../src/loofah/package/react_package_channel.h; sourceTree = "<group>"; };
+		2E72DEF522900BA70083E17E /* proact_package_channel.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = proact_package_channel.cpp; path = ../../../src/loofah/package/proact_package_channel.cpp; sourceTree = "<group>"; };
+		2E72DEF622900BA70083E17E /* react_package_channel.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = react_package_channel.cpp; path = ../../../src/loofah/package/react_package_channel.cpp; sourceTree = "<group>"; };
+		2E72DEFD22900BE20083E17E /* test_react_package_channel.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = test_react_package_channel.cpp; path = ../../../src/test_loofah/test_react_package_channel.cpp; sourceTree = "<group>"; };
+		2E72DEFE22900BE20083E17E /* test_proact_package_channel.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = test_proact_package_channel.cpp; path = ../../../src/test_loofah/test_proact_package_channel.cpp; sourceTree = "<group>"; };
+		2E72DF0322900BFF0083E17E /* test_proact_package_rst.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = test_proact_package_rst.cpp; path = ../../../src/test_loofah/rst/test_proact_package_rst.cpp; sourceTree = "<group>"; };
+		2E72DF0422900BFF0083E17E /* test_react_package_rst.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = test_react_package_rst.cpp; path = ../../../src/test_loofah/rst/test_react_package_rst.cpp; sourceTree = "<group>"; };
+		2E72DF0722900C120083E17E /* test_react_package_manually.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = test_react_package_manually.cpp; path = ../../../src/test_loofah/manually/test_react_package_manually.cpp; sourceTree = "<group>"; };
+		2E72DF0822900C120083E17E /* test_reactor_manually.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = test_reactor_manually.cpp; path = ../../../src/test_loofah/manually/test_reactor_manually.cpp; sourceTree = "<group>"; };
+		2E72DF0922900C120083E17E /* test_proact_package_manually.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = test_proact_package_manually.cpp; path = ../../../src/test_loofah/manually/test_proact_package_manually.cpp; sourceTree = "<group>"; };
+		2E72DF0D22900C600083E17E /* error.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = error.h; path = ../../../src/loofah/inet_base/error.h; sourceTree = "<group>"; };
+		2E72DF0E22900C600083E17E /* error.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = error.cpp; path = ../../../src/loofah/inet_base/error.cpp; sourceTree = "<group>"; };
+		2E72DF1122900CA10083E17E /* proact_connector.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = proact_connector.cpp; path = ../../../src/loofah/proactor/proact_connector.cpp; sourceTree = "<group>"; };
+		2E72DF1322900CB40083E17E /* react_connector.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = react_connector.cpp; path = ../../../src/loofah/reactor/react_connector.cpp; sourceTree = "<group>"; };
 		2EE082F82146DAC8008E4587 /* loofah.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = loofah.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -182,6 +205,7 @@
 		2E52178B2146E551009F80AC /* reactor */ = {
 			isa = PBXGroup;
 			children = (
+				2E72DF1322900CB40083E17E /* react_connector.cpp */,
 				2E52178E2146E565009F80AC /* react_acceptor.cpp */,
 				2E5217932146E565009F80AC /* react_acceptor.h */,
 				2E52178D2146E565009F80AC /* react_channel.cpp */,
@@ -197,6 +221,7 @@
 		2E52179C2146E56F009F80AC /* proactor */ = {
 			isa = PBXGroup;
 			children = (
+				2E72DF1122900CA10083E17E /* proact_connector.cpp */,
 				2E5217A52146E57F009F80AC /* io_request.cpp */,
 				2E5217A02146E57F009F80AC /* io_request.h */,
 				2E52179F2146E57F009F80AC /* proact_acceptor.cpp */,
@@ -215,8 +240,12 @@
 		2E5217B32146E586009F80AC /* package */ = {
 			isa = PBXGroup;
 			children = (
-				2E5217B62146E594009F80AC /* package_channel.cpp */,
-				2E5217B72146E594009F80AC /* package_channel.h */,
+				2E72DEF222900BA70083E17E /* package_channel_base.cpp */,
+				2E72DEF122900BA70083E17E /* package_channel_base.h */,
+				2E72DEF522900BA70083E17E /* proact_package_channel.cpp */,
+				2E72DEF322900BA70083E17E /* proact_package_channel.h */,
+				2E72DEF622900BA70083E17E /* react_package_channel.cpp */,
+				2E72DEF422900BA70083E17E /* react_package_channel.h */,
 				2E5217B42146E594009F80AC /* package.cpp */,
 				2E5217B52146E594009F80AC /* package.h */,
 			);
@@ -226,9 +255,9 @@
 		2E5217BC2146E59C009F80AC /* inet_base */ = {
 			isa = PBXGroup;
 			children = (
+				2E72DF0E22900C600083E17E /* error.cpp */,
+				2E72DF0D22900C600083E17E /* error.h */,
 				2E5217C12146E5AF009F80AC /* channel.h */,
-				2E5217C42146E5AF009F80AC /* connector_base.cpp */,
-				2E5217C32146E5AF009F80AC /* connector_base.h */,
 				2E5217BF2146E5AF009F80AC /* event_loop_base.cpp */,
 				2E5217C52146E5AF009F80AC /* event_loop_base.h */,
 				2E5217BD2146E5AF009F80AC /* inet_addr.cpp */,
@@ -246,8 +275,11 @@
 		2E5217E921480E5E009F80AC /* test_loofah */ = {
 			isa = PBXGroup;
 			children = (
+				2E72DF0222900BEF0083E17E /* rst */,
+				2E72DF0122900BE70083E17E /* manually */,
+				2E72DEFE22900BE20083E17E /* test_proact_package_channel.cpp */,
+				2E72DEFD22900BE20083E17E /* test_react_package_channel.cpp */,
 				2E5217EC21480E7C009F80AC /* main.cpp */,
-				2E5217ED21480E7C009F80AC /* test_package_channel.cpp */,
 				2E5217EA21480E7C009F80AC /* test_proactor.cpp */,
 				2E5217EB21480E7C009F80AC /* test_reactor.cpp */,
 			);
@@ -263,6 +295,25 @@
 				2E5217FE21480EDF009F80AC /* server.cpp */,
 			);
 			name = test_pingpong;
+			sourceTree = "<group>";
+		};
+		2E72DF0122900BE70083E17E /* manually */ = {
+			isa = PBXGroup;
+			children = (
+				2E72DF0922900C120083E17E /* test_proact_package_manually.cpp */,
+				2E72DF0722900C120083E17E /* test_react_package_manually.cpp */,
+				2E72DF0822900C120083E17E /* test_reactor_manually.cpp */,
+			);
+			name = manually;
+			sourceTree = "<group>";
+		};
+		2E72DF0222900BEF0083E17E /* rst */ = {
+			isa = PBXGroup;
+			children = (
+				2E72DF0322900BFF0083E17E /* test_proact_package_rst.cpp */,
+				2E72DF0422900BFF0083E17E /* test_react_package_rst.cpp */,
+			);
+			name = rst;
 			sourceTree = "<group>";
 		};
 		2EE081E52146B0F6008E4587 = {
@@ -305,6 +356,7 @@
 				2E52178A2146E54A009F80AC /* loofah_config.h in Headers */,
 				2E5217CE2146E5AF009F80AC /* channel.h in Headers */,
 				2E5217AE2146E57F009F80AC /* proact_acceptor.h in Headers */,
+				2E72DEF722900BA70083E17E /* package_channel_base.h in Headers */,
 				2E5217B92146E594009F80AC /* package.h in Headers */,
 				2E5217942146E565009F80AC /* react_handler.h in Headers */,
 				2E5217CF2146E5AF009F80AC /* sock_stream.h in Headers */,
@@ -315,14 +367,15 @@
 				2E52179B2146E565009F80AC /* react_acceptor.h in Headers */,
 				2E5217AD2146E57F009F80AC /* proact_handler.h in Headers */,
 				2E5217CD2146E5AF009F80AC /* sock_operation.h in Headers */,
+				2E72DF0F22900C600083E17E /* error.h in Headers */,
+				2E72DEFA22900BA70083E17E /* react_package_channel.h in Headers */,
 				2E5217A92146E57F009F80AC /* proact_connector.h in Headers */,
 				2E5217972146E565009F80AC /* reactor.h in Headers */,
+				2E72DEF922900BA70083E17E /* proact_package_channel.h in Headers */,
 				2E52179A2146E565009F80AC /* react_connector.h in Headers */,
 				2E5217D22146E5AF009F80AC /* event_loop_base.h in Headers */,
-				2E5217BB2146E594009F80AC /* package_channel.h in Headers */,
 				2E5217CB2146E5AF009F80AC /* utils.h in Headers */,
 				2E5217982146E565009F80AC /* react_channel.h in Headers */,
-				2E5217D02146E5AF009F80AC /* connector_base.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -426,7 +479,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2E5217842146E513009F80AC /* Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -454,10 +506,16 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2E5217F121480E7C009F80AC /* test_package_channel.cpp in Sources */,
+				2E72DEFF22900BE20083E17E /* test_react_package_channel.cpp in Sources */,
+				2E72DF0022900BE20083E17E /* test_proact_package_channel.cpp in Sources */,
 				2E5217EF21480E7C009F80AC /* test_reactor.cpp in Sources */,
+				2E72DF0A22900C120083E17E /* test_react_package_manually.cpp in Sources */,
+				2E72DF0C22900C120083E17E /* test_proact_package_manually.cpp in Sources */,
+				2E72DF0522900BFF0083E17E /* test_proact_package_rst.cpp in Sources */,
 				2E5217EE21480E7C009F80AC /* test_proactor.cpp in Sources */,
+				2E72DF0B22900C120083E17E /* test_reactor_manually.cpp in Sources */,
 				2E5217F021480E7C009F80AC /* main.cpp in Sources */,
+				2E72DF0622900BFF0083E17E /* test_react_package_rst.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -481,16 +539,20 @@
 				2E5217D42146E5AF009F80AC /* sock_operation.cpp in Sources */,
 				2E5217962146E565009F80AC /* react_acceptor.cpp in Sources */,
 				2E5217AA2146E57F009F80AC /* proact_acceptor.cpp in Sources */,
+				2E72DEFC22900BA70083E17E /* react_package_channel.cpp in Sources */,
 				2E5217D52146E5AF009F80AC /* utils.cpp in Sources */,
-				2E5217D12146E5AF009F80AC /* connector_base.cpp in Sources */,
+				2E72DEF822900BA70083E17E /* package_channel_base.cpp in Sources */,
 				2E5217CC2146E5AF009F80AC /* event_loop_base.cpp in Sources */,
 				2E5217992146E565009F80AC /* reactor.cpp in Sources */,
 				2E5217B82146E594009F80AC /* package.cpp in Sources */,
 				2E5217D62146E5AF009F80AC /* sock_stream.cpp in Sources */,
+				2E72DF1222900CA10083E17E /* proact_connector.cpp in Sources */,
 				2E5217952146E565009F80AC /* react_channel.cpp in Sources */,
+				2E72DF1022900C600083E17E /* error.cpp in Sources */,
 				2E5217A82146E57F009F80AC /* proactor.cpp in Sources */,
-				2E5217BA2146E594009F80AC /* package_channel.cpp in Sources */,
+				2E72DF1422900CB40083E17E /* react_connector.cpp in Sources */,
 				2E5217B02146E57F009F80AC /* io_request.cpp in Sources */,
+				2E72DEFB22900BA70083E17E /* proact_package_channel.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

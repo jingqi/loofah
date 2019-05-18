@@ -45,16 +45,9 @@ public:
     /**
      * 读到 package
      *
-     * @param pkg 为 nullptr 时表示读通道关闭
+     * NOTE 即使调用了 close()，可能依然会读到新的 package
      */
     virtual void handle_read(Package *pkg) = 0;
-
-    /**
-     * 异常
-     *
-     * NOTE 开始关闭连接后，不再收到该事件
-     */
-    virtual void handle_exception(int err);
 
     /**
      * 连接已关闭
@@ -64,7 +57,7 @@ public:
     /**
      * 写数据
      *
-     * NOTE 写通道关闭后，数据将被忽略
+     * NOTE 调用 close() 后，再调用 write() 写的数据将被忽略
      */
     virtual void write(Package *pkg) = 0;
     void write_later(Package *pkg);
@@ -80,7 +73,7 @@ public:
     void close_later(bool discard_write = false);
 
 protected:
-    virtual void handle_io_exception(int err) = 0;
+    virtual void handle_io_error(int err) = 0;
 
     /**
      * 从读缓存分包，并触发 handle_read()/headle_exception()
@@ -106,7 +99,7 @@ protected:
     nut::rc_ptr<Package> _reading_pkg;
 
     // 是否等待关闭
-    std::atomic<bool>_closing = ATOMIC_VAR_INIT(false);
+    std::atomic<bool> _closing = ATOMIC_VAR_INIT(false);
 
     NUT_DEBUGGING_DESTROY_CHECKER
 

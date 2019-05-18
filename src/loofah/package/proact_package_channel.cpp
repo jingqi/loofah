@@ -25,11 +25,6 @@ void ProactPackageChannel::set_proactor(Proactor *proactor)
     _actor = proactor;
 }
 
-Proactor* ProactPackageChannel::get_proactor() const
-{
-    return (Proactor*) _actor;
-}
-
 SockStream& ProactPackageChannel::get_sock_stream()
 {
     return _sock_stream;
@@ -62,16 +57,19 @@ void ProactPackageChannel::close(bool discard_write)
     // 设置关闭标记
     _closing.store(true, std::memory_order_relaxed);
 
-    // 直接强制关闭
-    if (discard_write || 0 == LOOFAH_FORCE_CLOSE_DELAY ||
-        _pkg_write_queue.empty() || _sock_stream.is_writing_shutdown())
+    // 如果没有可写数据，关闭写通道，或者关闭连接
+    if (discard_write || _pkg_write_queue.empty())
     {
-        force_close();
-        return;
-    }
+        if (_sock_stream.is_reading_shutdown())
+        {
+            // Peer 发起的关闭连接
+            force_close();
+            return;
+        }
 
-    // 先关闭读通道
-    _sock_stream.shutdown_read();
+        // Local 主动发起关闭连接
+        _sock_stream.shutdown_write();
+    }
 
     // 设置超时关闭
     setup_force_close_timer();
@@ -82,10 +80,12 @@ void ProactPackageChannel::force_close()
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(nullptr != _actor && _actor->is_in_loop_thread());
 
+    // 设置关闭标记
+    _closing.store(true, std::memory_order_relaxed);
+
+    // 关闭 socket
     if (_sock_stream.is_null())
         return;
-
-    // Do close
     cancel_force_close_timer();
     ((Proactor*) _actor)->unregister_handler(this);
     _sock_stream.close();
@@ -109,7 +109,6 @@ void ProactPackageChannel::launch_read()
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(nullptr != _actor && _actor->is_in_loop_thread());
     assert(!_sock_stream.is_null() && !_sock_stream.is_reading_shutdown());
-    assert(!_closing.load(std::memory_order_relaxed));
 
     if (nullptr == _reading_pkg)
     {
@@ -131,18 +130,17 @@ void ProactPackageChannel::handle_read_completed(size_t cb)
     if (0 == cb)
     {
         // Read channel closed
-        const bool old_reading_shutdown = _sock_stream.is_reading_shutdown();
         _sock_stream.mark_reading_shutdown();
-        if (!_closing.load(std::memory_order_relaxed) && !old_reading_shutdown)
-            handle_read(nullptr);
+        if (_sock_stream.is_writing_shutdown())
+            force_close(); // Local 主动发起的关闭连接
+        else
+            close(); // Peer 发起的关闭连接
         return;
     }
 
-    if (!_closing.load(std::memory_order_relaxed) && !_sock_stream.is_reading_shutdown())
-        split_and_handle_packages(cb);
+    split_and_handle_packages(cb);
 
-    if (!_closing.load(std::memory_order_relaxed) && !_sock_stream.is_reading_shutdown())
-        launch_read();
+    launch_read();
 }
 
 void ProactPackageChannel::write(Package *pkg)
@@ -152,13 +150,9 @@ void ProactPackageChannel::write(Package *pkg)
     assert(nullptr != _actor && _actor->is_in_loop_thread());
     assert(!_sock_stream.is_null());
 
-    const bool closing = _closing.load(std::memory_order_relaxed);
-    if (closing || _sock_stream.is_writing_shutdown())
+    if (_closing.load(std::memory_order_relaxed))
     {
-        if (closing)
-            NUT_LOG_W(TAG, "channel is closing, writing package discard. fd %d", get_socket());
-        else
-            NUT_LOG_W(TAG, "write channel is closed, writing package discard. fd %d", get_socket());
+        NUT_LOG_W(TAG, "channel is closing or closed, writing package discard. fd %d", get_socket());
         return;
     }
 
@@ -180,7 +174,7 @@ void ProactPackageChannel::launch_write()
     const int err = _sock_stream.get_last_error();
     if (0 != err)
     {
-        handle_io_exception(err);
+        handle_io_error(err);
         return;
     }
 
@@ -229,29 +223,30 @@ void ProactPackageChannel::handle_write_completed(size_t cb)
     }
 
     // 如果本地写队列中还有内容，继续写
-    if (!_pkg_write_queue.empty() && !_sock_stream.is_writing_shutdown())
+    if (!_pkg_write_queue.empty())
     {
         launch_write();
         return;
     }
 
-    // 如果本地写队列空了，并且处于关闭流程中，则关闭 socket
-    if (_closing.load(std::memory_order_relaxed))
-        force_close();
+    // 如果本地写队列空了，并且处于关闭流程中，则关闭写通道
+    if (_sock_stream.is_reading_shutdown())
+        force_close(); // Peer 发起的关闭连接
+    else if (_closing.load(std::memory_order_relaxed))
+        _sock_stream.shutdown_write(); // Local 主动发起关闭连接
 }
 
-void ProactPackageChannel::handle_io_exception(int err)
+void ProactPackageChannel::handle_io_error(int err)
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(nullptr != _actor && _actor->is_in_loop_thread());
 
+    NUT_LOG_E(TAG, "loofah error raised, fd %d, error %d: %s", get_socket(),
+              err, str_error(err));
+
     _sock_stream.mark_reading_shutdown();
     _sock_stream.mark_writing_shutdown();
-
-    if (_closing.load(std::memory_order_relaxed))
-        force_close();
-    else
-        handle_exception(err);
+    force_close();
 }
 
 }

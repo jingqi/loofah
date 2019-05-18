@@ -81,7 +81,7 @@ public:
         proactor.launch_read(this, &buf, &len, 1);
     }
 
-    virtual void handle_io_exception(int err) override
+    virtual void handle_io_error(int err) override
     {
         NUT_LOG_E(TAG, "server exception %d", err);
     }
@@ -150,7 +150,7 @@ public:
         proactor.launch_read(this, &buf, &len, 1);
     }
 
-    virtual void handle_io_exception(int err) override
+    virtual void handle_io_error(int err) override
     {
         NUT_LOG_E(TAG, "client exception %d", err);
     }

@@ -30,7 +30,7 @@ public:
     virtual void handle_connect_completed() final override;
     virtual void handle_read_completed(size_t cb) final override;
     virtual void handle_write_completed(size_t cb) final override;
-    virtual void handle_io_exception(int err) final override;
+    virtual void handle_io_error(int err) final override;
 
 protected:
     virtual nut::rc_ptr<ProactChannel> create_channel() = 0;

@@ -68,14 +68,14 @@ public:
      *
      * @param err 错误码，如 LOOFAH_ERR_PKG_OVERSIZE 等
      */
-    virtual void handle_io_exception(int err) = 0;
+    virtual void handle_io_error(int err) = 0;
 
 private:
     ReactHandler(const ReactHandler&) = delete;
     ReactHandler& operator=(const ReactHandler&) = delete;
 
 protected:
-    Reactor *_reactor = nullptr;
+    Reactor *_registered_reactor = nullptr;
 
 private:
     // ACCEPT_MASK, CONNECT_MASK, READ_MASK, WRITE_MASK

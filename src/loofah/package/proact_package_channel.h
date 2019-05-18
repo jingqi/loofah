@@ -24,7 +24,6 @@ class LOOFAH_API ProactPackageChannel : public ProactChannel, public PackageChan
 
 public:
     void set_proactor(Proactor *proactor);
-    Proactor* get_proactor() const;
 
     virtual SockStream& get_sock_stream() final override;
 
@@ -49,7 +48,7 @@ public:
 
     virtual void handle_read_completed(size_t cb) final override;
     virtual void handle_write_completed(size_t cb) final override;
-    virtual void handle_io_exception(int err) override;
+    virtual void handle_io_error(int err) override;
 
 private:
     // 向 proactor 请求 read 操作

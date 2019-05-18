@@ -190,7 +190,7 @@ void Reactor::register_handler_later(ReactHandler *handler, ReactHandler::mask_t
 void Reactor::register_handler(ReactHandler *handler, ReactHandler::mask_type mask)
 {
     assert(nullptr != handler && 0 == (mask & ~ReactHandler::ALL_MASK));
-    assert(nullptr == handler->_reactor && 0 == handler->_enabled_events);
+    assert(nullptr == handler->_registered_reactor && 0 == handler->_enabled_events);
     assert(is_in_loop_thread());
 
 #if NUT_PLATFORM_OS_WINDOWS && WINVER >= _WIN32_WINNT_WINBLUE
@@ -201,7 +201,7 @@ void Reactor::register_handler(ReactHandler *handler, ReactHandler::mask_type ma
     assert(!handler->_registered);
 #endif
 
-    handler->_reactor = this;
+    handler->_registered_reactor = this;
 
     enable_handler(handler, mask);
 }
@@ -225,7 +225,7 @@ void Reactor::unregister_handler_later(ReactHandler *handler)
 
 void Reactor::unregister_handler(ReactHandler *handler)
 {
-    assert(nullptr != handler && handler->_reactor == this);
+    assert(nullptr != handler && handler->_registered_reactor == this);
     assert(is_in_loop_thread());
 
     const socket_t fd = handler->get_socket();
@@ -239,7 +239,7 @@ void Reactor::unregister_handler(ReactHandler *handler)
         FD_CLR(fd, &_except_set);
     _socket_to_handler.erase(fd);
     handler->_enabled_events = 0;
-    handler->_reactor = nullptr;
+    handler->_registered_reactor = nullptr;
 #elif NUT_PLATFORM_OS_WINDOWS
     if (_handlers->_registered)
     {
@@ -254,7 +254,7 @@ void Reactor::unregister_handler(ReactHandler *handler)
     }
     handler->_registered = false;
     handler->_enabled_events = 0;
-    handler->_reactor = nullptr;
+    handler->_registered_reactor = nullptr;
 #elif NUT_PLATFORM_OS_MACOS
     struct kevent ev[2];
     int n = 0;
@@ -265,12 +265,12 @@ void Reactor::unregister_handler(ReactHandler *handler)
     if (n > 0 && 0 != ::kevent(_kq, ev, n, nullptr, 0, nullptr))
     {
         LOOFAH_LOG_FD_ERRNO(kevent, fd);
-        handler->handle_io_exception(from_errno(errno));
+        handler->handle_io_error(from_errno(errno));
         return;
     }
     handler->_registered_events = 0;
     handler->_enabled_events = 0;
-    handler->_reactor = nullptr;
+    handler->_registered_reactor = nullptr;
 #elif NUT_PLATFORM_OS_LINUX
     if (handler->_registered)
     {
@@ -280,13 +280,13 @@ void Reactor::unregister_handler(ReactHandler *handler)
         if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_DEL, fd, &epv))
         {
             LOOFAH_LOG_FD_ERRNO(epoll_ctl, fd);
-            handler->handle_io_exception(from_errno(errno));
+            handler->handle_io_error(from_errno(errno));
             return;
         }
     }
     handler->_registered = false;
     handler->_enabled_events = 0;
-    handler->_reactor = nullptr;
+    handler->_registered_reactor = nullptr;
 #endif
 }
 
@@ -310,7 +310,7 @@ void Reactor::enable_handler_later(ReactHandler *handler, ReactHandler::mask_typ
 void Reactor::enable_handler(ReactHandler *handler, ReactHandler::mask_type mask)
 {
     assert(nullptr != handler && 0 == (mask & ~ReactHandler::ALL_MASK));
-    assert(handler->_reactor == this);
+    assert(handler->_registered_reactor == this);
     assert(is_in_loop_thread());
 
     if (0 == mask)
@@ -380,7 +380,7 @@ void Reactor::enable_handler(ReactHandler *handler, ReactHandler::mask_type mask
     if (n > 0 && 0 != ::kevent(_kq, ev, n, nullptr, 0, nullptr))
     {
         LOOFAH_LOG_FD_ERRNO(kevent, fd);
-        handler->handle_io_exception(from_errno(errno));
+        handler->handle_io_error(from_errno(errno));
         return;
     }
     handler->_registered_events |= need_enable;
@@ -402,7 +402,7 @@ void Reactor::enable_handler(ReactHandler *handler, ReactHandler::mask_type mask
         if (0 != ::epoll_ctl(_epoll_fd, (handler->_registered ? EPOLL_CTL_MOD : EPOLL_CTL_ADD), fd, &epv))
         {
             LOOFAH_LOG_FD_ERRNO(epoll_ctl, fd);
-            handler->handle_io_exception(from_errno(errno));
+            handler->handle_io_error(from_errno(errno));
             return;
         }
     }
@@ -431,7 +431,7 @@ void Reactor::disable_handler_later(ReactHandler *handler, ReactHandler::mask_ty
 void Reactor::disable_handler(ReactHandler *handler, ReactHandler::mask_type mask)
 {
     assert(nullptr != handler && 0 == (mask & ~ReactHandler::ALL_MASK));
-    assert(handler->_reactor == this);
+    assert(handler->_registered_reactor == this);
     assert(is_in_loop_thread());
 
     if (0 == mask)
@@ -469,7 +469,7 @@ void Reactor::disable_handler(ReactHandler *handler, ReactHandler::mask_type mas
     if (n > 0 && 0 != ::kevent(_kq, ev, n, nullptr, 0, nullptr))
     {
         LOOFAH_LOG_FD_ERRNO(kevent, fd);
-        handler->handle_io_exception(from_errno(errno));
+        handler->handle_io_error(from_errno(errno));
         return;
     }
     handler->_enabled_events &= ~mask;
@@ -488,7 +488,7 @@ void Reactor::disable_handler(ReactHandler *handler, ReactHandler::mask_type mas
         if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_MOD, fd, &epv))
         {
             LOOFAH_LOG_FD_ERRNO(epoll_ctl, fd);
-            handler->handle_io_exception(from_errno(errno));
+            handler->handle_io_error(from_errno(errno));
             return;
         }
     }
@@ -564,7 +564,7 @@ int Reactor::handle_events(int timeout_ms)
                 continue;
             ReactHandler *handler = iter->second;
             assert(nullptr != handler);
-            handler->handle_io_exception(SockOperation::get_last_error(fd));
+            handler->handle_io_error(SockOperation::get_last_error(fd));
         }
 #elif NUT_PLATFORM_OS_WINDOWS
         const int rs = ::WSAPoll(_pollfds, _size, timeout_ms);
@@ -598,11 +598,11 @@ int Reactor::handle_events(int timeout_ms)
              */
             if (0 != (revents & POLLNVAL))
             {
-                handler->handle_io_exception(LOOFAH_ERR_INVALID_FD);
+                handler->handle_io_error(LOOFAH_ERR_INVALID_FD);
             }
             else if (0 != (revents & POLLERR))
             {
-                handler->handle_io_exception(LOOFAH_ERR_UNKNOWN);
+                handler->handle_io_error(LOOFAH_ERR_UNKNOWN);
             }
             else
             {
@@ -680,7 +680,7 @@ int Reactor::handle_events(int timeout_ms)
             if (0 != (events[i].events & EPOLLERR))
             {
                 const int errcode = SockOperation::get_last_error(handler->get_socket());
-                handler->handle_io_exception(from_errno(errcode));
+                handler->handle_io_error(from_errno(errcode));
             }
             else
             {
