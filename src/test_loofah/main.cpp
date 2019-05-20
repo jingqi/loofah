@@ -11,7 +11,6 @@
 
 #if NUT_PLATFORM_OS_WINDOWS
 #   include <windows.h>
-#   include <conio.h>
 #else
 #   include <unistd.h>
 #endif
@@ -48,7 +47,7 @@ int main(int argc, char **argv)
     ConsoleTestLogger l;
     TestRunner runner(&l);
     runner.run_group("all");
-    // runner.run_fixture("TestReactor");
+    // runner.run_fixture("TestProactor");
     // runner.run_case("TestConcurrentHashMap", "test_multi_thread");
 
     // 手工测试
@@ -57,11 +56,6 @@ int main(int argc, char **argv)
     // test_proact_package_manually();
 
     loofah::shutdown_network();
-
-#if NUT_PLATFORM_OS_WINDOWS
-    printf("press any key to continue...");
-    getch();
-#endif
 
     return 0;
 }

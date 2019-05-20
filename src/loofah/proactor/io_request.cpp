@@ -7,6 +7,8 @@
 #include "io_request.h"
 
 
+#undef max
+
 namespace loofah
 {
 
@@ -17,12 +19,19 @@ IORequest::IORequest(ProactHandler *handler_, ProactHandler::mask_type event_typ
       buf_count(buf_count_)
 {
     assert(nullptr != handler_);
+    assert(ProactHandler::ACCEPT_MASK == event_type_ ||
+           ProactHandler::CONNECT_MASK == event_type_ ||
+           ProactHandler::READ_MASK == event_type_ ||
+           ProactHandler::WRITE_MASK == event_type_);
     ::memset(&overlapped, 0, sizeof(overlapped));
 }
 #else
 IORequest::IORequest(ProactHandler::mask_type event_type_, size_t buf_count_)
     : event_type(event_type_), buf_count(buf_count_)
-{}
+{
+    assert(ProactHandler::READ_MASK == event_type_ ||
+           ProactHandler::WRITE_MASK == event_type_);
+}
 #endif
 
 #if NUT_PLATFORM_OS_WINDOWS

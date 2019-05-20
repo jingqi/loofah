@@ -10,6 +10,8 @@
 #include "package.h"
 
 
+#undef min
+
 #define VALIDATE_MEMBERS() \
     assert((nullptr == _buffer && 0 == _capacity && sizeof(header_type) == _read_index && sizeof(header_type) == _write_index) || \
            (nullptr != _buffer && _read_index <= _write_index && _write_index <= _capacity))

@@ -193,7 +193,11 @@ void Proactor::unregister_handler(ProactHandler *handler)
 #if NUT_PLATFORM_OS_WINDOWS
     // FIXME 对于 Windows 下的 IOCP，是无法取消 socket 与 iocp 的关联的
     const socket_t fd = handler->get_socket();
-    ::CancelIo((HANDLE) fd); // 取消等待执行的异步操作
+#   if WINVER >= _WIN32_WINNT_WINBLUE
+    ::CancelIoEx((HANDLE) fd, nullptr); // 取消等待执行的异步操作
+#   else
+    ::CancelIo((HANDLE) fd); // 取消当前线程注册的尚未完成的异步操作，这里都是在一个线程中发起的异步操作
+#   endif
     handler->_registered_proactor = nullptr;
     handler->delete_requests();
 #elif NUT_PLATFORM_OS_MACOS
@@ -676,7 +680,7 @@ int Proactor::handle_events(int timeout_ms)
             assert(FALSE == rs);
             if (WAIT_TIMEOUT != errcode) // WAIT_TIMEOUT 表示等待超时，是正常的
             {
-                NUT_LOG_W(TAG, "failed to call ::GetQueuedCompletionStatus() with GetLastError() %d",
+                NUT_LOG_W(TAG, "failed to call ::GetQueuedCompletionStatus() with ::GetLastError() %d",
                           errcode);
                 return -1;
             }
@@ -703,6 +707,8 @@ int Proactor::handle_events(int timeout_ms)
             // FIXME 因为 ::GetQueuedCompletionStatus() 不返回底层网络驱动的错误
             //       码，导致低层网络驱动错误码被丢失
             //       Also see https://stackoverflow.com/questions/28925003/calling-wsagetlasterror-from-an-iocp-thread-return-incorrect-result
+            NUT_LOG_W(TAG, "failed to call ::GetQueuedCompletionStatus() with ::GetLastError() %d",
+                      errcode);
             handler->handle_io_error(LOOFAH_ERR_UNKNOWN); // 连接错误
         }
         else
@@ -715,6 +721,16 @@ int Proactor::handle_events(int timeout_ms)
 
             ProactHandler *handler = io_request->handler;
             assert(nullptr != handler);
+            if (0 != (io_request->event_type & ProactHandler::ACCEPT_READ_MASK))
+            {
+                assert(io_request == handler->_read_queue.front());
+                handler->_read_queue.pop();
+            }
+            else
+            {
+                assert(io_request == handler->_write_queue.front());
+                handler->_write_queue.pop();
+            }
 
             switch (io_request->event_type)
             {
@@ -789,16 +805,6 @@ int Proactor::handle_events(int timeout_ms)
                 assert(false);
             }
 
-            if (0 != (io_request->event_type & ProactHandler::ACCEPT_READ_MASK))
-            {
-                assert(io_request == handler->_read_queue.front());
-                handler->_read_queue.pop();
-            }
-            else
-            {
-                assert(io_request == handler->_write_queue.front());
-                handler->_write_queue.pop();
-            }
             IORequest::delete_request(io_request);
         }
 #elif NUT_PLATFORM_OS_MACOS

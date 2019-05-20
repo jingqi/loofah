@@ -56,10 +56,10 @@ public:
     OVERLAPPED overlapped;
 
     // Handler
-    ProactHandler *handler = nullptr;
+    ProactHandler *const handler = nullptr;
 
     // 事件类型
-    ProactHandler::mask_type event_type = 0;
+    const ProactHandler::mask_type event_type = 0;
 
     // 为 AcceptEx() 准备的数据
     socket_t accept_socket = LOOFAH_INVALID_SOCKET_FD;
@@ -70,7 +70,7 @@ public:
     WSABUF wsabufs[1];
 #else
     // 事件类型
-    ProactHandler::mask_type event_type = 0;
+    const ProactHandler::mask_type event_type = 0;
 
     const size_t buf_count = 0;
 

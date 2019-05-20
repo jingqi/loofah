@@ -195,7 +195,7 @@ class TestReactPackageRST : public TestFixture
         while (prepared < 2 || server != nullptr || client != nullptr)
         {
             const uint64_t idle_ms = std::min<uint64_t>(
-                60 * 1000, std::max<uint64_t>(TimeWheel::RESOLUTION_MS, timewheel.get_idle()));
+                60 * 1000, std::max<uint64_t>(unsigned(TimeWheel::RESOLUTION_MS), timewheel.get_idle()));
             if (reactor.handle_events(idle_ms) < 0)
                 break;
             timewheel.tick();

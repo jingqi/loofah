@@ -153,10 +153,10 @@ void Reactor::ensure_capacity(size_t new_size)
     _capacity = new_cap;
 }
 
-ssize_t Reactor::binayr_search(ReactHandler *handler)
+ssize_t Reactor::binary_search(ReactHandler *handler)
 {
     ssize_t left = -1, right = _size;
-    whiel (left + 1 < right)
+    while (left + 1 < right)
     {
         size_t middle = (left + right) >> 1;
         if (_handlers[middle] == handler)
@@ -241,7 +241,7 @@ void Reactor::unregister_handler(ReactHandler *handler)
     handler->_enabled_events = 0;
     handler->_registered_reactor = nullptr;
 #elif NUT_PLATFORM_OS_WINDOWS
-    if (_handlers->_registered)
+    if (handler->_registered)
     {
         const ssize_t index = binary_search(handler);
         assert(index >= 0);

@@ -21,32 +21,32 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{13D7AA02-0C52-4C3A-929E-8172F06CE873}</ProjectGuid>
     <RootNamespace>loofah</RootNamespace>
-    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
@@ -138,36 +138,41 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\src\loofah\inet_base\connector_base.cpp" />
+    <ClCompile Include="..\..\..\src\loofah\inet_base\error.cpp" />
     <ClCompile Include="..\..\..\src\loofah\inet_base\event_loop_base.cpp" />
     <ClCompile Include="..\..\..\src\loofah\inet_base\inet_addr.cpp" />
     <ClCompile Include="..\..\..\src\loofah\inet_base\sock_operation.cpp" />
     <ClCompile Include="..\..\..\src\loofah\inet_base\sock_stream.cpp" />
     <ClCompile Include="..\..\..\src\loofah\inet_base\utils.cpp" />
     <ClCompile Include="..\..\..\src\loofah\package\package.cpp" />
-    <ClCompile Include="..\..\..\src\loofah\package\package_channel.cpp" />
+    <ClCompile Include="..\..\..\src\loofah\package\package_channel_base.cpp" />
+    <ClCompile Include="..\..\..\src\loofah\package\proact_package_channel.cpp" />
+    <ClCompile Include="..\..\..\src\loofah\package\react_package_channel.cpp" />
     <ClCompile Include="..\..\..\src\loofah\proactor\io_request.cpp" />
     <ClCompile Include="..\..\..\src\loofah\proactor\proactor.cpp" />
     <ClCompile Include="..\..\..\src\loofah\proactor\proact_acceptor.cpp" />
     <ClCompile Include="..\..\..\src\loofah\proactor\proact_channel.cpp" />
+    <ClCompile Include="..\..\..\src\loofah\proactor\proact_connector.cpp" />
     <ClCompile Include="..\..\..\src\loofah\proactor\proact_handler.cpp" />
     <ClCompile Include="..\..\..\src\loofah\reactor\reactor.cpp" />
     <ClCompile Include="..\..\..\src\loofah\reactor\react_acceptor.cpp" />
     <ClCompile Include="..\..\..\src\loofah\reactor\react_channel.cpp" />
+    <ClCompile Include="..\..\..\src\loofah\reactor\react_connector.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\src\loofah\inet_base\channel.h" />
-    <ClInclude Include="..\..\..\src\loofah\inet_base\connector_base.h" />
+    <ClInclude Include="..\..\..\src\loofah\inet_base\error.h" />
     <ClInclude Include="..\..\..\src\loofah\inet_base\event_loop_base.h" />
     <ClInclude Include="..\..\..\src\loofah\inet_base\inet_addr.h" />
-    <ClInclude Include="..\..\..\src\loofah\inet_base\inet_endian.h" />
     <ClInclude Include="..\..\..\src\loofah\inet_base\sock_operation.h" />
     <ClInclude Include="..\..\..\src\loofah\inet_base\sock_stream.h" />
     <ClInclude Include="..\..\..\src\loofah\inet_base\utils.h" />
     <ClInclude Include="..\..\..\src\loofah\loofah.h" />
     <ClInclude Include="..\..\..\src\loofah\loofah_config.h" />
     <ClInclude Include="..\..\..\src\loofah\package\package.h" />
-    <ClInclude Include="..\..\..\src\loofah\package\package_channel.h" />
+    <ClInclude Include="..\..\..\src\loofah\package\package_channel_base.h" />
+    <ClInclude Include="..\..\..\src\loofah\package\proact_package_channel.h" />
+    <ClInclude Include="..\..\..\src\loofah\package\react_package_channel.h" />
     <ClInclude Include="..\..\..\src\loofah\proactor\io_request.h" />
     <ClInclude Include="..\..\..\src\loofah\proactor\proactor.h" />
     <ClInclude Include="..\..\..\src\loofah\proactor\proact_acceptor.h" />

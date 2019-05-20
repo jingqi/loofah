@@ -178,10 +178,8 @@ void ReactPackageChannel::handle_write_ready()
     Reactor *const reactor = (Reactor*) _actor;
     while (!_pkg_write_queue.empty())
     {
-#if !NUT_PLATFORM_OS_LINUX
-        // 写入前需要检查 RST 错误
-        // FIXME linux 下无法通过 get_last_error() 来检查到 RST 包导致的错误, 而
-        //       是根据 epoll() 结果中的 EPIPE 错误来判定
+#if NUT_PLATFORM_OS_MACOS
+        // macOS 下可以通过 get_last_error() 来检测 RST 错误
         const int err = _sock_stream.get_last_error();
         if (0 != err)
         {

@@ -19,35 +19,35 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{B9EA4939-EF36-4480-8842-707A69D8B5E7}</ProjectGuid>
+    <ProjectGuid>{C5FF09B4-E89F-4DB8-B74F-F597D606008F}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>test_pingpong</RootNamespace>
-    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+    <RootNamespace>test_loofah</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -158,12 +158,16 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\src\test_pingpong\main.cpp" />
-    <ClCompile Include="..\..\..\src\test_pingpong\client.cpp" />
-    <ClCompile Include="..\..\..\src\test_pingpong\server.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="..\..\..\src\test_pingpong\declares.h" />
+    <ClCompile Include="..\..\..\src\test_loofah\main.cpp" />
+    <ClCompile Include="..\..\..\src\test_loofah\manually\test_proact_package_manually.cpp" />
+    <ClCompile Include="..\..\..\src\test_loofah\manually\test_reactor_manually.cpp" />
+    <ClCompile Include="..\..\..\src\test_loofah\manually\test_react_package_manually.cpp" />
+    <ClCompile Include="..\..\..\src\test_loofah\rst\test_proact_package_rst.cpp" />
+    <ClCompile Include="..\..\..\src\test_loofah\rst\test_react_package_rst.cpp" />
+    <ClCompile Include="..\..\..\src\test_loofah\test_proactor.cpp" />
+    <ClCompile Include="..\..\..\src\test_loofah\test_proact_package_channel.cpp" />
+    <ClCompile Include="..\..\..\src\test_loofah\test_reactor.cpp" />
+    <ClCompile Include="..\..\..\src\test_loofah\test_react_package_channel.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
