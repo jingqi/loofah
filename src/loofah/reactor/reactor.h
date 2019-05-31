@@ -9,14 +9,14 @@
 
 #include <nut/platform/platform.h>
 
-#include "../inet_base/event_loop_base.h"
+#include "../inet_base/poller_base.h"
 #include "react_handler.h"
 
 
 namespace loofah
 {
 
-class LOOFAH_API Reactor : public EventLoopBase
+class LOOFAH_API Reactor : public PollerBase
 {
 public:
     Reactor();
@@ -42,7 +42,7 @@ public:
     /**
      * @return <0 出错
      */
-    int handle_events(int timeout_ms = 1000);
+    int poll(int timeout_ms = 1000);
 
 protected:
 #if NUT_PLATFORM_OS_WINDOWS && WINVER >= _WIN32_WINNT_WINBLUE

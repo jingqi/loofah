@@ -89,7 +89,7 @@ void Proactor::shutdown_later()
 
 void Proactor::shutdown()
 {
-    assert(is_in_loop_thread());
+    assert(is_in_io_thread());
 
     _closing_or_closed.store(true, std::memory_order_relaxed);
 
@@ -125,7 +125,7 @@ void Proactor::register_handler_later(ProactHandler *handler)
 {
     assert(nullptr != handler);
 
-    if (is_in_loop_thread())
+    if (is_in_io_thread())
     {
         // Synchronize
         register_handler(handler);
@@ -141,7 +141,7 @@ void Proactor::register_handler_later(ProactHandler *handler)
 void Proactor::register_handler(ProactHandler *handler)
 {
     assert(nullptr != handler && nullptr == handler->_registered_proactor);
-    assert(is_in_loop_thread());
+    assert(is_in_io_thread());
 
 #if NUT_PLATFORM_OS_WINDOWS
     const socket_t fd = handler->get_socket();
@@ -171,7 +171,7 @@ void Proactor::unregister_handler_later(ProactHandler *handler)
 {
     assert(nullptr != handler);
 
-    if (is_in_loop_thread())
+    if (is_in_io_thread())
     {
         // Synchronize
         unregister_handler(handler);
@@ -187,7 +187,7 @@ void Proactor::unregister_handler_later(ProactHandler *handler)
 void Proactor::unregister_handler(ProactHandler *handler)
 {
     assert(nullptr != handler && handler->_registered_proactor == this);
-    assert(is_in_loop_thread());
+    assert(is_in_io_thread());
     
 
 #if NUT_PLATFORM_OS_WINDOWS
@@ -243,7 +243,7 @@ void Proactor::launch_accept_later(ProactHandler *handler)
 {
     assert(nullptr != handler);
 
-    if (is_in_loop_thread())
+    if (is_in_io_thread())
     {
         // Synchronize
         launch_accept(handler);
@@ -259,7 +259,7 @@ void Proactor::launch_accept_later(ProactHandler *handler)
 void Proactor::launch_accept(ProactHandler *handler)
 {
     assert(nullptr != handler && handler->_registered_proactor == this);
-    assert(is_in_loop_thread());
+    assert(is_in_io_thread());
 
 #if NUT_PLATFORM_OS_WINDOWS
     // Create socket
@@ -318,7 +318,7 @@ void Proactor::launch_connect_later(ProactHandler *handler, const InetAddr& addr
 {
     assert(nullptr != handler);
 
-    if (is_in_loop_thread())
+    if (is_in_io_thread())
     {
         // Synchronize
         launch_connect(handler, address);
@@ -335,7 +335,7 @@ void Proactor::launch_connect_later(ProactHandler *handler)
 {
     assert(nullptr != handler);
 
-    if (is_in_loop_thread())
+    if (is_in_io_thread())
     {
         // Synchronize
         launch_connect(handler);
@@ -354,7 +354,7 @@ void Proactor::launch_connect_later(ProactHandler *handler)
 void Proactor::launch_connect(ProactHandler *handler, const InetAddr& address)
 {
     assert(nullptr != handler && handler->_registered_proactor == this);
-    assert(is_in_loop_thread());
+    assert(is_in_io_thread());
 
     IORequest *io_request = IORequest::new_request(handler, ProactHandler::CONNECT_MASK);
     assert(nullptr != io_request);
@@ -386,7 +386,7 @@ void Proactor::launch_connect(ProactHandler *handler, const InetAddr& address)
 void Proactor::launch_connect(ProactHandler *handler)
 {
     assert(nullptr != handler && handler->_registered_proactor == this);
-    assert(is_in_loop_thread());
+    assert(is_in_io_thread());
     assert(0 == (handler->_enabled_events & ProactHandler::CONNECT_MASK));
     enable_handler(handler, ProactHandler::CONNECT_MASK);
 }
@@ -398,7 +398,7 @@ void Proactor::launch_read_later(ProactHandler *handler, void* const *buf_ptrs,
 {
     assert(nullptr != handler && nullptr != buf_ptrs && nullptr != len_ptrs && buf_count > 0);
 
-    if (is_in_loop_thread())
+    if (is_in_io_thread())
     {
         // Synchronize
         launch_read(handler, buf_ptrs, len_ptrs, buf_count);
@@ -425,7 +425,7 @@ void Proactor::launch_read(ProactHandler *handler, void* const *buf_ptrs,
 {
     assert(nullptr != handler && nullptr != buf_ptrs && nullptr != len_ptrs && buf_count > 0);
     assert(handler->_registered_proactor == this);
-    assert(is_in_loop_thread());
+    assert(is_in_io_thread());
 
 #if NUT_PLATFORM_OS_WINDOWS
     IORequest *io_request = IORequest::new_request(handler, ProactHandler::READ_MASK, buf_count);
@@ -468,7 +468,7 @@ void Proactor::launch_write_later(ProactHandler *handler, void* const *buf_ptrs,
 {
     assert(nullptr != handler && nullptr != buf_ptrs && nullptr != len_ptrs && buf_count > 0);
 
-    if (is_in_loop_thread())
+    if (is_in_io_thread())
     {
         // Synchronize
         launch_write(handler, buf_ptrs, len_ptrs, buf_count);
@@ -495,7 +495,7 @@ void Proactor::launch_write(ProactHandler *handler, void* const *buf_ptrs,
 {
     assert(nullptr != handler && nullptr != buf_ptrs && nullptr != len_ptrs && buf_count > 0);
     assert(handler->_registered_proactor == this);
-    assert(is_in_loop_thread());
+    assert(is_in_io_thread());
 
 #if NUT_PLATFORM_OS_WINDOWS
     IORequest *io_request = IORequest::new_request(handler, ProactHandler::WRITE_MASK, buf_count);
@@ -538,7 +538,7 @@ void Proactor::enable_handler(ProactHandler *handler, ProactHandler::mask_type m
 {
     assert(nullptr != handler && 0 == (mask & ~ProactHandler::ALL_MASK));
     assert(handler->_registered_proactor == this);
-    assert(is_in_loop_thread());
+    assert(is_in_io_thread());
 
     if (0 == mask)
         return;
@@ -597,7 +597,7 @@ void Proactor::disable_handler(ProactHandler *handler, ProactHandler::mask_type 
 {
     assert(nullptr != handler && 0 == (mask & ~ProactHandler::ALL_MASK));
     assert(handler->_registered_proactor == this);
-    assert(is_in_loop_thread());
+    assert(is_in_io_thread());
 
     if (0 == mask)
         return;
@@ -642,19 +642,19 @@ void Proactor::disable_handler(ProactHandler *handler, ProactHandler::mask_type 
 }
 #endif
 
-int Proactor::handle_events(int timeout_ms)
+int Proactor::poll(int timeout_ms)
 {
     if (_closing_or_closed.load(std::memory_order_relaxed))
         return -1;
 
-    if (!is_in_loop_thread())
+    if (!is_in_io_thread())
     {
-        NUT_LOG_F(TAG, "handle_events() can only be called from inside loop thread");
+        NUT_LOG_F(TAG, "poll() can only be called from inside IO thread");
         return -1;
     }
 
     {
-        HandleEventsGuard g(this);
+        PollingGuard g(this);
 
 #if NUT_PLATFORM_OS_WINDOWS
         DWORD bytes_transfered = 0;

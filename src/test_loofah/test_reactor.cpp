@@ -166,7 +166,7 @@ class TestReactor : public TestFixture
         // loop
         while (!prepared || server != nullptr || client != nullptr)
         {
-            if (reactor.handle_events() < 0)
+            if (reactor.poll() < 0)
                 break;
         }
     }

@@ -21,8 +21,8 @@ void ReactPackageChannel::set_reactor(Reactor *reactor)
     assert(nullptr != reactor);
     NUT_DEBUGGING_ASSERT_ALIVE;
 
-    assert(nullptr == _actor);
-    _actor = reactor;
+    assert(nullptr == _poller);
+    _poller = reactor;
 }
 
 SockStream& ReactPackageChannel::get_sock_stream()
@@ -41,9 +41,9 @@ void ReactPackageChannel::open(socket_t fd)
 void ReactPackageChannel::handle_channel_connected()
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(nullptr != _actor && _actor->is_in_loop_thread());
+    assert(nullptr != _poller && _poller->is_in_io_thread());
 
-    Reactor *const reactor = (Reactor*) _actor;
+    Reactor *const reactor = (Reactor*) _poller;
     reactor->register_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
     reactor->disable_handler(this, ReactHandler::WRITE_MASK);
 
@@ -53,7 +53,7 @@ void ReactPackageChannel::handle_channel_connected()
 void ReactPackageChannel::close(bool discard_write)
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(nullptr != _actor && _actor->is_in_loop_thread());
+    assert(nullptr != _poller && _poller->is_in_io_thread());
 
     // 设置关闭标记
     _closing.store(true, std::memory_order_relaxed);
@@ -69,7 +69,7 @@ void ReactPackageChannel::close(bool discard_write)
         }
 
         // 主动关闭连接
-        ((Reactor*) _actor)->disable_handler(this, ReactHandler::WRITE_MASK);
+        ((Reactor*) _poller)->disable_handler(this, ReactHandler::WRITE_MASK);
         _sock_stream.shutdown_write();
     }
 
@@ -80,7 +80,7 @@ void ReactPackageChannel::close(bool discard_write)
 void ReactPackageChannel::force_close()
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(nullptr != _actor && _actor->is_in_loop_thread());
+    assert(nullptr != _poller && _poller->is_in_io_thread());
 
     // 设置关闭标记
     _closing.store(true, std::memory_order_relaxed);
@@ -89,29 +89,29 @@ void ReactPackageChannel::force_close()
     if (_sock_stream.is_null())
         return;
     cancel_force_close_timer();
-    ((Reactor*) _actor)->unregister_handler(this);
+    ((Reactor*) _poller)->unregister_handler(this);
     _sock_stream.close();
 
     // Handle close event
-    if (_actor->is_in_loop_thread_and_not_handling())
+    if (_poller->is_in_io_thread_and_not_polling())
     {
         // Synchronize
-        handle_close(); // NOTE 这里可能会导致自身被删除, 放到最后
+        handle_closed(); // NOTE 这里可能会导致自身被删除, 放到最后
     }
     else
     {
         // Asynchronize
         nut::rc_ptr<ReactPackageChannel> ref_this(this);
-        _actor->run_later([=] { ref_this->handle_close(); });
+        _poller->run_later([=] { ref_this->handle_closed(); });
     }
 }
 
 void ReactPackageChannel::handle_read_ready()
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(nullptr != _actor && _actor->is_in_loop_thread());
+    assert(nullptr != _poller && _poller->is_in_io_thread());
 
-    Reactor *const reactor = (Reactor*) _actor;
+    Reactor *const reactor = (Reactor*) _poller;
     while (true)
     {
         if (nullptr == _reading_pkg)
@@ -153,7 +153,7 @@ void ReactPackageChannel::write(Package *pkg)
 {
     assert(nullptr != pkg);
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(nullptr != _actor && _actor->is_in_loop_thread());
+    assert(nullptr != _poller && _poller->is_in_io_thread());
     assert(!_sock_stream.is_null());
 
     if (_closing.load(std::memory_order_relaxed))
@@ -165,17 +165,17 @@ void ReactPackageChannel::write(Package *pkg)
     pkg->raw_pack();
     _pkg_write_queue.push_back(pkg);
     if (1 == _pkg_write_queue.size())
-        ((Reactor*) _actor)->enable_handler(this, ReactHandler::WRITE_MASK);
+        ((Reactor*) _poller)->enable_handler(this, ReactHandler::WRITE_MASK);
 }
 
 void ReactPackageChannel::handle_write_ready()
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(nullptr != _actor && _actor->is_in_loop_thread());
+    assert(nullptr != _poller && _poller->is_in_io_thread());
 
     // NOTE 此时 '_closing' 可能为 true, 做关闭前最后的写入
 
-    Reactor *const reactor = (Reactor*) _actor;
+    Reactor *const reactor = (Reactor*) _poller;
     while (!_pkg_write_queue.empty())
     {
 #if NUT_PLATFORM_OS_MACOS
@@ -285,12 +285,12 @@ void ReactPackageChannel::handle_write_ready()
 void ReactPackageChannel::handle_io_error(int err)
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(nullptr != _actor && _actor->is_in_loop_thread());
+    assert(nullptr != _poller && _poller->is_in_io_thread());
 
     NUT_LOG_E(TAG, "loofah error raised, fd %d, error %d: %s", get_socket(),
               err, str_error(err));
 
-    ((Reactor*) _actor)->disable_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
+    ((Reactor*) _poller)->disable_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
     _sock_stream.mark_reading_shutdown();
     _sock_stream.mark_writing_shutdown();
     force_close();

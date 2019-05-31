@@ -10,14 +10,14 @@
 #include <nut/platform/platform.h>
 
 #include "proact_handler.h"
-#include "../inet_base/event_loop_base.h"
+#include "../inet_base/poller_base.h"
 #include "../inet_base/inet_addr.h"
 
 
 namespace loofah
 {
 
-class LOOFAH_API Proactor : public EventLoopBase
+class LOOFAH_API Proactor : public PollerBase
 {
 public:
     Proactor();
@@ -59,7 +59,7 @@ public:
      * @param timeout_ms 超时毫秒数，在 Windows 下可传入 INFINITE 表示无穷等待
      * @return <0 出错
      */
-    int handle_events(int timeout_ms = 1000);
+    int poll(int timeout_ms = 1000);
 
 protected:
 #if NUT_PLATFORM_OS_MACOS || NUT_PLATFORM_OS_LINUX

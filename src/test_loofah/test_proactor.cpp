@@ -183,7 +183,7 @@ class TestProactor : public TestFixture
         // loop
         while (!prepared || server != nullptr || client != nullptr)
         {
-            if (proactor.handle_events() < 0)
+            if (proactor.poll() < 0)
                 break;
         }
     }

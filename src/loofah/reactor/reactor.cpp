@@ -107,7 +107,7 @@ void Reactor::shutdown_later()
 
 void Reactor::shutdown()
 {
-    assert(is_in_loop_thread());
+    assert(is_in_io_thread());
 
     _closing_or_closed.store(true, std::memory_order_relaxed);
 
@@ -174,7 +174,7 @@ void Reactor::register_handler_later(ReactHandler *handler, ReactHandler::mask_t
 {
     assert(nullptr != handler);
 
-    if (is_in_loop_thread())
+    if (is_in_io_thread())
     {
         // Synchronize
         register_handler(handler, mask);
@@ -191,7 +191,7 @@ void Reactor::register_handler(ReactHandler *handler, ReactHandler::mask_type ma
 {
     assert(nullptr != handler && 0 == (mask & ~ReactHandler::ALL_MASK));
     assert(nullptr == handler->_registered_reactor && 0 == handler->_enabled_events);
-    assert(is_in_loop_thread());
+    assert(is_in_io_thread());
 
 #if NUT_PLATFORM_OS_WINDOWS && WINVER >= _WIN32_WINNT_WINBLUE
     assert(!handler->_registered);
@@ -210,7 +210,7 @@ void Reactor::unregister_handler_later(ReactHandler *handler)
 {
     assert(nullptr != handler);
 
-    if (is_in_loop_thread())
+    if (is_in_io_thread())
     {
         // Synchronize
         unregister_handler(handler);
@@ -226,7 +226,7 @@ void Reactor::unregister_handler_later(ReactHandler *handler)
 void Reactor::unregister_handler(ReactHandler *handler)
 {
     assert(nullptr != handler && handler->_registered_reactor == this);
-    assert(is_in_loop_thread());
+    assert(is_in_io_thread());
 
     const socket_t fd = handler->get_socket();
 
@@ -294,7 +294,7 @@ void Reactor::enable_handler_later(ReactHandler *handler, ReactHandler::mask_typ
 {
     assert(nullptr != handler);
 
-    if (is_in_loop_thread())
+    if (is_in_io_thread())
     {
         // Synchronize
         enable_handler(handler, mask);
@@ -311,7 +311,7 @@ void Reactor::enable_handler(ReactHandler *handler, ReactHandler::mask_type mask
 {
     assert(nullptr != handler && 0 == (mask & ~ReactHandler::ALL_MASK));
     assert(handler->_registered_reactor == this);
-    assert(is_in_loop_thread());
+    assert(is_in_io_thread());
 
     if (0 == mask)
         return;
@@ -415,7 +415,7 @@ void Reactor::disable_handler_later(ReactHandler *handler, ReactHandler::mask_ty
 {
     assert(nullptr != handler);
 
-    if (is_in_loop_thread())
+    if (is_in_io_thread())
     {
         // Synchronize
         disable_handler(handler, mask);
@@ -432,7 +432,7 @@ void Reactor::disable_handler(ReactHandler *handler, ReactHandler::mask_type mas
 {
     assert(nullptr != handler && 0 == (mask & ~ReactHandler::ALL_MASK));
     assert(handler->_registered_reactor == this);
-    assert(is_in_loop_thread());
+    assert(is_in_io_thread());
 
     if (0 == mask)
         return;
@@ -496,19 +496,19 @@ void Reactor::disable_handler(ReactHandler *handler, ReactHandler::mask_type mas
 #endif
 }
 
-int Reactor::handle_events(int timeout_ms)
+int Reactor::poll(int timeout_ms)
 {
     if (_closing_or_closed.load(std::memory_order_relaxed))
         return -1;
 
-    if (!is_in_loop_thread())
+    if (!is_in_io_thread())
     {
-        NUT_LOG_F(TAG, "handle_events() can only be called from inside loop thread");
+        NUT_LOG_F(TAG, "poll() can only be called from inside IO thread");
         return -1;
     }
 
     {
-        HandleEventsGuard g(this);
+        PollingGuard g(this);
 
 #if NUT_PLATFORM_OS_WINDOWS && WINVER < _WIN32_WINNT_WINBLUE
         struct timeval timeout, *ptimeout = nullptr; // nullptr 表示无限等待

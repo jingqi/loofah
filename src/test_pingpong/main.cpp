@@ -164,8 +164,8 @@ int main(int argc, char *argv[])
     while (true)
     {
         const uint64_t idle_ms = std::min<uint64_t>(
-            60 * 1000, std::max<uint64_t>(TimeWheel::RESOLUTION_MS, g_global.timewheel.get_idle()));
-        if (g_global.proactor.handle_events(idle_ms) < 0)
+            60 * 1000, std::max<uint64_t>(uint64_t(TimeWheel::RESOLUTION_MS), g_global.timewheel.get_idle()));
+        if (g_global.proactor.poll(idle_ms) < 0)
             break;
         g_global.timewheel.tick();
     }

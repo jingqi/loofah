@@ -21,8 +21,8 @@ void ProactPackageChannel::set_proactor(Proactor *proactor)
     assert(nullptr != proactor);
     NUT_DEBUGGING_ASSERT_ALIVE;
 
-    assert(nullptr == _actor);
-    _actor = proactor;
+    assert(nullptr == _poller);
+    _poller = proactor;
 }
 
 SockStream& ProactPackageChannel::get_sock_stream()
@@ -41,9 +41,9 @@ void ProactPackageChannel::open(socket_t fd)
 void ProactPackageChannel::handle_channel_connected()
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(nullptr != _actor && _actor->is_in_loop_thread());
+    assert(nullptr != _poller && _poller->is_in_io_thread());
 
-    ((Proactor*) _actor)->register_handler(this);
+    ((Proactor*) _poller)->register_handler(this);
     launch_read();
 
     handle_connected();
@@ -52,7 +52,7 @@ void ProactPackageChannel::handle_channel_connected()
 void ProactPackageChannel::close(bool discard_write)
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(nullptr != _actor && _actor->is_in_loop_thread());
+    assert(nullptr != _poller && _poller->is_in_io_thread());
 
     // 设置关闭标记
     _closing.store(true, std::memory_order_relaxed);
@@ -78,7 +78,7 @@ void ProactPackageChannel::close(bool discard_write)
 void ProactPackageChannel::force_close()
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(nullptr != _actor && _actor->is_in_loop_thread());
+    assert(nullptr != _poller && _poller->is_in_io_thread());
 
     // 设置关闭标记
     _closing.store(true, std::memory_order_relaxed);
@@ -87,27 +87,27 @@ void ProactPackageChannel::force_close()
     if (_sock_stream.is_null())
         return;
     cancel_force_close_timer();
-    ((Proactor*) _actor)->unregister_handler(this);
+    ((Proactor*) _poller)->unregister_handler(this);
     _sock_stream.close();
 
     // Handle close event
-    if (_actor->is_in_loop_thread_and_not_handling())
+    if (_poller->is_in_io_thread_and_not_polling())
     {
         // Synchronize
-        handle_close(); // NOTE 这里可能会导致自身被删除, 放到最后
+        handle_closed(); // NOTE 这里可能会导致自身被删除, 放到最后
     }
     else
     {
         // Asynchronize
         nut::rc_ptr<ProactPackageChannel> ref_this(this);
-        _actor->run_later([=] { ref_this->handle_close(); });
+        _poller->run_later([=] { ref_this->handle_closed(); });
     }
 }
 
 void ProactPackageChannel::launch_read()
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(nullptr != _actor && _actor->is_in_loop_thread());
+    assert(nullptr != _poller && _poller->is_in_io_thread());
     assert(!_sock_stream.is_null() && !_sock_stream.is_reading_shutdown());
 
     if (nullptr == _reading_pkg)
@@ -118,13 +118,13 @@ void ProactPackageChannel::launch_read()
 
     void *const buf = _reading_pkg->writable_data();
     const size_t buf_cap = _reading_pkg->writable_size();
-    ((Proactor*) _actor)->launch_read(this, &buf, &buf_cap, 1);
+    ((Proactor*) _poller)->launch_read(this, &buf, &buf_cap, 1);
 }
 
 void ProactPackageChannel::handle_read_completed(size_t cb)
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(nullptr != _actor && _actor->is_in_loop_thread());
+    assert(nullptr != _poller && _poller->is_in_io_thread());
     assert(nullptr != _reading_pkg);
 
     if (0 == cb)
@@ -147,7 +147,7 @@ void ProactPackageChannel::write(Package *pkg)
 {
     assert(nullptr != pkg);
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(nullptr != _actor && _actor->is_in_loop_thread());
+    assert(nullptr != _poller && _poller->is_in_io_thread());
     assert(!_sock_stream.is_null());
 
     if (_closing.load(std::memory_order_relaxed))
@@ -165,7 +165,7 @@ void ProactPackageChannel::write(Package *pkg)
 void ProactPackageChannel::launch_write()
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(nullptr != _actor && _actor->is_in_loop_thread());
+    assert(nullptr != _poller && _poller->is_in_io_thread());
     assert(!_sock_stream.is_null() && !_sock_stream.is_writing_shutdown());
 
     // NOTE '_closing' 可能为 true, 做关闭前最后的写入
@@ -194,14 +194,14 @@ void ProactPackageChannel::launch_write()
         lens[i] = pkg->readable_size();
     }
 
-    assert(nullptr != _actor);
-    ((Proactor*) _actor)->launch_write(this, bufs, lens, buf_count);
+    assert(nullptr != _poller);
+    ((Proactor*) _poller)->launch_write(this, bufs, lens, buf_count);
 }
 
 void ProactPackageChannel::handle_write_completed(size_t cb)
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(nullptr != _actor && _actor->is_in_loop_thread());
+    assert(nullptr != _poller && _poller->is_in_io_thread());
 
     // NOTE '_closing' 可能为 true, 做关闭前最后的写入
 
@@ -241,7 +241,7 @@ void ProactPackageChannel::handle_write_completed(size_t cb)
 void ProactPackageChannel::handle_io_error(int err)
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(nullptr != _actor && _actor->is_in_loop_thread());
+    assert(nullptr != _poller && _poller->is_in_io_thread());
 
     NUT_LOG_E(TAG, "loofah error raised, fd %d, error %d: %s", get_socket(),
               err, str_error(err));

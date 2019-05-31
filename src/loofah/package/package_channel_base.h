@@ -11,7 +11,7 @@
 #include <nut/time/time_wheel.h>
 #include <nut/debugging/destroy_checker.h>
 
-#include "../inet_base/event_loop_base.h"
+#include "../inet_base/poller_base.h"
 #include "../inet_base/sock_stream.h"
 #include "package.h"
 
@@ -52,7 +52,7 @@ public:
     /**
      * 连接已关闭
      */
-    virtual void handle_close() = 0;
+    virtual void handle_closed() = 0;
 
     /**
      * 写数据
@@ -88,8 +88,8 @@ protected:
     void cancel_force_close_timer();
 
 protected:
-    // 反应器
-    EventLoopBase *_actor = nullptr;
+    // 轮询器
+    PollerBase *_poller = nullptr;
 
     // 写队列
     typedef std::deque<nut::rc_ptr<Package>> queue_t;

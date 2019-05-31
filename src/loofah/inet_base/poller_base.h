@@ -13,22 +13,23 @@
 namespace loofah
 {
 
-class LOOFAH_API EventLoopBase
+class LOOFAH_API PollerBase
 {
 public:
     typedef std::function<void()> task_type;
 
 public:
-    EventLoopBase();
+    PollerBase();
 
     /**
-     * 当前是否运行在事件循环线程中
+     * 当前是否运行在 IO 线程中
      *
      * reactor 的下列操作需要放到满足该条件:
      *   register_handler()
      *   unregister_handler()
      *   enable_handler()
      *   disable_handler()
+     *   shutdown()
      *
      * proactor 的下列操作需要放到满足该条件:
      *   register_handler()
@@ -36,15 +37,16 @@ public:
      *   launch_accept()
      *   launch_read()
      *   launch_write()
+     *   shutdown()
      */
-    bool is_in_loop_thread() const;
+    bool is_in_io_thread() const;
 
     /**
-     * 当前是否运行在事件循环线程中, 并且处于事件循环间隔
+     * 当前是否运行在 IO 线程中, 并且处于 poll 间隔
      *
      * ReactHandler, ProactHandler 的析构，必须满足该条件
      */
-    bool is_in_loop_thread_and_not_handling() const;
+    bool is_in_io_thread_and_not_polling() const;
 
     /**
      * 在事件循环线程且事件处理间隔中运行
@@ -56,7 +58,7 @@ protected:
     /**
      * 运行并清空所有异步任务
      *
-     * NOTE This method can only be called from inside loop thread
+     * NOTE This method can only be called from inside IO thread
      */
     void run_later_tasks();
 
@@ -66,34 +68,34 @@ protected:
     void add_later_task(task_type&& task);
     void add_later_task(const task_type& task);
 
-    class HandleEventsGuard
+    class PollingGuard
     {
-        EventLoopBase *_loop;
+        PollerBase *_poller;
 
     public:
-        HandleEventsGuard(EventLoopBase *loop)
-            : _loop(loop)
+        PollingGuard(PollerBase *poller)
+            : _poller(poller)
         {
-            loop->_in_handling_events = true;
+            poller->_in_polling = true;
         }
 
-        ~HandleEventsGuard()
+        ~PollingGuard()
         {
-            _loop->_in_handling_events = false;
+            _poller->_in_polling = false;
         }
 
     private:
-        HandleEventsGuard(const HandleEventsGuard&) = delete;
-        HandleEventsGuard& operator=(const HandleEventsGuard&) = delete;
+        PollingGuard(const PollingGuard&) = delete;
+        PollingGuard& operator=(const PollingGuard&) = delete;
     };
 
 private:
-    EventLoopBase(const EventLoopBase&) = delete;
-    EventLoopBase& operator=(const EventLoopBase&) = delete;
+    PollerBase(const PollerBase&) = delete;
+    PollerBase& operator=(const PollerBase&) = delete;
 
 private:
-    std::thread::id _loop_tid;
-    bool _in_handling_events = false;
+    std::thread::id _io_tid;
+    bool _in_polling = false;
     std::vector<task_type> _later_tasks;
     std::mutex _mutex;
 };

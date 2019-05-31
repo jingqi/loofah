@@ -51,8 +51,8 @@ void PackageChannelBase::close_later(bool discard_write)
     // 设置关闭标记
     _closing.store(true, std::memory_order_relaxed);
 
-    assert(nullptr != _actor);
-    if (_actor->is_in_loop_thread())
+    assert(nullptr != _poller);
+    if (_poller->is_in_io_thread())
     {
         // Synchronize
         close(discard_write);
@@ -61,14 +61,14 @@ void PackageChannelBase::close_later(bool discard_write)
     {
         // Asynchronize
         nut::rc_ptr<PackageChannelBase> ref_this(this);
-        _actor->run_later([=] { ref_this->close(discard_write); });
+        _poller->run_later([=] { ref_this->close(discard_write); });
     }
 }
 
 void PackageChannelBase::setup_force_close_timer()
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(nullptr != _actor && _actor->is_in_loop_thread());
+    assert(nullptr != _poller && _poller->is_in_io_thread());
 
     // 不强制关闭
     if (LOOFAH_FORCE_CLOSE_DELAY <= 0)
@@ -95,7 +95,7 @@ void PackageChannelBase::setup_force_close_timer()
 void PackageChannelBase::cancel_force_close_timer()
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(nullptr != _actor && _actor->is_in_loop_thread());
+    assert(nullptr != _poller && _poller->is_in_io_thread());
 
     if (nullptr == _time_wheel || NUT_INVALID_TIMER_ID == _force_close_timer)
         return;
@@ -106,7 +106,7 @@ void PackageChannelBase::cancel_force_close_timer()
 void PackageChannelBase::split_and_handle_packages(size_t extra_readed)
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(nullptr != _actor && _actor->is_in_loop_thread());
+    assert(nullptr != _poller && _poller->is_in_io_thread());
 
     // 分包
     nut::rc_ptr<Package> buffer_pkg = _reading_pkg;
@@ -220,8 +220,8 @@ void PackageChannelBase::write_later(Package *pkg)
         return;
     }
 
-    assert(nullptr != _actor);
-    if (_actor->is_in_loop_thread())
+    assert(nullptr != _poller);
+    if (_poller->is_in_io_thread())
     {
         // Synchronize
         write(pkg);
@@ -231,7 +231,7 @@ void PackageChannelBase::write_later(Package *pkg)
         // Asynchronize
         nut::rc_ptr<PackageChannelBase> ref_this(this);
         nut::rc_ptr<Package> ref_pkg(pkg);
-        _actor->run_later([=] { ref_this->write(ref_pkg); });
+        _poller->run_later([=] { ref_this->write(ref_pkg); });
     }
 }
 
