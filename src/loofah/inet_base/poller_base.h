@@ -6,8 +6,9 @@
 
 #include <vector>
 #include <functional>
-#include <mutex>
 #include <thread>
+
+#include <nut/threading/lockfree/concurrent_queue.h>
 
 
 namespace loofah
@@ -24,27 +25,32 @@ public:
     /**
      * 当前是否运行在 IO 线程中
      *
-     * reactor 的下列操作需要放到满足该条件:
+     * NOTE:
+     * - reactor 的下列操作需要放到 IO 线程中:
      *   register_handler()
      *   unregister_handler()
      *   enable_handler()
      *   disable_handler()
+     *   poll()
      *   shutdown()
      *
-     * proactor 的下列操作需要放到满足该条件:
+     * - proactor 的下列操作需要放到 IO 线程中:
      *   register_handler()
      *   unregister_handler()
      *   launch_accept()
+     *   launch_connect()
      *   launch_read()
      *   launch_write()
+     *   poll()
      *   shutdown()
      */
     bool is_in_io_thread() const;
 
     /**
-     * 当前是否运行在 IO 线程中, 并且处于 poll 间隔
+     * 当前是否运行在 IO 线程中, 并且处于轮询间隔
      *
-     * ReactHandler, ProactHandler 的析构，必须满足该条件
+     * NOTE:
+     * - ReactPackageChannel, ProactPackageChannel 的析构需要放到轮询间隔中
      */
     bool is_in_io_thread_and_not_polling() const;
 
@@ -96,8 +102,7 @@ private:
 private:
     std::thread::id _io_tid;
     bool _in_polling = false;
-    std::vector<task_type> _later_tasks;
-    std::mutex _mutex;
+    nut::ConcurrentQueue<task_type> _later_tasks;
 };
 
 }

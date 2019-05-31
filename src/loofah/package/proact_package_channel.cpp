@@ -94,7 +94,9 @@ void ProactPackageChannel::force_close()
     if (_poller->is_in_io_thread_and_not_polling())
     {
         // Synchronize
-        handle_closed(); // NOTE 这里可能会导致自身被删除, 放到最后
+        // NOTE 这里可能会导致自身被析构, 需要放到轮询间隔，详见
+        //      ~PackageChannelBase() 中的说明
+        handle_closed();
     }
     else
     {

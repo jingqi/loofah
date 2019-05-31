@@ -27,6 +27,8 @@ else: LIBS += -lnut
 
 # 连接库
 win32: {
+    LIBS += -latomic
+
     # NOTE 这些 win 网络库必须放在最后，否则会出错
     #      See http://stackoverflow.com/questions/2033608/mingw-linker-error-winsock
     LIBS += -lwininet -lws2_32 -lwsock32

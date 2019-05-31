@@ -76,7 +76,7 @@ protected:
     virtual void handle_io_error(int err) = 0;
 
     /**
-     * 从读缓存分包，并触发 handle_read()/headle_exception()
+     * 分包, 并触发 handle_read() / headle_exception()
      */
     void split_and_handle_packages(size_t extra_readed);
 

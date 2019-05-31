@@ -18,14 +18,12 @@ PollerBase::PollerBase()
 
 void PollerBase::add_later_task(task_type&& task)
 {
-    std::lock_guard<std::mutex> guard(_mutex);
-    _later_tasks.push_back(std::forward<task_type>(task));
+    _later_tasks.eliminate_enqueue(std::forward<task_type>(task));
 }
 
 void PollerBase::add_later_task(const task_type& task)
 {
-    std::lock_guard<std::mutex> guard(_mutex);
-    _later_tasks.push_back(task);
+    _later_tasks.eliminate_enqueue(task);
 }
 
 bool PollerBase::is_in_io_thread() const
@@ -43,15 +41,9 @@ void PollerBase::run_later_tasks()
     // NOTE This method can only be called from inside IO thread
     assert(is_in_io_thread_and_not_polling());
 
-    std::vector<task_type> later_tasks;
-    {
-        std::lock_guard<std::mutex> guard(_mutex);
-        later_tasks = _later_tasks;
-        _later_tasks.clear();
-    }
-
-    for (size_t i = 0, sz = later_tasks.size(); i < sz; ++i)
-        later_tasks.at(i)();
+    task_type task;
+    while (_later_tasks.eliminate_dequeue(&task))
+        task();
 }
 
 void PollerBase::run_later(task_type&& task)
