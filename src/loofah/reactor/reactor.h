@@ -44,6 +44,8 @@ public:
      */
     int poll(int timeout_ms = 1000);
 
+    virtual void wakeup_poll_wait() final override;
+
 protected:
 #if NUT_PLATFORM_OS_WINDOWS && WINVER >= _WIN32_WINNT_WINBLUE
     void ensure_capacity(size_t new_size);
@@ -72,6 +74,7 @@ private:
     // 使用 ::epoll() 实现
     int _epoll_fd = -1;
     bool _edge_triggered = false; // level-triggered or edge-triggered
+    int _event_fd = -1;
 #endif
 
     std::atomic<bool> _closing_or_closed = ATOMIC_VAR_INIT(false);

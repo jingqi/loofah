@@ -653,327 +653,329 @@ int Proactor::poll(int timeout_ms)
         return -1;
     }
 
-    {
-        PollingGuard g(this);
-
 #if NUT_PLATFORM_OS_WINDOWS
-        DWORD bytes_transfered = 0;
-        ULONG_PTR key = 0;
-        OVERLAPPED *io_overlapped = nullptr;
-        assert(nullptr != _iocp);
-        /**
-         * GetQueuedCompletionStatus() 返回值处理
-         * - FALSE==rs
-         *   - null==io_overlapped
-         *     - WAIT_TIMEOUT==errcode 超时
-         *     - 其他错误
-         *   - null!=io_overlapped
-         *     - ERROR_SUCESS==errcode && 0==bytes_transfered 连接关闭
-         *     - 连接错误
-         * - FALSE!=rs 正常返回，此时 null!=io_overlapped, bytes_transfered>0
-         */
-        const BOOL rs = ::GetQueuedCompletionStatus(_iocp, &bytes_transfered, &key,
-                                                    &io_overlapped, timeout_ms);
-        const DWORD errcode = (FALSE == rs ? ::GetLastError() : ERROR_SUCCESS);
-        if (nullptr == io_overlapped)
+    DWORD bytes_transfered = 0;
+    ULONG_PTR key = 0;
+    OVERLAPPED *io_overlapped = nullptr;
+    assert(nullptr != _iocp);
+    /**
+     * GetQueuedCompletionStatus() 返回值处理
+     * - FALSE==rs
+     *   - null==io_overlapped
+     *     - WAIT_TIMEOUT==errcode 超时
+     *     - 其他错误
+     *   - null!=io_overlapped
+     *     - ERROR_SUCESS==errcode && 0==bytes_transfered 连接关闭
+     *     - 连接错误
+     * - FALSE!=rs 正常返回，此时 null!=io_overlapped, bytes_transfered>0
+     */
+    _poll_stage = PollStage::PollingWait;
+    const BOOL rs = ::GetQueuedCompletionStatus(_iocp, &bytes_transfered, &key,
+                                                &io_overlapped, timeout_ms);
+    _poll_stage = PollStage::HandlingEvents;
+    const DWORD errcode = (FALSE == rs ? ::GetLastError() : ERROR_SUCCESS);
+    if (nullptr == io_overlapped)
+    {
+        assert(FALSE == rs);
+        if (WAIT_TIMEOUT != errcode) // WAIT_TIMEOUT 表示等待超时，是正常的
         {
-            assert(FALSE == rs);
-            if (WAIT_TIMEOUT != errcode) // WAIT_TIMEOUT 表示等待超时，是正常的
-            {
-                NUT_LOG_W(TAG, "failed to call ::GetQueuedCompletionStatus() with ::GetLastError() %d",
-                          errcode);
-                return -1;
-            }
-        }
-        else if (FALSE == rs && ERROR_SUCCESS != errcode)
-        {
-            IORequest *io_request = CONTAINING_RECORD(io_overlapped, IORequest, overlapped);
-            assert(nullptr != io_request);
-
-            ProactHandler *handler = io_request->handler;
-            assert(nullptr != handler);
-            if (0 != (io_request->event_type & ProactHandler::ACCEPT_READ_MASK))
-            {
-                assert(io_request == handler->_read_queue.front());
-                handler->_read_queue.pop();
-            }
-            else
-            {
-                assert(io_request == handler->_write_queue.front());
-                handler->_write_queue.pop();
-            }
-            IORequest::delete_request(io_request);
-
-            // FIXME 因为 ::GetQueuedCompletionStatus() 不返回底层网络驱动的错误
-            //       码，导致低层网络驱动错误码被丢失
-            //       Also see https://stackoverflow.com/questions/28925003/calling-wsagetlasterror-from-an-iocp-thread-return-incorrect-result
             NUT_LOG_W(TAG, "failed to call ::GetQueuedCompletionStatus() with ::GetLastError() %d",
                       errcode);
-            handler->handle_io_error(LOOFAH_ERR_UNKNOWN); // 连接错误
+            return -1;
+        }
+    }
+    else if (FALSE == rs && ERROR_SUCCESS != errcode)
+    {
+        IORequest *io_request = CONTAINING_RECORD(io_overlapped, IORequest, overlapped);
+        assert(nullptr != io_request);
+
+        ProactHandler *handler = io_request->handler;
+        assert(nullptr != handler);
+        if (0 != (io_request->event_type & ProactHandler::ACCEPT_READ_MASK))
+        {
+            assert(io_request == handler->_read_queue.front());
+            handler->_read_queue.pop();
         }
         else
         {
-            // ERROR_SUCCESS == errcode && 0 == bytes_transfered 表示连接关闭
-            assert(FALSE != rs || (ERROR_SUCCESS == errcode && 0 == bytes_transfered));
-
-            IORequest *io_request = CONTAINING_RECORD(io_overlapped, IORequest, overlapped);
-            assert(nullptr != io_request);
-
-            ProactHandler *handler = io_request->handler;
-            assert(nullptr != handler);
-            if (0 != (io_request->event_type & ProactHandler::ACCEPT_READ_MASK))
-            {
-                assert(io_request == handler->_read_queue.front());
-                handler->_read_queue.pop();
-            }
-            else
-            {
-                assert(io_request == handler->_write_queue.front());
-                handler->_write_queue.pop();
-            }
-
-            switch (io_request->event_type)
-            {
-            case ProactHandler::ACCEPT_MASK:
-            {
-                /*
-                 * Get peer address if needed:
-                 *
-                 * struct sockaddr_in *remote_addr = nullptr, *local_addr = nullptr;
-                 * int remote_len = sizeof(struct sockaddr_in), local_len = sizeof(struct sockaddr_in);
-                 * assert(nullptr != func_GetAcceptExSockaddrs);
-                 * func_GetAcceptExSockaddrs(io_request->wsabuf.buf,
-                 *                           io_request->wsabuf.len - 2 * (sizeof(struct sockaddr_in) + 16),
-                 *                           sizeof(struct sockaddr_in) + 16,
-                 *                           sizeof(struct sockaddr_in) + 16,
-                 *                           (LPSOCKADDR*)&local_addr,
-                 *                           &local_len,
-                 *                           (LPSOCKADDR*)&remote_addr,
-                 *                           &remote_len);
-                 */
-                assert(1 == io_request->buf_count && nullptr != io_request->wsabufs[0].buf);
-                ::free(io_request->wsabufs[0].buf);
-
-                // 把 listening 套结字一些属性(包括 socket 内部接受/发送缓存大小
-                // 等等)拷贝到新建立的套结字，可以使后续的 shutdown() 调用成功
-                const socket_t listening_socket = handler->get_socket(),
-                    accept_socket = io_request->accept_socket;
-                const int opt_rs = ::setsockopt(
-                    accept_socket, SOL_SOCKET, SO_UPDATE_ACCEPT_CONTEXT,
-                    (char*) &listening_socket, sizeof(listening_socket));
-                if (0 != opt_rs)
-                {
-                    const int errcode = ::WSAGetLastError();
-                    if (0 != ::closesocket(accept_socket))
-                        LOOFAH_LOG_FD_ERRNO(closesocket, accept_socket);
-                    handler->handle_io_error(from_errno(errcode));
-                    break;
-                }
-
-                handler->handle_accept_completed(accept_socket);
-                break;
-            }
-
-            case ProactHandler::CONNECT_MASK:
-            {
-                // 通过 ConnectEx() 连接的 socket，还需要用 SO_UPDATE_ACCEPT_CONTEXT
-                // 初始化一下
-                const socket_t fd = handler->get_socket();
-                const int opt_rs = ::setsockopt(
-                    fd, SOL_SOCKET, SO_UPDATE_ACCEPT_CONTEXT, (char*) &fd, sizeof(fd));
-                if (0 != opt_rs)
-                {
-                    LOOFAH_LOG_FD_ERRNO(setsockopt, fd);
-                    handler->handle_io_error(from_errno(::WSAGetLastError()));
-                    break;
-                }
-
-                handler->handle_connect_completed();
-                break;
-            }
-
-            case ProactHandler::READ_MASK:
-                handler->handle_read_completed((size_t) bytes_transfered);
-                break;
-
-            case ProactHandler::WRITE_MASK:
-                handler->handle_write_completed((size_t) bytes_transfered);
-                break;
-
-            default:
-                NUT_LOG_E(TAG, "unknown event type %d", io_request->event_type);
-                assert(false);
-            }
-
-            IORequest::delete_request(io_request);
+            assert(io_request == handler->_write_queue.front());
+            handler->_write_queue.pop();
         }
+        IORequest::delete_request(io_request);
+
+        // FIXME 因为 ::GetQueuedCompletionStatus() 不返回底层网络驱动的错误
+        //       码，导致低层网络驱动错误码被丢失
+        //       Also see https://stackoverflow.com/questions/28925003/calling-wsagetlasterror-from-an-iocp-thread-return-incorrect-result
+        NUT_LOG_W(TAG, "failed to call ::GetQueuedCompletionStatus() with ::GetLastError() %d",
+                  errcode);
+        handler->handle_io_error(LOOFAH_ERR_UNKNOWN); // 连接错误
+    }
+    else
+    {
+        // ERROR_SUCCESS == errcode && 0 == bytes_transfered 表示连接关闭
+        assert(FALSE != rs || (ERROR_SUCCESS == errcode && 0 == bytes_transfered));
+
+        IORequest *io_request = CONTAINING_RECORD(io_overlapped, IORequest, overlapped);
+        assert(nullptr != io_request);
+
+        ProactHandler *handler = io_request->handler;
+        assert(nullptr != handler);
+        if (0 != (io_request->event_type & ProactHandler::ACCEPT_READ_MASK))
+        {
+            assert(io_request == handler->_read_queue.front());
+            handler->_read_queue.pop();
+        }
+        else
+        {
+            assert(io_request == handler->_write_queue.front());
+            handler->_write_queue.pop();
+        }
+
+        switch (io_request->event_type)
+        {
+        case ProactHandler::ACCEPT_MASK:
+        {
+            /*
+             * Get peer address if needed:
+             *
+             * struct sockaddr_in *remote_addr = nullptr, *local_addr = nullptr;
+             * int remote_len = sizeof(struct sockaddr_in), local_len = sizeof(struct sockaddr_in);
+             * assert(nullptr != func_GetAcceptExSockaddrs);
+             * func_GetAcceptExSockaddrs(io_request->wsabuf.buf,
+             *                           io_request->wsabuf.len - 2 * (sizeof(struct sockaddr_in) + 16),
+             *                           sizeof(struct sockaddr_in) + 16,
+             *                           sizeof(struct sockaddr_in) + 16,
+             *                           (LPSOCKADDR*)&local_addr,
+             *                           &local_len,
+             *                           (LPSOCKADDR*)&remote_addr,
+             *                           &remote_len);
+             */
+            assert(1 == io_request->buf_count && nullptr != io_request->wsabufs[0].buf);
+            ::free(io_request->wsabufs[0].buf);
+
+            // 把 listening 套结字一些属性(包括 socket 内部接受/发送缓存大小
+            // 等等)拷贝到新建立的套结字，可以使后续的 shutdown() 调用成功
+            const socket_t listening_socket = handler->get_socket(),
+                accept_socket = io_request->accept_socket;
+            const int opt_rs = ::setsockopt(
+                accept_socket, SOL_SOCKET, SO_UPDATE_ACCEPT_CONTEXT,
+                (char*) &listening_socket, sizeof(listening_socket));
+            if (0 != opt_rs)
+            {
+                const int errcode = ::WSAGetLastError();
+                if (0 != ::closesocket(accept_socket))
+                    LOOFAH_LOG_FD_ERRNO(closesocket, accept_socket);
+                handler->handle_io_error(from_errno(errcode));
+                break;
+            }
+
+            handler->handle_accept_completed(accept_socket);
+            break;
+        }
+
+        case ProactHandler::CONNECT_MASK:
+        {
+            // 通过 ConnectEx() 连接的 socket，还需要用 SO_UPDATE_ACCEPT_CONTEXT
+            // 初始化一下
+            const socket_t fd = handler->get_socket();
+            const int opt_rs = ::setsockopt(
+                fd, SOL_SOCKET, SO_UPDATE_ACCEPT_CONTEXT, (char*) &fd, sizeof(fd));
+            if (0 != opt_rs)
+            {
+                LOOFAH_LOG_FD_ERRNO(setsockopt, fd);
+                handler->handle_io_error(from_errno(::WSAGetLastError()));
+                break;
+            }
+
+            handler->handle_connect_completed();
+            break;
+        }
+
+        case ProactHandler::READ_MASK:
+            handler->handle_read_completed((size_t) bytes_transfered);
+            break;
+
+        case ProactHandler::WRITE_MASK:
+            handler->handle_write_completed((size_t) bytes_transfered);
+            break;
+
+        default:
+            NUT_LOG_E(TAG, "unknown event type %d", io_request->event_type);
+            assert(false);
+        }
+
+        IORequest::delete_request(io_request);
+    }
 #elif NUT_PLATFORM_OS_MACOS
-        struct timespec timeout;
-        timeout.tv_sec = timeout_ms / 1000;
-        timeout.tv_nsec = (timeout_ms % 1000) * 1000 * 1000;
-        struct kevent active_evs[LOOFAH_MAX_ACTIVE_EVENTS];
+    struct timespec timeout;
+    timeout.tv_sec = timeout_ms / 1000;
+    timeout.tv_nsec = (timeout_ms % 1000) * 1000 * 1000;
+    struct kevent active_evs[LOOFAH_MAX_ACTIVE_EVENTS];
 
-        const int n = ::kevent(_kq, nullptr, 0, active_evs, LOOFAH_MAX_ACTIVE_EVENTS, &timeout);
-        for (int i = 0; i < n; ++i)
+    _poll_stage = PollStage::PollingWait;
+    const int n = ::kevent(_kq, nullptr, 0, active_evs, LOOFAH_MAX_ACTIVE_EVENTS, &timeout);
+    _poll_stage = PollStage::HandlingEvents;
+    for (int i = 0; i < n; ++i)
+    {
+        ProactHandler *handler = (ProactHandler*) active_evs[i].udata;
+        assert(nullptr != handler);
+        const socket_t fd = handler->get_socket();
+
+        const int filter = active_evs[i].filter;
+        if (filter == EVFILT_READ)
         {
-            ProactHandler *handler = (ProactHandler*) active_evs[i].udata;
-            assert(nullptr != handler);
-            const socket_t fd = handler->get_socket();
-
-            const int filter = active_evs[i].filter;
-            if (filter == EVFILT_READ)
+            if (0 != (handler->_enabled_events & ProactHandler::ACCEPT_MASK))
             {
-                if (0 != (handler->_enabled_events & ProactHandler::ACCEPT_MASK))
+                assert(handler->_request_accept > 0);
+                --handler->_request_accept;
+                if (0 == handler->_request_accept)
+                    disable_handler(handler, ProactHandler::ACCEPT_MASK);
+
+                while (true)
                 {
-                    assert(handler->_request_accept > 0);
-                    --handler->_request_accept;
-                    if (0 == handler->_request_accept)
-                        disable_handler(handler, ProactHandler::ACCEPT_MASK);
-
-                    while (true)
-                    {
-                        socket_t accepted = ReactAcceptorBase::accept(fd);
-                        if (LOOFAH_INVALID_SOCKET_FD == accepted)
-                            break;
-                        handler->handle_accept_completed(accepted);
-                    }
-                }
-                else
-                {
-                    assert(!handler->_read_queue.empty());
-                    IORequest *io_request = handler->_read_queue.front();
-                    assert(nullptr != io_request);
-                    handler->_read_queue.pop();
-
-                    if (handler->_read_queue.empty())
-                        disable_handler(handler, ProactHandler::READ_MASK);
-
-                    const ssize_t readed = ::readv(fd, io_request->iovs, io_request->buf_count);
-                    if (readed >= 0)
-                        handler->handle_read_completed((size_t) readed);
-                    else
-                        handler->handle_io_error(from_errno(errno));
-
-                    IORequest::delete_request(io_request);
-                }
-            }
-            else if (filter == EVFILT_WRITE)
-            {
-                if (0 != (handler->_enabled_events & ProactHandler::CONNECT_MASK))
-                {
-                    const int errcode = SockOperation::get_last_error(fd);
-                    disable_handler(handler, ProactHandler::CONNECT_MASK);
-                    if (0 == errcode)
-                        handler->handle_connect_completed();
-                    else
-                        handler->handle_io_error(errcode);
-                }
-                else
-                {
-                    assert(!handler->_write_queue.empty());
-                    IORequest *io_request = handler->_write_queue.front();
-                    assert(nullptr != io_request);
-                    handler->_write_queue.pop();
-
-                    if (handler->_write_queue.empty())
-                        disable_handler(handler, ProactHandler::WRITE_MASK);
-
-                    const ssize_t wrote = ::writev(fd, io_request->iovs, io_request->buf_count);
-                    if (wrote >= 0)
-                        handler->handle_write_completed((size_t) wrote);
-                    else
-                        handler->handle_io_error(from_errno(errno));
-
-                    IORequest::delete_request(io_request);
+                    socket_t accepted = ReactAcceptorBase::accept(fd);
+                    if (LOOFAH_INVALID_SOCKET_FD == accepted)
+                        break;
+                    handler->handle_accept_completed(accepted);
                 }
             }
             else
             {
-                NUT_LOG_E(TAG, "unknown kevent filter type %d", filter);
-                return -1;
+                assert(!handler->_read_queue.empty());
+                IORequest *io_request = handler->_read_queue.front();
+                assert(nullptr != io_request);
+                handler->_read_queue.pop();
+
+                if (handler->_read_queue.empty())
+                    disable_handler(handler, ProactHandler::READ_MASK);
+
+                const ssize_t readed = ::readv(fd, io_request->iovs, io_request->buf_count);
+                if (readed >= 0)
+                    handler->handle_read_completed((size_t) readed);
+                else
+                    handler->handle_io_error(from_errno(errno));
+
+                IORequest::delete_request(io_request);
             }
         }
-#elif NUT_PLATFORM_OS_LINUX
-        struct epoll_event events[LOOFAH_MAX_ACTIVE_EVENTS];
-        const int n = ::epoll_wait(_epoll_fd, events, LOOFAH_MAX_ACTIVE_EVENTS, timeout_ms);
-        for (int i = 0; i < n; ++i)
+        else if (filter == EVFILT_WRITE)
         {
-            ProactHandler *handler = (ProactHandler*) events[i].data.ptr;
-            assert(nullptr != handler);
-            const socket_t fd = handler->get_socket();
-
-            if (0 != (events[i].events & EPOLLIN))
+            if (0 != (handler->_enabled_events & ProactHandler::CONNECT_MASK))
             {
-                if (0 != (handler->_enabled_events & ProactHandler::ACCEPT_MASK))
-                {
-                    assert(handler->_request_accept > 0);
-                    --handler->_request_accept;
-                    if (0 == handler->_request_accept)
-                        disable_handler(handler, ProactHandler::ACCEPT_MASK);
-
-                    while (true)
-                    {
-                        socket_t accepted = ReactAcceptorBase::accept(fd);
-                        if (LOOFAH_INVALID_SOCKET_FD == accepted)
-                            break;
-                        handler->handle_accept_completed(accepted);
-                    }
-                }
+                const int errcode = SockOperation::get_last_error(fd);
+                disable_handler(handler, ProactHandler::CONNECT_MASK);
+                if (0 == errcode)
+                    handler->handle_connect_completed();
                 else
-                {
-                    assert(!handler->_read_queue.empty());
-                    IORequest *io_request = handler->_read_queue.front();
-                    assert(nullptr != io_request);
-                    handler->_read_queue.pop();
-
-                    if (handler->_read_queue.empty())
-                        disable_handler(handler, ProactHandler::READ_MASK);
-
-                    const ssize_t readed = ::readv(fd, io_request->iovs, io_request->buf_count);
-                    if (readed >= 0)
-                        handler->handle_read_completed((size_t) readed);
-                    else
-                        handler->handle_io_error(from_errno(errno));
-
-                    IORequest::delete_request(io_request);
-                }
+                    handler->handle_io_error(errcode);
             }
-            if (0 != (events[i].events & EPOLLOUT))
+            else
             {
-                if (0 != (handler->_enabled_events & ProactHandler::CONNECT_MASK))
-                {
-                    const int errcode = SockOperation::get_last_error(fd);
-                    disable_handler(handler, ProactHandler::CONNECT_MASK);
-                    if (0 == errcode)
-                        handler->handle_connect_completed();
-                    else
-                        handler->handle_io_error(errcode);
-                }
+                assert(!handler->_write_queue.empty());
+                IORequest *io_request = handler->_write_queue.front();
+                assert(nullptr != io_request);
+                handler->_write_queue.pop();
+
+                if (handler->_write_queue.empty())
+                    disable_handler(handler, ProactHandler::WRITE_MASK);
+
+                const ssize_t wrote = ::writev(fd, io_request->iovs, io_request->buf_count);
+                if (wrote >= 0)
+                    handler->handle_write_completed((size_t) wrote);
                 else
-                {
-                    assert(!handler->_write_queue.empty());
-                    IORequest *io_request = handler->_write_queue.front();
-                    assert(nullptr != io_request);
-                    handler->_write_queue.pop();
+                    handler->handle_io_error(from_errno(errno));
 
-                    if (handler->_write_queue.empty())
-                        disable_handler(handler, ProactHandler::WRITE_MASK);
-
-                    const ssize_t wrote = ::writev(fd, io_request->iovs, io_request->buf_count);
-                    if (wrote >= 0)
-                        handler->handle_write_completed((size_t) wrote);
-                    else
-                        handler->handle_io_error(from_errno(errno));
-
-                    IORequest::delete_request(io_request);
-                }
+                IORequest::delete_request(io_request);
             }
         }
+        else
+        {
+            NUT_LOG_E(TAG, "unknown kevent filter type %d", filter);
+            return -1;
+        }
+    }
+#elif NUT_PLATFORM_OS_LINUX
+    struct epoll_event events[LOOFAH_MAX_ACTIVE_EVENTS];
+    _poll_stage = PollStage::PollingWait;
+    const int n = ::epoll_wait(_epoll_fd, events, LOOFAH_MAX_ACTIVE_EVENTS, timeout_ms);
+    _poll_stage = PollStage::HandlingEvents;
+    for (int i = 0; i < n; ++i)
+    {
+        ProactHandler *handler = (ProactHandler*) events[i].data.ptr;
+        assert(nullptr != handler);
+        const socket_t fd = handler->get_socket();
+
+        if (0 != (events[i].events & EPOLLIN))
+        {
+            if (0 != (handler->_enabled_events & ProactHandler::ACCEPT_MASK))
+            {
+                assert(handler->_request_accept > 0);
+                --handler->_request_accept;
+                if (0 == handler->_request_accept)
+                    disable_handler(handler, ProactHandler::ACCEPT_MASK);
+
+                while (true)
+                {
+                    socket_t accepted = ReactAcceptorBase::accept(fd);
+                    if (LOOFAH_INVALID_SOCKET_FD == accepted)
+                        break;
+                    handler->handle_accept_completed(accepted);
+                }
+            }
+            else
+            {
+                assert(!handler->_read_queue.empty());
+                IORequest *io_request = handler->_read_queue.front();
+                assert(nullptr != io_request);
+                handler->_read_queue.pop();
+
+                if (handler->_read_queue.empty())
+                    disable_handler(handler, ProactHandler::READ_MASK);
+
+                const ssize_t readed = ::readv(fd, io_request->iovs, io_request->buf_count);
+                if (readed >= 0)
+                    handler->handle_read_completed((size_t) readed);
+                else
+                    handler->handle_io_error(from_errno(errno));
+
+                IORequest::delete_request(io_request);
+            }
+        }
+        if (0 != (events[i].events & EPOLLOUT))
+        {
+            if (0 != (handler->_enabled_events & ProactHandler::CONNECT_MASK))
+            {
+                const int errcode = SockOperation::get_last_error(fd);
+                disable_handler(handler, ProactHandler::CONNECT_MASK);
+                if (0 == errcode)
+                    handler->handle_connect_completed();
+                else
+                    handler->handle_io_error(errcode);
+            }
+            else
+            {
+                assert(!handler->_write_queue.empty());
+                IORequest *io_request = handler->_write_queue.front();
+                assert(nullptr != io_request);
+                handler->_write_queue.pop();
+
+                if (handler->_write_queue.empty())
+                    disable_handler(handler, ProactHandler::WRITE_MASK);
+
+                const ssize_t wrote = ::writev(fd, io_request->iovs, io_request->buf_count);
+                if (wrote >= 0)
+                    handler->handle_write_completed((size_t) wrote);
+                else
+                    handler->handle_io_error(from_errno(errno));
+
+                IORequest::delete_request(io_request);
+            }
+        }
+    }
 #endif
 
-    }
-
     // Run asynchronized tasks
+    _poll_stage = PollStage::NotPolling;
     run_later_tasks();
 
     return 0;

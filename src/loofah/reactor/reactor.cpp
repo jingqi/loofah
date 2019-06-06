@@ -14,6 +14,7 @@
 #   include <errno.h>
 #elif NUT_PLATFORM_OS_LINUX
 #   include <sys/epoll.h>
+#   include <sys/eventfd.h>
 #   include <unistd.h> // for ::close()
 #   include <errno.h>
 #endif
@@ -69,7 +70,7 @@ Reactor::Reactor()
     _handlers = (ReactHandler**) ::malloc(sizeof(ReactHandler*) * _capacity);
 #elif NUT_PLATFORM_OS_MACOS
     _kq = ::kqueue();
-    if (-1 == _kq)
+    if (_kq < 0)
     {
         LOOFAH_LOG_ERRNO(kqueue);
         return;
@@ -78,11 +79,25 @@ Reactor::Reactor()
     // NOTE 自从 Linux2.6.8 版本以后，epoll_create() 参数值其实是没什么用的, 只
     //      需要大于 0
     _epoll_fd = ::epoll_create(2048);
-    if (-1 == _epoll_fd)
+    if (_epoll_fd < 0)
     {
         LOOFAH_LOG_ERRNO(epoll_create);
         return;
     }
+
+    _event_fd = ::eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+    if (_event_fd < 0)
+    {
+        LOOFAH_LOG_ERRNO(eventfd);
+        return;
+    }
+
+    struct epoll_event epv;
+    ::memset(&epv, 0, sizeof(epv));
+    epv.data.fd = _event_fd;
+    epv.events = EPOLLHUP | EPOLLERR | EPOLLIN;
+    if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, _event_fd, &epv))
+        LOOFAH_LOG_FD_ERRNO(epoll_ctl, _event_fd);
 #endif
 }
 
@@ -119,14 +134,31 @@ void Reactor::shutdown()
 #elif NUT_PLATFORM_OS_WINDOWS
     _size = 0;
 #elif NUT_PLATFORM_OS_MACOS
-    if (-1 != _kq)
+    if (_kq >= 0)
     {
         if (0 != ::close(_kq))
             LOOFAH_LOG_ERRNO(close);
     }
     _kq = -1;
 #elif NUT_PLATFORM_OS_LINUX
-    if (-1 != _epoll_fd)
+    if (_event_fd >= 0 && _epoll_fd >= 0)
+    {
+        struct epoll_event epv;
+        ::memset(&epv, 0, sizeof(epv));
+        epv.data.fd = _event_fd;
+        if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_DEL, _event_fd, &epv))
+            LOOFAH_LOG_FD_ERRNO(epoll_ctl, _event_fd);
+            
+    }
+
+    if (_event_fd >= 0)
+    {
+        if (0 != ::close(_event_fd))
+            LOOFAH_LOG_ERRNO(close);
+    }
+    _event_fd = -1;
+
+    if (_epoll_fd >= 0)
     {
         if (0 != ::close(_epoll_fd))
             LOOFAH_LOG_ERRNO(close);
@@ -507,207 +539,243 @@ int Reactor::poll(int timeout_ms)
         return -1;
     }
 
-    {
-        PollingGuard g(this);
-
 #if NUT_PLATFORM_OS_WINDOWS && WINVER < _WIN32_WINNT_WINBLUE
-        struct timeval timeout, *ptimeout = nullptr; // nullptr 表示无限等待
-        if (timeout_ms >= 0)
-        {
-            timeout.tv_sec = timeout_ms / 1000;
-            timeout.tv_usec = (timeout_ms % 1000) * 1000;
-            ptimeout = &timeout;
-        }
-
-        fd_set read_set, write_set, except_set;
-        FD_COPY(&read_set, &_read_set);
-        FD_COPY(&write_set, &_write_set);
-        FD_COPY(&except_set, &_except_set);
-
-        const int rs = ::select(0, &read_set, &write_set, &except_set, ptimeout);
-        if (SOCKET_ERROR == rs)
-        {
-            LOOFAH_LOG_ERRNO(select);
-            return -1;
-        }
-        for (unsigned i = 0; i < read_set.fd_count; ++i)
-        {
-            socket_t fd = read_set.fd_array[i];
-            std::unordered_map<socket_t, ReactHandler*>::const_iterator iter = _socket_to_handler.find(fd);
-            if (iter == _socket_to_handler.end())
-                continue;
-            ReactHandler *handler = iter->second;
-            assert(nullptr != handler);
-            if (0 != (handler->_enabled_events & ReactHandler::ACCEPT_MASK))
-                handler->handle_accept_ready();
-            else
-                handler->handle_read_ready();
-        }
-        for (unsigned i = 0; i < write_set.fd_count; ++i)
-        {
-            socket_t fd = write_set.fd_array[i];
-            std::unordered_map<socket_t, ReactHandler*>::const_iterator iter = _socket_to_handler.find(fd);
-            if (iter == _socket_to_handler.end())
-                continue;
-            ReactHandler *handler = iter->second;
-            assert(nullptr != handler);
-            if (0 != (handler->_enabled_events & ReactHandler::CONNECT_MASK))
-                handler->handle_connect_ready();
-            else
-                handler->handle_write_ready();
-        }
-        for (unsigned i = 0; i < except_set.fd_count; ++i)
-        {
-            socket_t fd = write_set.fd_array[i];
-            std::unordered_map<socket_t, ReactHandler*>::const_iterator iter = _socket_to_handler.find(fd);
-            if (iter == _socket_to_handler.end())
-                continue;
-            ReactHandler *handler = iter->second;
-            assert(nullptr != handler);
-            handler->handle_io_error(SockOperation::get_last_error(fd));
-        }
-#elif NUT_PLATFORM_OS_WINDOWS
-        const int rs = ::WSAPoll(_pollfds, _size, timeout_ms);
-        if (SOCKET_ERROR == rs)
-        {
-            LOOFAH_LOG_ERRNO(WSAPoll);
-            return -1;
-        }
-        size_t found = 0;
-        for (ssize_t i = 0; i < (ssize_t) _size && found < rs; ++i)
-        {
-            const SHORT revents = _pollfds[i].revents;
-            if (0 == revents)
-                continue;
-
-            _pollfds[i].revents = 0;
-            ++found;
-            ReactHandler *handler = _handlers[i];
-
-            /**
-             * POLLERR        错误
-             * POLLNVAL       无效的 socket fd 被使用
-             * POLLHUP        面向连接的 socket 被断开或者放弃
-             * POLLPRI        Not used by Microsoft Winsock
-             * POLLRDBAND     Priority band (out-of-band) 数据可读
-             * POLLRDNORM     常规数据可读
-             * POLLWRNORM     常规数据可写
-             *
-             * POLLIN = POLLRDNORM | POLLRDBAND
-             * POLLOUT = POLLWRNORM
-             */
-            if (0 != (revents & POLLNVAL))
-            {
-                handler->handle_io_error(LOOFAH_ERR_INVALID_FD);
-            }
-            else if (0 != (revents & POLLERR))
-            {
-                handler->handle_io_error(LOOFAH_ERR_UNKNOWN);
-            }
-            else
-            {
-                if (0 != (revents & POLLHUP) || 0 != (revents & POLLIN))
-                {
-                    if (0 != (handler->_enabled_events & ReactHandler::ACCEPT_MASK))
-                        handler->handle_accept_ready();
-                    else
-                        handler->handle_read_ready();
-                }
-                if (0 != (revents & POLLOUT))
-                {
-                    if (0 != (handler->_enabled_events & ReactHandler::CONNECT_MASK))
-                        handler->handle_connect_ready();
-                    else
-                        handler->handle_write_ready();
-                }
-            }
-
-            // 如果结构发生改变，则重新定位搜索位置
-            if (i >= _size || _handlers[i] != handler)
-            {
-                i = binary_search(handler);
-                if (i < 0)
-                    i = -i - 2; // NOTE 'i' 可能取到 -1
-            }
-        }
-#elif NUT_PLATFORM_OS_MACOS
-        struct timespec timeout;
+    struct timeval timeout, *ptimeout = nullptr; // nullptr 表示无限等待
+    if (timeout_ms >= 0)
+    {
         timeout.tv_sec = timeout_ms / 1000;
-        timeout.tv_nsec = (timeout_ms % 1000) * 1000 * 1000;
-        struct kevent active_evs[LOOFAH_MAX_ACTIVE_EVENTS];
+        timeout.tv_usec = (timeout_ms % 1000) * 1000;
+        ptimeout = &timeout;
+    }
 
-        const int n = ::kevent(_kq, nullptr, 0, active_evs, LOOFAH_MAX_ACTIVE_EVENTS, &timeout);
-        for (int i = 0; i < n; ++i)
+    fd_set read_set, write_set, except_set;
+    FD_COPY(&read_set, &_read_set);
+    FD_COPY(&write_set, &_write_set);
+    FD_COPY(&except_set, &_except_set);
+
+    _poll_stage = PollStage::PollingWait;
+    const int rs = ::select(0, &read_set, &write_set, &except_set, ptimeout);
+    _poll_stage = PollStage::HandlingEvents;
+    if (SOCKET_ERROR == rs)
+    {
+        LOOFAH_LOG_ERRNO(select);
+        return -1;
+    }
+    for (unsigned i = 0; i < read_set.fd_count; ++i)
+    {
+        socket_t fd = read_set.fd_array[i];
+        std::unordered_map<socket_t, ReactHandler*>::const_iterator iter = _socket_to_handler.find(fd);
+        if (iter == _socket_to_handler.end())
+            continue;
+        ReactHandler *handler = iter->second;
+        assert(nullptr != handler);
+        if (0 != (handler->_enabled_events & ReactHandler::ACCEPT_MASK))
+            handler->handle_accept_ready();
+        else
+            handler->handle_read_ready();
+    }
+    for (unsigned i = 0; i < write_set.fd_count; ++i)
+    {
+        socket_t fd = write_set.fd_array[i];
+        std::unordered_map<socket_t, ReactHandler*>::const_iterator iter = _socket_to_handler.find(fd);
+        if (iter == _socket_to_handler.end())
+            continue;
+        ReactHandler *handler = iter->second;
+        assert(nullptr != handler);
+        if (0 != (handler->_enabled_events & ReactHandler::CONNECT_MASK))
+            handler->handle_connect_ready();
+        else
+            handler->handle_write_ready();
+    }
+    for (unsigned i = 0; i < except_set.fd_count; ++i)
+    {
+        socket_t fd = write_set.fd_array[i];
+        std::unordered_map<socket_t, ReactHandler*>::const_iterator iter = _socket_to_handler.find(fd);
+        if (iter == _socket_to_handler.end())
+            continue;
+        ReactHandler *handler = iter->second;
+        assert(nullptr != handler);
+        handler->handle_io_error(SockOperation::get_last_error(fd));
+    }
+#elif NUT_PLATFORM_OS_WINDOWS
+    _poll_stage = PollStage::PollingWait;
+    const int rs = ::WSAPoll(_pollfds, _size, timeout_ms);
+    _poll_stage = PollStage::HandlingEvents;
+    if (SOCKET_ERROR == rs)
+    {
+        LOOFAH_LOG_ERRNO(WSAPoll);
+        return -1;
+    }
+    size_t found = 0;
+    for (ssize_t i = 0; i < (ssize_t) _size && found < rs; ++i)
+    {
+        const SHORT revents = _pollfds[i].revents;
+        if (0 == revents)
+            continue;
+
+        _pollfds[i].revents = 0;
+        ++found;
+        ReactHandler *handler = _handlers[i];
+
+        /**
+         * POLLERR        错误
+         * POLLNVAL       无效的 socket fd 被使用
+         * POLLHUP        面向连接的 socket 被断开或者放弃
+         * POLLPRI        Not used by Microsoft Winsock
+         * POLLRDBAND     Priority band (out-of-band) 数据可读
+         * POLLRDNORM     常规数据可读
+         * POLLWRNORM     常规数据可写
+         *
+         * POLLIN = POLLRDNORM | POLLRDBAND
+         * POLLOUT = POLLWRNORM
+         */
+        if (0 != (revents & POLLNVAL))
         {
-            ReactHandler *handler = (ReactHandler*) active_evs[i].udata;
-            assert(nullptr != handler);
-
-            const int filter = active_evs[i].filter;
-            if (filter == EVFILT_READ)
+            handler->handle_io_error(LOOFAH_ERR_INVALID_FD);
+        }
+        else if (0 != (revents & POLLERR))
+        {
+            handler->handle_io_error(LOOFAH_ERR_UNKNOWN);
+        }
+        else
+        {
+            if (0 != (revents & POLLHUP) || 0 != (revents & POLLIN))
             {
                 if (0 != (handler->_enabled_events & ReactHandler::ACCEPT_MASK))
                     handler->handle_accept_ready();
                 else
                     handler->handle_read_ready();
             }
-            else if (filter == EVFILT_WRITE)
+            if (0 != (revents & POLLOUT))
             {
                 if (0 != (handler->_enabled_events & ReactHandler::CONNECT_MASK))
                     handler->handle_connect_ready();
                 else
                     handler->handle_write_ready();
             }
-            else
-            {
-                NUT_LOG_E(TAG, "unknown kevent filter type %d", filter);
-                return -1;
-            }
         }
-#elif NUT_PLATFORM_OS_LINUX
-        struct epoll_event events[LOOFAH_MAX_ACTIVE_EVENTS];
-        const int n = ::epoll_wait(_epoll_fd, events, LOOFAH_MAX_ACTIVE_EVENTS, timeout_ms);
-        if (n < 0)
+
+        // 如果结构发生改变，则重新定位搜索位置
+        if (i >= _size || _handlers[i] != handler)
         {
-            LOOFAH_LOG_ERRNO(epoll_wait);
+            i = binary_search(handler);
+            if (i < 0)
+                i = -i - 2; // NOTE 'i' 可能取到 -1
+        }
+    }
+#elif NUT_PLATFORM_OS_MACOS
+    struct timespec timeout;
+    timeout.tv_sec = timeout_ms / 1000;
+    timeout.tv_nsec = (timeout_ms % 1000) * 1000 * 1000;
+    struct kevent active_evs[LOOFAH_MAX_ACTIVE_EVENTS];
+
+    _poll_stage = PollStage::PollingWait;
+    const int n = ::kevent(_kq, nullptr, 0, active_evs, LOOFAH_MAX_ACTIVE_EVENTS, &timeout);
+    _poll_stage = PollStage::HandlingEvents;
+    for (int i = 0; i < n; ++i)
+    {
+        ReactHandler *handler = (ReactHandler*) active_evs[i].udata;
+        assert(nullptr != handler);
+
+        const int filter = active_evs[i].filter;
+        if (filter == EVFILT_READ)
+        {
+            if (0 != (handler->_enabled_events & ReactHandler::ACCEPT_MASK))
+                handler->handle_accept_ready();
+            else
+                handler->handle_read_ready();
+        }
+        else if (filter == EVFILT_WRITE)
+        {
+            if (0 != (handler->_enabled_events & ReactHandler::CONNECT_MASK))
+                handler->handle_connect_ready();
+            else
+                handler->handle_write_ready();
+        }
+        else
+        {
+            NUT_LOG_E(TAG, "unknown kevent filter type %d", filter);
             return -1;
         }
-
-        for (int i = 0; i < n; ++i)
-        {
-            ReactHandler *handler = (ReactHandler*) events[i].data.ptr;
-            assert(nullptr != handler);
-
-            if (0 != (events[i].events & EPOLLERR))
-            {
-                const int errcode = SockOperation::get_last_error(handler->get_socket());
-                handler->handle_io_error(from_errno(errcode));
-            }
-            else
-            {
-                if (0 != (events[i].events & EPOLLIN))
-                {
-                    if (0 != (handler->_enabled_events & ReactHandler::ACCEPT_MASK))
-                        handler->handle_accept_ready();
-                    else
-                        handler->handle_read_ready();
-                }
-                if (0 != (events[i].events & EPOLLOUT))
-                {
-                    if (0 != (handler->_enabled_events & ReactHandler::CONNECT_MASK))
-                        handler->handle_connect_ready();
-                    else
-                        handler->handle_write_ready();
-                }
-            }
-        }
-#endif
-
+    }
+#elif NUT_PLATFORM_OS_LINUX
+    struct epoll_event events[LOOFAH_MAX_ACTIVE_EVENTS];
+    _poll_stage = PollStage::PollingWait;
+    const int n = ::epoll_wait(_epoll_fd, events, LOOFAH_MAX_ACTIVE_EVENTS, timeout_ms);
+    _poll_stage = PollStage::HandlingEvents;
+    if (n < 0)
+    {
+        LOOFAH_LOG_ERRNO(epoll_wait);
+        return -1;
     }
 
+    for (int i = 0; i < n; ++i)
+    {
+        // 'eventfd' events
+        if (events[i].data.fd == _event_fd)
+        {
+            if (0 != (events[i].events & EPOLLERR))
+            {
+                NUT_LOG_W(TAG, "eventfd error, fd %d", _event_fd);
+            }
+            else if (0 != (events[i].events & EPOLLHUP))
+            {
+                NUT_LOG_W(TAG, "eventfd hup, fd %d", _event_fd);
+            }
+            else if (0 != (events[i].events & EPOLLIN))
+            {
+                uint64_t counter = 0;
+                const int rs = ::read(_event_fd, &counter, sizeof(counter));
+                if (rs < 0)
+                    LOOFAH_LOG_FD_ERRNO(read, _event_fd);
+            }
+
+            continue;
+        }
+
+        // Socket events
+        ReactHandler *handler = (ReactHandler*) events[i].data.ptr;
+        if (0 != (events[i].events & EPOLLERR))
+        {
+            const int errcode = SockOperation::get_last_error(handler->get_socket());
+            handler->handle_io_error(from_errno(errcode));
+        }
+        else
+        {
+            // NOTE 可能既有 EPOLLIN 事件, 又有 EPOLLOUT 事件
+            if (0 != (events[i].events & EPOLLIN))
+            {
+                if (0 != (handler->_enabled_events & ReactHandler::ACCEPT_MASK))
+                    handler->handle_accept_ready();
+                else
+                    handler->handle_read_ready();
+            }
+            if (0 != (events[i].events & EPOLLOUT))
+            {
+                if (0 != (handler->_enabled_events & ReactHandler::CONNECT_MASK))
+                    handler->handle_connect_ready();
+                else
+                    handler->handle_write_ready();
+            }
+        }
+    }
+#endif
+
     // Run asynchronized tasks
+    _poll_stage = PollStage::NotPolling;
     run_later_tasks();
 
     return 0;
+}
+
+void Reactor::wakeup_poll_wait()
+{
+#if NUT_PLATFORM_OS_LINUX
+    const uint64_t counter = 1;
+    const int rs = ::write(_event_fd, &counter, sizeof(counter));
+    if (rs < 0)
+        LOOFAH_LOG_FD_ERRNO(write, _event_fd);
+#endif
 }
 
 }

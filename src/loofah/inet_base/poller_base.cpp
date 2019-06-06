@@ -13,7 +13,7 @@ namespace loofah
 
 PollerBase::PollerBase()
 {
-    _io_tid = std::this_thread::get_id();
+    _io_thread_tid = std::this_thread::get_id();
 }
 
 void PollerBase::add_later_task(task_type&& task)
@@ -28,12 +28,12 @@ void PollerBase::add_later_task(const task_type& task)
 
 bool PollerBase::is_in_io_thread() const
 {
-    return _io_tid == std::this_thread::get_id();
+    return _io_thread_tid == std::this_thread::get_id();
 }
 
 bool PollerBase::is_in_io_thread_and_not_polling() const
 {
-    return !_in_polling && is_in_io_thread();
+    return PollStage::NotPolling == _poll_stage && is_in_io_thread();
 }
 
 void PollerBase::run_later_tasks()
@@ -48,22 +48,32 @@ void PollerBase::run_later_tasks()
 
 void PollerBase::run_later(task_type&& task)
 {
-    if (is_in_io_thread_and_not_polling())
+    const bool in_iothread = is_in_io_thread();
+    if (in_iothread && PollStage::NotPolling == _poll_stage)
     {
         task();
         return;
     }
+
     add_later_task(std::forward<task_type>(task));
+
+    if (!in_iothread)
+        wakeup_poll_wait();
 }
 
 void PollerBase::run_later(const task_type& task)
 {
-    if (is_in_io_thread_and_not_polling())
+    const bool in_iothread = is_in_io_thread();
+    if (in_iothread && PollStage::NotPolling == _poll_stage)
     {
         task();
         return;
     }
+
     add_later_task(task);
+
+    if (!in_iothread)
+        wakeup_poll_wait();
 }
 
 }

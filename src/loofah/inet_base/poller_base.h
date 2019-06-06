@@ -23,7 +23,7 @@ public:
     PollerBase();
 
     /**
-     * 当前是否运行在 IO 线程中
+     * 当前上下文是否在 IO 线程中
      *
      * NOTE:
      * - reactor 的下列操作需要放到 IO 线程中:
@@ -47,7 +47,7 @@ public:
     bool is_in_io_thread() const;
 
     /**
-     * 当前是否运行在 IO 线程中, 并且处于轮询间隔
+     * 当前上下文是否在 IO 线程中, 并且处于轮询间隔
      *
      * NOTE:
      * - ReactPackageChannel, ProactPackageChannel 的析构需要放到轮询间隔中
@@ -59,6 +59,14 @@ public:
      */
     void run_later(task_type&& task);
     void run_later(const task_type& task);
+
+    /**
+     * 如果 io 线程处于轮询等待状态(select() / WSAPoll() / kevent() / epoll_wait())
+     * 则唤醒 io 线程
+     *
+     * NOTE 该方法可以从非 io 线程调用
+     */
+    virtual void wakeup_poll_wait() {};
 
 protected:
     /**
@@ -74,34 +82,20 @@ protected:
     void add_later_task(task_type&& task);
     void add_later_task(const task_type& task);
 
-    class PollingGuard
-    {
-        PollerBase *_poller;
-
-    public:
-        PollingGuard(PollerBase *poller)
-            : _poller(poller)
-        {
-            poller->_in_polling = true;
-        }
-
-        ~PollingGuard()
-        {
-            _poller->_in_polling = false;
-        }
-
-    private:
-        PollingGuard(const PollingGuard&) = delete;
-        PollingGuard& operator=(const PollingGuard&) = delete;
-    };
-
 private:
     PollerBase(const PollerBase&) = delete;
     PollerBase& operator=(const PollerBase&) = delete;
 
+protected:
+    enum class PollStage
+    {
+        PollingWait, // 等待事件, select() / WSAPoll() / kevent() / epoll_wait()
+        HandlingEvents, // 处理事件中
+        NotPolling, // 处理其他任务
+    } _poll_stage = PollStage::NotPolling;
+
 private:
-    std::thread::id _io_tid;
-    bool _in_polling = false;
+    std::thread::id _io_thread_tid;
     nut::ConcurrentQueue<task_type> _later_tasks;
 };
 
