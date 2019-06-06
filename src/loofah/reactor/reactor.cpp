@@ -29,6 +29,9 @@
 #include "reactor.h"
 
 
+// Magic number
+#define KQUEUE_WAKEUP_IDENT 0
+
 #define TAG "loofah.reactor"
 
 namespace loofah
@@ -69,13 +72,21 @@ Reactor::Reactor()
     _pollfds = (WSAPOLLFD*) ::malloc(sizeof(WSAPOLLFD) * _capacity);
     _handlers = (ReactHandler**) ::malloc(sizeof(ReactHandler*) * _capacity);
 #elif NUT_PLATFORM_OS_MACOS
+    // Create kqueue
     _kq = ::kqueue();
     if (_kq < 0)
     {
         LOOFAH_LOG_ERRNO(kqueue);
         return;
     }
+
+    // Register user event filter
+    struct kevent ev;
+    EV_SET(&ev, KQUEUE_WAKEUP_IDENT, EVFILT_USER, EV_ADD | EV_CLEAR, NOTE_FFNOP, 0, nullptr);
+    if (0 != ::kevent(_kq, &ev, 1, nullptr, 0, nullptr))
+        LOOFAH_LOG_FD_ERRNO(kevent, _kq);
 #elif NUT_PLATFORM_OS_LINUX
+    // Create epoll fd
     // NOTE 自从 Linux2.6.8 版本以后，epoll_create() 参数值其实是没什么用的, 只
     //      需要大于 0
     _epoll_fd = ::epoll_create(2048);
@@ -85,6 +96,7 @@ Reactor::Reactor()
         return;
     }
 
+    // Create eventfd
     _event_fd = ::eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
     if (_event_fd < 0)
     {
@@ -92,6 +104,7 @@ Reactor::Reactor()
         return;
     }
 
+    // Register eventfd to epoll fd
     struct epoll_event epv;
     ::memset(&epv, 0, sizeof(epv));
     epv.data.fd = _event_fd;
@@ -134,6 +147,13 @@ void Reactor::shutdown()
 #elif NUT_PLATFORM_OS_WINDOWS
     _size = 0;
 #elif NUT_PLATFORM_OS_MACOS
+    // Unregister user event filter
+    struct kevent ev;
+    EV_SET(&ev, KQUEUE_WAKEUP_IDENT, EVFILT_USER, EV_DELETE, 0, 0, nullptr);
+    if (0 != ::kevent(_kq, &ev, 1, nullptr, 0, nullptr))
+        LOOFAH_LOG_FD_ERRNO(kevent, _kq);
+
+    // Close kqueue
     if (_kq >= 0)
     {
         if (0 != ::close(_kq))
@@ -141,6 +161,7 @@ void Reactor::shutdown()
     }
     _kq = -1;
 #elif NUT_PLATFORM_OS_LINUX
+    // Unregister eventfd from epoll fd
     if (_event_fd >= 0 && _epoll_fd >= 0)
     {
         struct epoll_event epv;
@@ -148,9 +169,9 @@ void Reactor::shutdown()
         epv.data.fd = _event_fd;
         if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_DEL, _event_fd, &epv))
             LOOFAH_LOG_FD_ERRNO(epoll_ctl, _event_fd);
-            
     }
 
+    // Close eventfd
     if (_event_fd >= 0)
     {
         if (0 != ::close(_event_fd))
@@ -158,6 +179,7 @@ void Reactor::shutdown()
     }
     _event_fd = -1;
 
+    // Close epoll fd
     if (_epoll_fd >= 0)
     {
         if (0 != ::close(_epoll_fd))
@@ -674,18 +696,27 @@ int Reactor::poll(int timeout_ms)
     _poll_stage = PollStage::HandlingEvents;
     for (int i = 0; i < n; ++i)
     {
+        // User event
+        const int filter = active_evs[i].filter;
+        if (EVFILT_USER == filter)
+        {
+            assert(KQUEUE_WAKEUP_IDENT == active_evs[i].ident &&
+                   nullptr == active_evs[i].udata);
+            continue;
+        }
+
+        // Socket events
         ReactHandler *handler = (ReactHandler*) active_evs[i].udata;
         assert(nullptr != handler);
 
-        const int filter = active_evs[i].filter;
-        if (filter == EVFILT_READ)
+        if (EVFILT_READ == filter)
         {
             if (0 != (handler->_enabled_events & ReactHandler::ACCEPT_MASK))
                 handler->handle_accept_ready();
             else
                 handler->handle_read_ready();
         }
-        else if (filter == EVFILT_WRITE)
+        else if (EVFILT_WRITE == filter)
         {
             if (0 != (handler->_enabled_events & ReactHandler::CONNECT_MASK))
                 handler->handle_connect_ready();
@@ -770,7 +801,12 @@ int Reactor::poll(int timeout_ms)
 
 void Reactor::wakeup_poll_wait()
 {
-#if NUT_PLATFORM_OS_LINUX
+#if NUT_PLATFORM_OS_MACOS
+    struct kevent ev;
+    EV_SET(&ev, KQUEUE_WAKEUP_IDENT, EVFILT_USER, 0, NOTE_TRIGGER, 0, nullptr);
+    if (0 != ::kevent(_kq, &ev, 1, nullptr, 0, nullptr))
+        LOOFAH_LOG_FD_ERRNO(kevent, _kq);
+#elif NUT_PLATFORM_OS_LINUX
     const uint64_t counter = 1;
     const int rs = ::write(_event_fd, &counter, sizeof(counter));
     if (rs < 0)
