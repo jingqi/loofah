@@ -150,15 +150,15 @@ void Reactor::shutdown()
 #elif NUT_PLATFORM_OS_WINDOWS
     _size = 0;
 #elif NUT_PLATFORM_OS_MACOS
-    // Unregister user event filter
-    struct kevent ev;
-    EV_SET(&ev, KQUEUE_WAKEUP_IDENT, EVFILT_USER, EV_DELETE, 0, 0, nullptr);
-    if (0 != ::kevent(_kq, &ev, 1, nullptr, 0, nullptr))
-        LOOFAH_LOG_FD_ERRNO(kevent, _kq);
-
-    // Close kqueue
     if (_kq >= 0)
     {
+        // Unregister user event filter
+        struct kevent ev;
+        EV_SET(&ev, KQUEUE_WAKEUP_IDENT, EVFILT_USER, EV_DELETE, 0, 0, nullptr);
+        if (0 != ::kevent(_kq, &ev, 1, nullptr, 0, nullptr))
+            LOOFAH_LOG_FD_ERRNO(kevent, _kq);
+
+        // Close kqueue
         if (0 != ::close(_kq))
             LOOFAH_LOG_ERRNO(close);
     }
@@ -565,12 +565,16 @@ int Reactor::poll(int timeout_ms)
     }
 
 #if NUT_PLATFORM_OS_WINDOWS && WINVER < _WIN32_WINNT_WINBLUE
-    struct timeval timeout, *ptimeout = nullptr; // nullptr 表示无限等待
-    if (timeout_ms >= 0)
+    struct timeval timeout;
+    if (timeout_ms < 0)
+    {
+        timeout.tv_sec = 31536000;
+        timeout.tv_usec = 999999999;
+    }
+    else
     {
         timeout.tv_sec = timeout_ms / 1000;
         timeout.tv_usec = (timeout_ms % 1000) * 1000;
-        ptimeout = &timeout;
     }
 
     fd_set read_set, write_set, except_set;
@@ -579,7 +583,7 @@ int Reactor::poll(int timeout_ms)
     FD_COPY(&except_set, &_except_set);
 
     _poll_stage = PollStage::PollingWait;
-    const int rs = ::select(0, &read_set, &write_set, &except_set, ptimeout);
+    const int rs = ::select(0, &read_set, &write_set, &except_set, &timeout);
     _poll_stage = PollStage::HandlingEvents;
     if (SOCKET_ERROR == rs)
     {
@@ -623,8 +627,9 @@ int Reactor::poll(int timeout_ms)
         handler->handle_io_error(SockOperation::get_last_error(fd));
     }
 #elif NUT_PLATFORM_OS_WINDOWS
+    const INT timeout = timeout_ms;
     _poll_stage = PollStage::PollingWait;
-    const int rs = ::WSAPoll(_pollfds, _size, timeout_ms);
+    const int rs = ::WSAPoll(_pollfds, _size, timeout);
     _poll_stage = PollStage::HandlingEvents;
     if (SOCKET_ERROR == rs)
     {
@@ -690,8 +695,16 @@ int Reactor::poll(int timeout_ms)
     }
 #elif NUT_PLATFORM_OS_MACOS
     struct timespec timeout;
-    timeout.tv_sec = timeout_ms / 1000;
-    timeout.tv_nsec = (timeout_ms % 1000) * 1000 * 1000;
+    if (timeout_ms < 0)
+    {
+        timeout.tv_sec = 31536000; // NOTE 太大的数会溢出导致无法正常工作timeout.tv_sec = 3
+        timeout.tv_nsec = 999999999;
+    }
+    else
+    {
+        timeout.tv_sec = timeout_ms / 1000;
+        timeout.tv_nsec = (timeout_ms % 1000) * 1000 * 1000;
+    }
     struct kevent active_evs[LOOFAH_MAX_ACTIVE_EVENTS];
 
     _poll_stage = PollStage::PollingWait;
@@ -733,9 +746,10 @@ int Reactor::poll(int timeout_ms)
         }
     }
 #elif NUT_PLATFORM_OS_LINUX
+    const int timeout = (timeout_ms < 0 ? -1 : timeout_ms);
     struct epoll_event events[LOOFAH_MAX_ACTIVE_EVENTS];
     _poll_stage = PollStage::PollingWait;
-    const int n = ::epoll_wait(_epoll_fd, events, LOOFAH_MAX_ACTIVE_EVENTS, timeout_ms);
+    const int n = ::epoll_wait(_epoll_fd, events, LOOFAH_MAX_ACTIVE_EVENTS, timeout);
     _poll_stage = PollStage::HandlingEvents;
     if (n < 0)
     {

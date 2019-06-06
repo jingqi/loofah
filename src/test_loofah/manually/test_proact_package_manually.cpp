@@ -53,12 +53,7 @@ public:
 
     virtual void handle_read(Package *pkg) override
     {
-        if (nullptr == pkg)
-        {
-            NUT_LOG_D(TAG, "server reading shutdown");
-            return;
-        }
-
+        assert(nullptr != pkg);
         int rs = pkg->readable_size();
         int data = 0;
         *pkg >> data;
@@ -183,9 +178,7 @@ void test_proact_package_manually()
     // loop
     while (!prepared || server != nullptr || client != nullptr)
     {
-        const uint64_t idle_ms = std::min<uint64_t>(
-            60 * 1000, std::max<uint64_t>(unsigned(TimeWheel::RESOLUTION_MS), timewheel.get_idle()));
-        if (proactor.poll(idle_ms) < 0)
+        if (proactor.poll(timewheel.get_idle()) < 0)
             break;
         timewheel.tick();
     }

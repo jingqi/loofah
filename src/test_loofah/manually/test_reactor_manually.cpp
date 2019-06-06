@@ -211,7 +211,7 @@ void test_reactor_manually()
     // loop
     while (!prepared || server != nullptr || client != nullptr)
     {
-        if (reactor.poll(2) < 0)
+        if (reactor.poll(timewheel.get_idle()) < 0)
             break;
         timewheel.tick();
     }

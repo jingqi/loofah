@@ -139,8 +139,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\src\loofah\inet_base\error.cpp" />
-    <ClCompile Include="..\..\..\src\loofah\inet_base\event_loop_base.cpp" />
     <ClCompile Include="..\..\..\src\loofah\inet_base\inet_addr.cpp" />
+    <ClCompile Include="..\..\..\src\loofah\inet_base\poller_base.cpp" />
     <ClCompile Include="..\..\..\src\loofah\inet_base\sock_operation.cpp" />
     <ClCompile Include="..\..\..\src\loofah\inet_base\sock_stream.cpp" />
     <ClCompile Include="..\..\..\src\loofah\inet_base\utils.cpp" />
@@ -162,8 +162,8 @@
   <ItemGroup>
     <ClInclude Include="..\..\..\src\loofah\inet_base\channel.h" />
     <ClInclude Include="..\..\..\src\loofah\inet_base\error.h" />
-    <ClInclude Include="..\..\..\src\loofah\inet_base\event_loop_base.h" />
     <ClInclude Include="..\..\..\src\loofah\inet_base\inet_addr.h" />
+    <ClInclude Include="..\..\..\src\loofah\inet_base\poller_base.h" />
     <ClInclude Include="..\..\..\src\loofah\inet_base\sock_operation.h" />
     <ClInclude Include="..\..\..\src\loofah\inet_base\sock_stream.h" />
     <ClInclude Include="..\..\..\src\loofah\inet_base\utils.h" />

@@ -41,6 +41,11 @@ if platform.system() == 'Linux':
 
 ns.append_env_flags('LDFLAGS', '-L' + out_root, '-lnut', '-lloofah')
 
+# NOTE 这些 win 网络库必须放在最后，否则会出错
+#      See http://stackoverflow.com/questions/2033608/mingw-linker-error-winsock
+if platform.system() == 'Windows':
+    ns.append_env_flags('LDFLAGS', '-lwininet', '-lws2_32', '-lwsock32')
+
 ## Dependencies
 
 # Generate headers

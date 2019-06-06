@@ -21,16 +21,12 @@ namespace
 {
 
 class ServerChannel;
-class ClientChannel;
 
 Proactor proactor;
 TimeWheel timewheel;
 
 rc_ptr<ServerChannel> server;
-rc_ptr<ClientChannel> client;
-int prepared = 0;
-
-void testing();
+bool prepared = false;
 
 class ServerChannel : public ProactPackageChannel
 {
@@ -41,6 +37,7 @@ public:
         set_time_wheel(&timewheel);
 
         server = this;
+        prepared = true;
     }
 
     void writeint(uint32_t data)
@@ -55,19 +52,12 @@ public:
     {
         NUT_LOG_D(TAG, "server got a connection, fd %d", get_socket());
 
-        ++prepared;
-        if (2 == prepared)
-            testing();
+        writeint(2);
     }
 
     virtual void handle_read(Package *pkg) override
     {
-        if (nullptr == pkg)
-        {
-            NUT_LOG_D(TAG, "server reading shutdown");
-            return;
-        }
-
+        assert(nullptr != pkg);
         int rs = pkg->readable_size();
         int data = 0;
         *pkg >> data;
@@ -82,101 +72,6 @@ public:
     }
 };
 
-class ClientChannel : public ProactChannel
-{
-    uint64_t _read_data = 0;
-
-public:
-    virtual void initialize() override
-    {
-        client = this;
-    }
-
-    void write(int data)
-    {
-        void *buf = &data;
-        size_t len = sizeof(data);
-        proactor.launch_write(this, &buf, &len, 1);
-    }
-
-    void read()
-    {
-        void *buf = &_read_data;
-        size_t len = sizeof(_read_data);
-        proactor.launch_read(this, &buf, &len, 1);
-    }
-
-    void close()
-    {
-        NUT_LOG_D(TAG, "client close");
-        proactor.unregister_handler(this);
-        _sock_stream.close();
-        client = nullptr;
-    }
-
-    virtual void handle_channel_connected() override
-    {
-        NUT_LOG_D(TAG, "client make a connection, fd %d", get_socket());
-
-        proactor.register_handler(this);
-
-        ++prepared;
-        if (2 == prepared)
-            testing();
-    }
-
-    virtual void handle_read_completed(size_t cb) override
-    {
-        uint32_t data = _read_data >> 32;
-        NUT_LOG_D(TAG, "client received %d bytes: %d", cb, data);
-    }
-
-    virtual void handle_write_completed(size_t cb) override
-    {
-        NUT_LOG_D(TAG, "client send %d bytes", cb);
-    }
-
-    virtual void handle_io_error(int err) override
-    {
-        NUT_LOG_E(TAG, "client exception %d: %s", err, str_error(err));
-    }
-};
-
-void testing()
-{
-    timewheel.add_timer(
-        50, 0,
-        [=](TimeWheel::timer_id_type id, uint64_t expires) {
-            // 关闭 server 读通道，仅仅依靠写通道的自检来处理 RST 状态
-            // FIXME 使用优雅的双通道关闭流程之后，这里 shutdown_read() 将会触发关闭连接流程....
-            // SockOperation::shutdown_read(server->get_socket());
-
-            // 1. client 不读数据
-            // 2. 向 client 写数据
-            // 3. 由于存在未读数据，client.close() 将发送 RST 包给 server
-            // FIXME 由 epoll() 等模拟实现的 Proactor 会读取数据并缓存下来，导致没有发送 RST 包
-            server->writeint(1);
-            client->close();
-        });
-
-    timewheel.add_timer(
-        100, 0,
-        [=](TimeWheel::timer_id_type id, uint64_t expires) {
-            // 如果没有正确处理 RST 状态，server 写数据会导致 SIGPIPE 信号从而
-            // 进程退出
-            if (nullptr != server)
-                server->writeint(2);
-        });
-
-    timewheel.add_timer(
-        150, 0,
-        [=](TimeWheel::timer_id_type id, uint64_t expires) {
-            NUT_LOG_D(TAG, "--- good");
-            if (nullptr != server)
-                server->close();
-        });
-}
-
 }
 
 class TestProactPackageRST : public TestFixture
@@ -188,7 +83,7 @@ class TestProactPackageRST : public TestFixture
 
     void test_proact_pkg_rst()
     {
-        // start server
+        // Start server
         InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
         rc_ptr<ProactAcceptor<ServerChannel>> acc = rc_new<ProactAcceptor<ServerChannel>>();
         acc->listen(addr);
@@ -196,17 +91,24 @@ class TestProactPackageRST : public TestFixture
         proactor.launch_accept_later(acc);
         NUT_LOG_D(TAG, "server listening at %s, fd %d", addr.to_string().c_str(), acc->get_socket());
 
-        // start client
+        // Client
+        const socket_t client_fd = ::socket(PF_INET, SOCK_STREAM, 0);
         NUT_LOG_D(TAG, "client will connect to %s", addr.to_string().c_str());
-        ProactConnector<ClientChannel> con;
-        con.connect(&proactor, addr);
+        ::connect(client_fd, addr.cast_to_sockaddr(), addr.get_sockaddr_size());
+
+        // Close client later, send RST
+        timewheel.add_timer(
+            50, 0,
+            [=] (TimeWheel::timer_id_type id, uint64_t expires) {
+                // 由于存在未读数据，close() 将发送 RST 包给 server
+                SockOperation::close(client_fd);
+            });
+
 
         // loop
-        while (!prepared || server != nullptr || client != nullptr)
+        while (!prepared || server != nullptr)
         {
-            const uint64_t idle_ms = std::min<uint64_t>(
-                60 * 1000, std::max<uint64_t>(unsigned(TimeWheel::RESOLUTION_MS), timewheel.get_idle()));
-            if (proactor.poll(idle_ms) < 0)
+            if (proactor.poll(timewheel.get_idle()) < 0)
                 break;
             timewheel.tick();
         }

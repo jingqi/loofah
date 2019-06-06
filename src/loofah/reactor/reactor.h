@@ -40,7 +40,8 @@ public:
     void shutdown_later();
 
     /**
-     * @return <0 出错
+     * @param timeout_ms <0 无限等待; >=0 等待超时的毫秒数
+     * @return 0 表示正常; <0 表示出错
      */
     int poll(int timeout_ms = 1000);
 

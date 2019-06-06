@@ -17,8 +17,9 @@ PackageChannelBase::~PackageChannelBase()
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
 
-    // NOTE 由于分包后会连续调用 handle_read() / handle_io_error(), 故要求在这个
-    //      过程中不能析构, 需要将析构放到轮询间隔中
+    // NOTE 由于分包后会连续调用 handle_read() / handle_io_error(), 以及
+    //      writer_later() 会导致延后操作, 故要求析构不能在事件处理过程中发生,
+    //      需要将其放到轮询间隔中
     assert(_poller->is_in_io_thread_and_not_polling());
 
     cancel_force_close_timer();

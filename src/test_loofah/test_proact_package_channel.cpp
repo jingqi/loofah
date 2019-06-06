@@ -46,13 +46,7 @@ public:
 
     virtual void handle_read(Package *pkg) override
     {
-        if (nullptr == pkg)
-        {
-            NUT_LOG_D(TAG, "server reading shutdown, will close");
-            close_later();
-            return;
-        }
-
+        assert(nullptr != pkg);
         NUT_LOG_D(TAG, "server received %d bytes: %d", pkg->readable_size(), _counter);
 
         assert(pkg->readable_size() == sizeof(int));
@@ -104,13 +98,7 @@ public:
 
     virtual void handle_read(Package *pkg) override
     {
-        if (nullptr == pkg)
-        {
-            NUT_LOG_D(TAG, "client reading shutdown, will close");
-            close_later();
-            return;
-        }
-
+        assert(nullptr != pkg);
         NUT_LOG_D(TAG, "client received %d bytes: %d", pkg->readable_size(), _counter);
 
         assert(pkg->readable_size() == sizeof(int));
@@ -167,9 +155,7 @@ class TestProactPackageChannel : public TestFixture
         // Loop
         while (!prepared || server != nullptr || client != nullptr)
         {
-            const uint64_t idle_ms = std::min<uint64_t>(
-                60 * 1000, std::max<uint64_t>(unsigned(TimeWheel::RESOLUTION_MS), timewheel.get_idle()));
-            if (proactor.poll(idle_ms) < 0)
+            if (proactor.poll(timewheel.get_idle()) < 0)
                 break;
             timewheel.tick();
         }

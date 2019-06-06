@@ -56,9 +56,6 @@
     <ClCompile Include="..\..\..\src\loofah\package\package.cpp">
       <Filter>loofah\package</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\src\loofah\inet_base\event_loop_base.cpp">
-      <Filter>loofah\inet_base</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\..\src\loofah\inet_base\sock_operation.cpp">
       <Filter>loofah\inet_base</Filter>
     </ClCompile>
@@ -82,6 +79,9 @@
     </ClCompile>
     <ClCompile Include="..\..\..\src\loofah\reactor\react_connector.cpp">
       <Filter>loofah\reactor</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\loofah\inet_base\poller_base.cpp">
+      <Filter>loofah\inet_base</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -139,9 +139,6 @@
     <ClInclude Include="..\..\..\src\loofah\loofah.h">
       <Filter>loofah</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\src\loofah\inet_base\event_loop_base.h">
-      <Filter>loofah\inet_base</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\..\src\loofah\inet_base\sock_operation.h">
       <Filter>loofah\inet_base</Filter>
     </ClInclude>
@@ -155,6 +152,9 @@
       <Filter>loofah\package</Filter>
     </ClInclude>
     <ClInclude Include="..\..\..\src\loofah\inet_base\error.h">
+      <Filter>loofah\inet_base</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\loofah\inet_base\poller_base.h">
       <Filter>loofah\inet_base</Filter>
     </ClInclude>
   </ItemGroup>
