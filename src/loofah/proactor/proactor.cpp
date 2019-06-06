@@ -20,7 +20,8 @@
 #   include <unistd.h> // for ::close()
 #   include <errno.h>
 #elif NUT_PLATFORM_OS_LINUX
-#   include <sys/epoll.h> // for ::epoll_create()
+#   include <sys/epoll.h>
+#   include <sys/eventfd.h>
 #   include <unistd.h> // for ::close()
 #   include <errno.h>
 #endif
@@ -105,7 +106,7 @@ Proactor::Proactor()
     struct epoll_event epv;
     ::memset(&epv, 0, sizeof(epv));
     epv.data.fd = _event_fd;
-    epv.events = EPOLLHUP | EPOLLERR | EPOLLIN;
+    epv.events = EPOLLIN | EPOLLERR;
     if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, _event_fd, &epv))
         LOOFAH_LOG_FD_ERRNO(epoll_ctl, _event_fd);
 #endif
@@ -642,9 +643,9 @@ void Proactor::enable_handler(ProactHandler *handler, ProactHandler::mask_type m
         epv.data.ptr = (void*) handler;
         const ProactHandler::mask_type final_enabled = handler->_enabled_events | mask;
         if (0 != (final_enabled & ProactHandler::ACCEPT_READ_MASK))
-            epv.events |= EPOLLIN;
+            epv.events |= EPOLLIN | EPOLLERR;
         if (0 != (final_enabled & ProactHandler::CONNECT_WRITE_MASK))
-            epv.events |= EPOLLOUT;
+            epv.events |= EPOLLOUT | EPOLLERR;
         if (0 != ::epoll_ctl(_epoll_fd, (handler->_registered ? EPOLL_CTL_MOD : EPOLL_CTL_ADD), fd, &epv))
         {
             LOOFAH_LOG_FD_ERRNO(epoll_ctl, fd);
@@ -691,9 +692,9 @@ void Proactor::disable_handler(ProactHandler *handler, ProactHandler::mask_type 
         epv.data.ptr = (void*) handler;
         const ProactHandler::mask_type final_enabled = handler->_enabled_events & ~mask;
         if (0 != (final_enabled & ProactHandler::READ_MASK))
-            epv.events |= EPOLLIN;
+            epv.events |= EPOLLIN | EPOLLERR;
         if (0 != (final_enabled & ProactHandler::WRITE_MASK))
-            epv.events |= EPOLLOUT;
+            epv.events |= EPOLLOUT | EPOLLERR;
         if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_MOD, fd, &epv))
         {
             LOOFAH_LOG_FD_ERRNO(epoll_ctl, fd);
@@ -906,7 +907,7 @@ int Proactor::poll(int timeout_ms)
 
                 while (true)
                 {
-                    socket_t accepted = ReactAcceptorBase::accept(fd);
+                    const socket_t accepted = ReactAcceptorBase::accept(fd);
                     if (LOOFAH_INVALID_SOCKET_FD == accepted)
                         break;
                     handler->handle_accept_completed(accepted);
@@ -981,10 +982,6 @@ int Proactor::poll(int timeout_ms)
             {
                 NUT_LOG_W(TAG, "eventfd error, fd %d", _event_fd);
             }
-            else if (0 != (events[i].events & EPOLLHUP))
-            {
-                NUT_LOG_W(TAG, "eventfd hup, fd %d", _event_fd);
-            }
             else if (0 != (events[i].events & EPOLLIN))
             {
                 uint64_t counter = 0;
@@ -1000,6 +997,14 @@ int Proactor::poll(int timeout_ms)
         ProactHandler *handler = (ProactHandler*) events[i].data.ptr;
         assert(nullptr != handler);
         const socket_t fd = handler->get_socket();
+        if (0 != (events[i].events & EPOLLERR))
+        {
+            const int errcode = SockOperation::get_last_error(fd);
+            handler->handle_io_error(from_errno(errcode));
+            continue;
+        }
+
+        // NOTE 可能既有 EPOLLIN 事件, 又有 EPOLLOUT 事件
         if (0 != (events[i].events & EPOLLIN))
         {
             if (0 != (handler->_enabled_events & ProactHandler::ACCEPT_MASK))
@@ -1011,7 +1016,7 @@ int Proactor::poll(int timeout_ms)
 
                 while (true)
                 {
-                    socket_t accepted = ReactAcceptorBase::accept(fd);
+                    const socket_t accepted = ReactAcceptorBase::accept(fd);
                     if (LOOFAH_INVALID_SOCKET_FD == accepted)
                         break;
                     handler->handle_accept_completed(accepted);

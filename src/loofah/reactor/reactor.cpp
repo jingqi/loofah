@@ -108,7 +108,7 @@ Reactor::Reactor()
     struct epoll_event epv;
     ::memset(&epv, 0, sizeof(epv));
     epv.data.fd = _event_fd;
-    epv.events = EPOLLHUP | EPOLLERR | EPOLLIN;
+    epv.events = EPOLLIN | EPOLLERR;
     if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, _event_fd, &epv))
         LOOFAH_LOG_FD_ERRNO(epoll_ctl, _event_fd);
 #endif
@@ -451,9 +451,9 @@ void Reactor::enable_handler(ReactHandler *handler, ReactHandler::mask_type mask
         epv.data.ptr = (void*) handler;
         const ReactHandler::mask_type final_enabled = handler->_enabled_events | mask;
         if (0 != (final_enabled & ReactHandler::ACCEPT_READ_MASK))
-            epv.events |= EPOLLIN;
+            epv.events |= EPOLLIN | EPOLLERR;
         if (0 != (final_enabled & ReactHandler::CONNECT_WRITE_MASK))
-            epv.events |= EPOLLOUT;
+            epv.events |= EPOLLOUT | EPOLLERR;
         if (_edge_triggered)
             epv.events |= EPOLLET;
         if (0 != ::epoll_ctl(_epoll_fd, (handler->_registered ? EPOLL_CTL_MOD : EPOLL_CTL_ADD), fd, &epv))
@@ -537,9 +537,9 @@ void Reactor::disable_handler(ReactHandler *handler, ReactHandler::mask_type mas
         ::memset(&epv, 0, sizeof(epv));
         epv.data.ptr = (void*) handler;
         if (0 != (final_enabled & ReactHandler::READ_MASK))
-            epv.events |= EPOLLIN;
+            epv.events |= EPOLLIN | EPOLLERR;
         if (0 != (final_enabled & ReactHandler::WRITE_MASK))
-            epv.events |= EPOLLOUT;
+            epv.events |= EPOLLOUT | EPOLLERR;
         if (_edge_triggered)
             epv.events |= EPOLLET;
         if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_MOD, fd, &epv))
@@ -588,7 +588,7 @@ int Reactor::poll(int timeout_ms)
     }
     for (unsigned i = 0; i < read_set.fd_count; ++i)
     {
-        socket_t fd = read_set.fd_array[i];
+        const socket_t fd = read_set.fd_array[i];
         std::unordered_map<socket_t, ReactHandler*>::const_iterator iter = _socket_to_handler.find(fd);
         if (iter == _socket_to_handler.end())
             continue;
@@ -601,7 +601,7 @@ int Reactor::poll(int timeout_ms)
     }
     for (unsigned i = 0; i < write_set.fd_count; ++i)
     {
-        socket_t fd = write_set.fd_array[i];
+        const socket_t fd = write_set.fd_array[i];
         std::unordered_map<socket_t, ReactHandler*>::const_iterator iter = _socket_to_handler.find(fd);
         if (iter == _socket_to_handler.end())
             continue;
@@ -614,7 +614,7 @@ int Reactor::poll(int timeout_ms)
     }
     for (unsigned i = 0; i < except_set.fd_count; ++i)
     {
-        socket_t fd = write_set.fd_array[i];
+        const socket_t fd = write_set.fd_array[i];
         std::unordered_map<socket_t, ReactHandler*>::const_iterator iter = _socket_to_handler.find(fd);
         if (iter == _socket_to_handler.end())
             continue;
@@ -752,10 +752,6 @@ int Reactor::poll(int timeout_ms)
             {
                 NUT_LOG_W(TAG, "eventfd error, fd %d", _event_fd);
             }
-            else if (0 != (events[i].events & EPOLLHUP))
-            {
-                NUT_LOG_W(TAG, "eventfd hup, fd %d", _event_fd);
-            }
             else if (0 != (events[i].events & EPOLLIN))
             {
                 uint64_t counter = 0;
@@ -771,26 +767,26 @@ int Reactor::poll(int timeout_ms)
         ReactHandler *handler = (ReactHandler*) events[i].data.ptr;
         if (0 != (events[i].events & EPOLLERR))
         {
-            const int errcode = SockOperation::get_last_error(handler->get_socket());
+            const int fd = handler->get_socket();
+            const int errcode = SockOperation::get_last_error(fd);
             handler->handle_io_error(from_errno(errcode));
+            continue;
         }
-        else
+
+        // NOTE 可能既有 EPOLLIN 事件, 又有 EPOLLOUT 事件
+        if (0 != (events[i].events & EPOLLIN))
         {
-            // NOTE 可能既有 EPOLLIN 事件, 又有 EPOLLOUT 事件
-            if (0 != (events[i].events & EPOLLIN))
-            {
-                if (0 != (handler->_enabled_events & ReactHandler::ACCEPT_MASK))
-                    handler->handle_accept_ready();
-                else
-                    handler->handle_read_ready();
-            }
-            if (0 != (events[i].events & EPOLLOUT))
-            {
-                if (0 != (handler->_enabled_events & ReactHandler::CONNECT_MASK))
-                    handler->handle_connect_ready();
-                else
-                    handler->handle_write_ready();
-            }
+            if (0 != (handler->_enabled_events & ReactHandler::ACCEPT_MASK))
+                handler->handle_accept_ready();
+            else
+                handler->handle_read_ready();
+        }
+        if (0 != (events[i].events & EPOLLOUT))
+        {
+            if (0 != (handler->_enabled_events & ReactHandler::CONNECT_MASK))
+                handler->handle_connect_ready();
+            else
+                handler->handle_write_ready();
         }
     }
 #endif
