@@ -61,6 +61,8 @@ public:
      */
     int poll(int timeout_ms = 1000);
 
+    virtual void wakeup_poll_wait() final override;
+
 protected:
 #if NUT_PLATFORM_OS_MACOS || NUT_PLATFORM_OS_LINUX
     void enable_handler(ProactHandler *handler, ProactHandler::mask_type mask);
@@ -79,6 +81,7 @@ private:
     int _kq = -1;
 #elif NUT_PLATFORM_OS_LINUX
     int _epoll_fd = -1;
+    int _event_fd = -1;
 #endif
 
     std::atomic<bool> _closing_or_closed = ATOMIC_VAR_INIT(false);

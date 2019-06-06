@@ -66,7 +66,7 @@ public:
      *
      * NOTE 该方法可以从非 io 线程调用
      */
-    virtual void wakeup_poll_wait() {};
+    virtual void wakeup_poll_wait() = 0;
 
 protected:
     /**

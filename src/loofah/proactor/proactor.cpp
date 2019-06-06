@@ -35,6 +35,9 @@
 #include "io_request.h"
 
 
+// Magic number
+#define KQUEUE_WAKEUP_IDENT 0
+
 #define TAG "loofah.proactor"
 
 namespace loofah
@@ -60,20 +63,51 @@ ProactHandler::mask_type real_mask(ProactHandler::mask_type mask)
 Proactor::Proactor()
 {
 #if NUT_PLATFORM_OS_WINDOWS
+    // Create IOCP
     const DWORD concurrent_threads = 1; // NOTE 目前我们只允许一个线程去执行 IOCP
     _iocp = ::CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, concurrent_threads);
     if (nullptr == _iocp)
         NUT_LOG_E(TAG, "failed to call CreateIoCompletionPort() with GetLastError() %d", ::GetLastError());
 #elif NUT_PLATFORM_OS_MACOS
+    // Create kqueue
     _kq = ::kqueue();
-    if (-1 == _kq)
+    if (_kq < 0)
+    {
         LOOFAH_LOG_ERRNO(kqueue);
+        return;
+    }
+
+    // Register user event filter
+    struct kevent ev;
+    EV_SET(&ev, KQUEUE_WAKEUP_IDENT, EVFILT_USER, EV_ADD | EV_CLEAR, NOTE_FFNOP, 0, nullptr);
+    if (0 != ::kevent(_kq, &ev, 1, nullptr, 0, nullptr))
+        LOOFAH_LOG_FD_ERRNO(kevent, _kq);
 #elif NUT_PLATFORM_OS_LINUX
+    // Create epoll fd
     // NOTE 自从 Linux2.6.8 版本以后，epoll_create() 参数值其实是没什么用的, 只
     //      需要大于 0
     _epoll_fd = ::epoll_create(2048);
-    if (-1 == _epoll_fd)
+    if (_epoll_fd < 0)
+    {
         LOOFAH_LOG_ERRNO(epoll_create);
+        return;
+    }
+
+    // Create eventfd
+    _event_fd = ::eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+    if (_event_fd < 0)
+    {
+        LOOFAH_LOG_ERRNO(eventfd);
+        return;
+    }
+
+    // Register eventfd to epoll fd
+    struct epoll_event epv;
+    ::memset(&epv, 0, sizeof(epv));
+    epv.data.fd = _event_fd;
+    epv.events = EPOLLHUP | EPOLLERR | EPOLLIN;
+    if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, _event_fd, &epv))
+        LOOFAH_LOG_FD_ERRNO(epoll_ctl, _event_fd);
 #endif
 }
 
@@ -85,6 +119,9 @@ Proactor::~Proactor()
 void Proactor::shutdown_later()
 {
     _closing_or_closed.store(true, std::memory_order_relaxed);
+
+    if (!is_in_io_thread())
+        wakeup_poll_wait();
 }
 
 void Proactor::shutdown()
@@ -94,25 +131,52 @@ void Proactor::shutdown()
     _closing_or_closed.store(true, std::memory_order_relaxed);
 
 #if NUT_PLATFORM_OS_WINDOWS
+    // Close IOCP
     if (nullptr != _iocp)
     {
-        // 如果有多个线程等待在这个 iocp 上，下面这句可以唤醒所有等待线程，不过
-        // 这里我们只有一个线程且并非处于等待状态，不需要
-        // ::PostQueuedCompletionStatus(_iocp, 0, 0, nullptr);
+        // NOTE 如果有多个线程等待在这个 iocp 上, 需要用 ::PostQueuedCompletionStatus()
+        //      唤醒所有等待线程, 不过这里我们只有一个线程且处于非等待状态, 不需
+        //      要这样做
 
         if (FALSE == ::CloseHandle(_iocp))
             NUT_LOG_E(TAG, "failed to call CloseHandle() with GetLastError() %d", ::GetLastError());
     }
     _iocp = nullptr;
 #elif NUT_PLATFORM_OS_MACOS
-    if (-1 != _kq)
+    // Unregister user event filter
+    struct kevent ev;
+    EV_SET(&ev, KQUEUE_WAKEUP_IDENT, EVFILT_USER, EV_DELETE, 0, 0, nullptr);
+    if (0 != ::kevent(_kq, &ev, 1, nullptr, 0, nullptr))
+        LOOFAH_LOG_FD_ERRNO(kevent, _kq);
+
+    // Close kqueue
+    if (_kq >= 0)
     {
         if (0 != ::close(_kq))
             LOOFAH_LOG_ERRNO(close);
     }
     _kq = -1;
 #elif NUT_PLATFORM_OS_LINUX
-    if (-1 != _epoll_fd)
+    // Unregister eventfd from epoll fd
+    if (_event_fd >= 0 && _epoll_fd >= 0)
+    {
+        struct epoll_event epv;
+        ::memset(&epv, 0, sizeof(epv));
+        epv.data.fd = _event_fd;
+        if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_DEL, _event_fd, &epv))
+            LOOFAH_LOG_FD_ERRNO(epoll_ctl, _event_fd);
+    }
+
+    // Close eventfd
+    if (_event_fd >= 0)
+    {
+        if (0 != ::close(_event_fd))
+            LOOFAH_LOG_ERRNO(close);
+    }
+    _event_fd = -1;
+
+    // Close epoll fd
+    if (_epoll_fd >= 0)
     {
         if (0 != ::close(_epoll_fd))
             LOOFAH_LOG_ERRNO(close);
@@ -817,12 +881,21 @@ int Proactor::poll(int timeout_ms)
     _poll_stage = PollStage::HandlingEvents;
     for (int i = 0; i < n; ++i)
     {
+        // User event
+        const int filter = active_evs[i].filter;
+        if (EVFILT_USER == filter)
+        {
+            assert(KQUEUE_WAKEUP_IDENT == active_evs[i].ident &&
+                   nullptr == active_evs[i].udata);
+            continue;
+        }
+
+        // Socket events
         ProactHandler *handler = (ProactHandler*) active_evs[i].udata;
         assert(nullptr != handler);
         const socket_t fd = handler->get_socket();
 
-        const int filter = active_evs[i].filter;
-        if (filter == EVFILT_READ)
+        if (EVFILT_READ == filter)
         {
             if (0 != (handler->_enabled_events & ProactHandler::ACCEPT_MASK))
             {
@@ -858,7 +931,7 @@ int Proactor::poll(int timeout_ms)
                 IORequest::delete_request(io_request);
             }
         }
-        else if (filter == EVFILT_WRITE)
+        else if (EVFILT_WRITE == filter)
         {
             if (0 != (handler->_enabled_events & ProactHandler::CONNECT_MASK))
             {
@@ -901,10 +974,32 @@ int Proactor::poll(int timeout_ms)
     _poll_stage = PollStage::HandlingEvents;
     for (int i = 0; i < n; ++i)
     {
+        // 'eventfd' events
+        if (events[i].data.fd == _event_fd)
+        {
+            if (0 != (events[i].events & EPOLLERR))
+            {
+                NUT_LOG_W(TAG, "eventfd error, fd %d", _event_fd);
+            }
+            else if (0 != (events[i].events & EPOLLHUP))
+            {
+                NUT_LOG_W(TAG, "eventfd hup, fd %d", _event_fd);
+            }
+            else if (0 != (events[i].events & EPOLLIN))
+            {
+                uint64_t counter = 0;
+                const int rs = ::read(_event_fd, &counter, sizeof(counter));
+                if (rs < 0)
+                    LOOFAH_LOG_FD_ERRNO(read, _event_fd);
+            }
+
+            continue;
+        }
+
+        // Socket events
         ProactHandler *handler = (ProactHandler*) events[i].data.ptr;
         assert(nullptr != handler);
         const socket_t fd = handler->get_socket();
-
         if (0 != (events[i].events & EPOLLIN))
         {
             if (0 != (handler->_enabled_events & ProactHandler::ACCEPT_MASK))
@@ -979,6 +1074,24 @@ int Proactor::poll(int timeout_ms)
     run_later_tasks();
 
     return 0;
+}
+
+void Proactor::wakeup_poll_wait()
+{
+#if NUT_PLATFORM_OS_WINDOWS
+    if (!::PostQueuedCompletionStatus(_iocp, 0, 0, nullptr))
+        NUT_LOG_E(TAG, "failed to call ::PostQueuedCompletionStatus() with ::GetLastError() %d", ::GetLastError());
+#elif NUT_PLATFORM_OS_MACOS
+    struct kevent ev;
+    EV_SET(&ev, KQUEUE_WAKEUP_IDENT, EVFILT_USER, 0, NOTE_TRIGGER, 0, nullptr);
+    if (0 != ::kevent(_kq, &ev, 1, nullptr, 0, nullptr))
+        LOOFAH_LOG_FD_ERRNO(kevent, _kq);
+#elif NUT_PLATFORM_OS_LINUX
+    const uint64_t counter = 1;
+    const int rs = ::write(_event_fd, &counter, sizeof(counter));
+    if (rs < 0)
+        LOOFAH_LOG_FD_ERRNO(write, _event_fd);
+#endif
 }
 
 }

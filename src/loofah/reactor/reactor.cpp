@@ -131,6 +131,9 @@ Reactor::~Reactor()
 void Reactor::shutdown_later()
 {
     _closing_or_closed.store(true, std::memory_order_relaxed);
+
+    if (!is_in_io_thread())
+        wakeup_poll_wait();
 }
 
 void Reactor::shutdown()
