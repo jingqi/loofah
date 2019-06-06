@@ -51,8 +51,10 @@ public:
 
     /**
      * 连接已关闭
+     *
+     * @param err 如果是因错误关闭的，传入错误号; 否则传入 0
      */
-    virtual void handle_closed() = 0;
+    virtual void handle_closed(int err) = 0;
 
     /**
      * 写数据
@@ -69,8 +71,8 @@ public:
      *
      * @param discard_write 放弃还未写入的数据
      */
-    virtual void close(bool discard_write = false) = 0;
-    void close_later(bool discard_write = false);
+    virtual void close(int err = 0, bool discard_write = false) = 0;
+    void close_later(int err = 0, bool discard_write = false);
 
 protected:
     virtual void handle_io_error(int err) = 0;
@@ -81,10 +83,10 @@ protected:
     void split_and_handle_packages(size_t extra_readed);
 
     // 关闭连接
-    virtual void force_close() = 0;
+    virtual void force_close(int err) = 0;
 
     // 定时强制关闭
-    void setup_force_close_timer();
+    void setup_force_close_timer(int err);
     void cancel_force_close_timer();
 
 protected:

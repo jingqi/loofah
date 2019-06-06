@@ -50,7 +50,7 @@ void ReactPackageChannel::handle_channel_connected()
     handle_connected();
 }
 
-void ReactPackageChannel::close(bool discard_write)
+void ReactPackageChannel::close(int err, bool discard_write)
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(nullptr != _poller && _poller->is_in_io_thread());
@@ -64,7 +64,7 @@ void ReactPackageChannel::close(bool discard_write)
         if (_sock_stream.is_reading_shutdown())
         {
             // 被动关闭连接
-            force_close();
+            force_close(err);
             return;
         }
 
@@ -74,10 +74,10 @@ void ReactPackageChannel::close(bool discard_write)
     }
 
     // 设置超时关闭
-    setup_force_close_timer();
+    setup_force_close_timer(err);
 }
 
-void ReactPackageChannel::force_close()
+void ReactPackageChannel::force_close(int err)
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(nullptr != _poller && _poller->is_in_io_thread());
@@ -98,13 +98,13 @@ void ReactPackageChannel::force_close()
         // Synchronize
         // NOTE 这里可能会导致自身被析构, 需要放到轮询间隔，详见
         //      ~PackageChannelBase() 中的说明
-        handle_closed();
+        handle_closed(err);
     }
     else
     {
         // Asynchronize
         nut::rc_ptr<ReactPackageChannel> ref_this(this);
-        _poller->run_later([=] { ref_this->handle_closed(); });
+        _poller->run_later([=] { ref_this->handle_closed(err); });
     }
 }
 
@@ -128,9 +128,9 @@ void ReactPackageChannel::handle_read_ready()
             reactor->disable_handler(this, ReactHandler::READ_MASK);
             _sock_stream.mark_reading_shutdown();
             if (_sock_stream.is_writing_shutdown())
-                force_close(); // 主动关闭连接
+                force_close(0); // 主动关闭连接
             else
-                close(); // 被动关闭连接
+                close(0); // 被动关闭连接
             return;
         }
         else if (LOOFAH_ERR_WOULD_BLOCK == rs)
@@ -278,7 +278,7 @@ void ReactPackageChannel::handle_write_ready()
 
         // 如果本地写队列空了，并且处于关闭流程中，则关闭写通道
         if (_sock_stream.is_reading_shutdown())
-            force_close(); // 被动关闭连接
+            force_close(0); // 被动关闭连接
         else if (_closing.load(std::memory_order_relaxed))
             _sock_stream.shutdown_write(); // 主动关闭连接
     }
@@ -295,7 +295,7 @@ void ReactPackageChannel::handle_io_error(int err)
     ((Reactor*) _poller)->disable_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
     _sock_stream.mark_reading_shutdown();
     _sock_stream.mark_writing_shutdown();
-    force_close();
+    force_close(err);
 }
 
 }

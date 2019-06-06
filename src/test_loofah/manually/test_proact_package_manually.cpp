@@ -65,9 +65,9 @@ public:
         NUT_LOG_D(TAG, "server received %d bytes: %d", rs, data);
     }
 
-    virtual void handle_closed() override
+    virtual void handle_closed(int err) override
     {
-        NUT_LOG_D(TAG, "server closed");
+        NUT_LOG_D(TAG, "server closed, %d: %s", err, str_error(err));
 
         server = nullptr;
     }
@@ -164,7 +164,7 @@ void test_proact_package_manually()
     timewheel.add_timer(
         1500, 0,
         [=](TimeWheel::timer_id_type id, uint64_t expires) {
-            int fd = server->get_socket();
+            // int fd = server->get_socket();
             // int e = SockOperation::get_last_error(fd);
             // NUT_LOG_D(TAG, "current --> %d, %d: %s",
             //           SockOperation::is_valid(fd),

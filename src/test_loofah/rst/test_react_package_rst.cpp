@@ -74,9 +74,9 @@ public:
         NUT_LOG_D(TAG, "server received %d bytes: %d", rs, data);
     }
 
-    virtual void handle_closed() override
+    virtual void handle_closed(int err) override
     {
-        NUT_LOG_D(TAG, "server closed");
+        NUT_LOG_D(TAG, "server closed, %d: %s", err, str_error(err));
 
         server = nullptr;
     }
@@ -157,14 +157,16 @@ void testing()
         [=](TimeWheel::timer_id_type id, uint64_t expires) {
             // 如果没有正确处理 RST 状态，server 写数据会导致 SIGPIPE 信号从而
             // 进程退出
-            server->writeint(2);
+            if (nullptr != server)
+                server->writeint(2);
         });
 
     timewheel.add_timer(
         150, 0,
         [=](TimeWheel::timer_id_type id, uint64_t expires) {
             NUT_LOG_D(TAG, "----- good");
-            server->close();
+            if (nullptr != server)
+                server->close();
         });
 }
 

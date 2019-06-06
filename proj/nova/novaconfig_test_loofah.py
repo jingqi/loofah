@@ -72,7 +72,7 @@ ns.set_recipe('@run', run)
 ns.add_dep('@run', program)
 
 def valgrind(target):
-    p = Popen(['valgrind', '-v', '--leak-check=full', program], cwd=dirname(program))
+    p = Popen(['valgrind', '-v', '--leak-check=full', '--show-leak-kinds=all', program], cwd=dirname(program))
     p.wait()
 ns.set_recipe('@valgrind', valgrind)
 ns.add_dep('@valgrind', program)

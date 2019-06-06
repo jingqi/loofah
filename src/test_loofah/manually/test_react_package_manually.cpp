@@ -66,9 +66,9 @@ public:
         NUT_LOG_D(TAG, "server received %d bytes: %d", rs, data);
     }
 
-    virtual void handle_closed() override
+    virtual void handle_closed(int err) override
     {
-        NUT_LOG_D(TAG, "server closed");
+        NUT_LOG_D(TAG, "server closed, %d: %s", err, str_error(err));
 
         server = nullptr;
     }

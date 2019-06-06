@@ -68,9 +68,9 @@ public:
         ++_counter;
     }
 
-    virtual void handle_closed() override
+    virtual void handle_closed(int err) override
     {
-        NUT_LOG_D(TAG, "server closed");
+        NUT_LOG_D(TAG, "server closed, %d: %s", err, str_error(err));
 
         // Unhold reference
 		server = nullptr;
@@ -133,9 +133,9 @@ public:
         }
     }
 
-    virtual void handle_closed() override
+    virtual void handle_closed(int err) override
     {
-        NUT_LOG_D(TAG, "client closed");
+        NUT_LOG_D(TAG, "client closed, %d: %s", err, str_error(err));
 		client = nullptr;
     }
 };

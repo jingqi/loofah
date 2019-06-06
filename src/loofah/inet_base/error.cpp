@@ -49,6 +49,7 @@ const char* str_error(int err)
 {
     switch (err)
     {
+        CASE_MAP(0, "No error");
         CASE_MAP(LOOFAH_ERR_UNKNOWN, "Unknown error");
 #if NUT_PLATFORM_OS_WINDOWS
         CASE_MAP(LOOFAH_ERR_INVALID_FD, "Invalid handle");
@@ -61,6 +62,7 @@ const char* str_error(int err)
         CASE_MAP(LOOFAH_ERR_CONNECTION_ABORTED, "Software caused connection abort");
         CASE_MAP(LOOFAH_ERR_BROKEN_PIPE, "Broken pipe");
         CASE_MAP(LOOFAH_ERR_PKG_OVERSIZE, "Package payload size is too big");
+        CASE_MAP(LOOFAH_ERR_TIMEOUT, "Channel wait timeout");
     }
     return "Undefined error";
 }

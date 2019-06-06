@@ -41,6 +41,9 @@
 // package 大小超限
 #define LOOFAH_ERR_PKG_OVERSIZE -8
 
+// 超时
+#define LOOFAH_ERR_TIMEOUT -9
+
 
 // logging errno
 #if NUT_PLATFORM_OS_WINDOWS

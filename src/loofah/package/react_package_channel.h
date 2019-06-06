@@ -36,7 +36,7 @@ public:
      *
      * @param discard_write 是否忽略尚未写入的 package, 否则等待全部写入后再关闭
      */
-    virtual void close(bool discard_write = false) final override;
+    virtual void close(int err = 0, bool discard_write = false) final override;
 
 public:
     /**
@@ -51,7 +51,7 @@ public:
 
 private:
     // 关闭连接
-    virtual void force_close() final override;
+    virtual void force_close(int err) final override;
 };
 
 }

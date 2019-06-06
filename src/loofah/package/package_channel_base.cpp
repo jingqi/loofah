@@ -48,7 +48,7 @@ size_t PackageChannelBase::get_max_payload_size() const
     return _max_payload_size;
 }
 
-void PackageChannelBase::close_later(bool discard_write)
+void PackageChannelBase::close_later(int err, bool discard_write)
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
 
@@ -59,17 +59,17 @@ void PackageChannelBase::close_later(bool discard_write)
     if (_poller->is_in_io_thread())
     {
         // Synchronize
-        close(discard_write);
+        close(err, discard_write);
     }
     else
     {
         // Asynchronize
         nut::rc_ptr<PackageChannelBase> ref_this(this);
-        _poller->run_later([=] { ref_this->close(discard_write); });
+        _poller->run_later([=] { ref_this->close(err, discard_write); });
     }
 }
 
-void PackageChannelBase::setup_force_close_timer()
+void PackageChannelBase::setup_force_close_timer(int err)
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(nullptr != _poller && _poller->is_in_io_thread());
@@ -81,7 +81,7 @@ void PackageChannelBase::setup_force_close_timer()
     // 立即关闭
     if (LOOFAH_FORCE_CLOSE_DELAY == 0)
     {
-        force_close();
+        force_close(err);
         return;
     }
 
@@ -92,7 +92,7 @@ void PackageChannelBase::setup_force_close_timer()
         LOOFAH_FORCE_CLOSE_DELAY, 0,
         [=] (nut::TimeWheel::timer_id_type id, int64_t expires) {
             _force_close_timer = NUT_INVALID_TIMER_ID;
-            force_close();
+            force_close(err);
         });
 }
 
