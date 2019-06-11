@@ -253,7 +253,7 @@ void Proactor::unregister_handler(ProactHandler *handler)
 {
     assert(nullptr != handler && handler->_registered_proactor == this);
     assert(is_in_io_thread());
-    
+
 
 #if NUT_PLATFORM_OS_WINDOWS
     // FIXME 对于 Windows 下的 IOCP，是无法取消 socket 与 iocp 的关联的
@@ -477,7 +477,7 @@ void Proactor::launch_read_later(ProactHandler *handler, void* const *buf_ptrs,
         ::memcpy(dup_buf_ptrs, buf_ptrs, sizeof(void*) * buf_count);
         size_t *dup_len_ptrs = (size_t*) (dup_buf_ptrs + buf_count);
         ::memcpy(dup_len_ptrs, len_ptrs, sizeof(size_t) * buf_count);
-        
+
         add_later_task([=] {
             launch_read(ref_handler, dup_buf_ptrs, dup_len_ptrs, buf_count);
             ::free(dup_buf_ptrs);
@@ -496,7 +496,7 @@ void Proactor::launch_read(ProactHandler *handler, void* const *buf_ptrs,
     IORequest *io_request = IORequest::new_request(handler, ProactHandler::READ_MASK, buf_count);
     assert(nullptr != io_request);
     io_request->set_bufs(buf_ptrs, len_ptrs);
-    
+
     const socket_t fd = handler->get_socket();
     DWORD bytes = 0, flags = 0;
     const int rs = ::WSARecv(fd,
@@ -726,31 +726,33 @@ int Proactor::poll(int timeout_ms)
     assert(nullptr != _iocp);
     /**
      * GetQueuedCompletionStatus() 返回值处理
-     * - FALSE==rs
-     *   - null==io_overlapped
-     *     - WAIT_TIMEOUT==errcode 超时
-     *     - 其他错误
-     *   - null!=io_overlapped
-     *     - ERROR_SUCESS==errcode && 0==bytes_transfered 连接关闭
-     *     - 连接错误
-     * - FALSE!=rs 正常返回，此时 null!=io_overlapped, bytes_transfered>0
+     * - rs == FALSE
+     *   - io_overlapped == NULL
+     *     - errcode == WAIT_TIMEOUT 超时                                        (case 1)
+     *     - 错误                                                                (case 2)
+     *   - io_overlapped != NULL
+     *     - errcode == ERROR_SUCESS && bytes_transfered == 0 连接关闭           (case 3)
+     *     - 连接错误                                                            (case 4)
+     * - rs != FALSE
+     *   - io_overlapped == NULL 收到通知 (由 PostQueuedCompletionStatus() 发送) (case 5)
+     *   - io_overlapped != NULL, bytes_transfered > 0 正常返回                  (case 6)
      */
     _poll_stage = PollStage::PollingWait;
     const BOOL rs = ::GetQueuedCompletionStatus(_iocp, &bytes_transfered, &key,
                                                 &io_overlapped, timeout);
     _poll_stage = PollStage::HandlingEvents;
     const DWORD errcode = (FALSE == rs ? ::GetLastError() : ERROR_SUCCESS);
-    if (nullptr == io_overlapped)
+    if (nullptr == io_overlapped) // case 1, 2, 5: 超时 / 错误 / 收到通知
     {
-        assert(FALSE == rs);
-        if (WAIT_TIMEOUT != errcode) // WAIT_TIMEOUT 表示等待超时，是正常的
+        if (FALSE == rs && WAIT_TIMEOUT != errcode) // case 2: 错误
         {
             NUT_LOG_W(TAG, "failed to call ::GetQueuedCompletionStatus() with ::GetLastError() %d",
                       errcode);
             return -1;
         }
+        // 忽略 case 1, 5
     }
-    else if (FALSE == rs && ERROR_SUCCESS != errcode)
+    else if (FALSE == rs && ERROR_SUCCESS != errcode) // case 4: 连接错误
     {
         IORequest *io_request = CONTAINING_RECORD(io_overlapped, IORequest, overlapped);
         assert(nullptr != io_request);
@@ -776,9 +778,8 @@ int Proactor::poll(int timeout_ms)
                   errcode);
         handler->handle_io_error(LOOFAH_ERR_UNKNOWN); // 连接错误
     }
-    else
+    else // case 3, 6: 连接关闭 / 正常返回
     {
-        // ERROR_SUCCESS == errcode && 0 == bytes_transfered 表示连接关闭
         assert(FALSE != rs || (ERROR_SUCCESS == errcode && 0 == bytes_transfered));
 
         IORequest *io_request = CONTAINING_RECORD(io_overlapped, IORequest, overlapped);
