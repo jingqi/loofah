@@ -27,22 +27,22 @@ public:
 #if NUT_PLATFORM_OS_WINDOWS
     static IORequest* new_request(
         ProactHandler *handler, ProactHandler::mask_type event_type,
-        size_t buf_count = 0, socket_t accept_socket = LOOFAH_INVALID_SOCKET_FD);
+        size_t buf_count = 0, socket_t accept_socket = LOOFAH_INVALID_SOCKET_FD) noexcept;
 #else
-    static IORequest* new_request(ProactHandler::mask_type event_type, size_t buf_count = 0);
+    static IORequest* new_request(ProactHandler::mask_type event_type, size_t buf_count = 0) noexcept;
 #endif
 
-    static void delete_request(IORequest *p);
+    static void delete_request(IORequest *p) noexcept;
 
-    void set_buf(size_t index, void *buf, size_t len);
-    void set_bufs(void* const *buf_ptrs, const size_t *len_ptrs);
+    void set_buf(size_t index, void *buf, size_t len) noexcept;
+    void set_bufs(void* const *buf_ptrs, const size_t *len_ptrs) noexcept;
 
 private:
 #if NUT_PLATFORM_OS_WINDOWS
     IORequest(ProactHandler *handler, ProactHandler::mask_type event_type_,
-              size_t buf_count_, socket_t accept_socket_);
+              size_t buf_count_, socket_t accept_socket_) noexcept;
 #else
-    IORequest(ProactHandler::mask_type event_type_, size_t buf_count_);
+    IORequest(ProactHandler::mask_type event_type_, size_t buf_count_) noexcept;
 #endif
 
     IORequest(const IORequest&) = delete;

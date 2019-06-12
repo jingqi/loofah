@@ -17,7 +17,7 @@
 namespace loofah
 {
 
-bool ReactConnectorBase::connect(Reactor *reactor, const InetAddr& address)
+bool ReactConnectorBase::connect(Reactor *reactor, const InetAddr& address) noexcept
 {
     assert(nullptr != reactor);
 

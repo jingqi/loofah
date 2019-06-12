@@ -31,7 +31,7 @@ bool prepared = false;
 class ServerChannel : public ReactPackageChannel
 {
 public:
-    virtual void initialize() override
+    virtual void initialize() noexcept override
     {
         set_reactor(&reactor);
         set_time_wheel(&timewheel);
@@ -40,19 +40,19 @@ public:
 		prepared = true;
     }
 
-    void writeint(int data)
+    void writeint(int data) noexcept
     {
         rc_ptr<Package> pkg = rc_new<Package>();
         *pkg << data;
         write_later(pkg);
     }
 
-    virtual void handle_connected() override
+    virtual void handle_connected() noexcept override
     {
         NUT_LOG_D(TAG, "server got a connection, fd %d", get_socket());
     }
 
-    virtual void handle_read(Package *pkg) override
+    virtual void handle_read(Package *pkg) noexcept override
     {
         assert(nullptr != pkg);
         int rs = pkg->readable_size();
@@ -61,7 +61,7 @@ public:
         NUT_LOG_D(TAG, "server received %d bytes: %d", rs, data);
     }
 
-    virtual void handle_closed(int err) override
+    virtual void handle_closed(int err) noexcept override
     {
         NUT_LOG_D(TAG, "server closed, %d: %s", err, str_error(err));
 
@@ -74,23 +74,23 @@ class ClientChannel : public ReactChannel
     int _write_data = 0;
 
 public:
-    virtual void initialize() override
+    virtual void initialize() noexcept override
     {
 		client = this;
 	}
 
-    void write(int data)
+    void write(int data) noexcept
     {
         _write_data = data;
         reactor.enable_handler(this, ReactHandler::WRITE_MASK);
     }
 
-    void read()
+    void read() noexcept
     {
         reactor.enable_handler(this, ReactHandler::READ_MASK);
     }
 
-    void close()
+    void close() noexcept
     {
         NUT_LOG_D(TAG, "client close");
         reactor.unregister_handler(this);
@@ -98,7 +98,7 @@ public:
 		client = nullptr;
     }
 
-    virtual void handle_channel_connected() override
+    virtual void handle_channel_connected() noexcept override
     {
         NUT_LOG_D(TAG, "client make a connection, fd %d", get_socket());
 
@@ -106,7 +106,7 @@ public:
         reactor.disable_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
     }
 
-    virtual void handle_read_ready() override
+    virtual void handle_read_ready() noexcept override
     {
         int data = 0;
         int rs = _sock_stream.read(&data, sizeof(data));
@@ -121,7 +121,7 @@ public:
         }
     }
 
-    virtual void handle_write_ready() override
+    virtual void handle_write_ready() noexcept override
     {
         int rs = _sock_stream.write(&_write_data, sizeof(_write_data));
         NUT_LOG_D(TAG, "client send %d bytes: %d", rs, _write_data);
@@ -131,7 +131,7 @@ public:
         reactor.disable_handler(this, ReactHandler::WRITE_MASK);
     }
 
-    virtual void handle_io_error(int err) override
+    virtual void handle_io_error(int err) noexcept override
     {
         NUT_LOG_D(TAG, "client exception %d", err);
     }
@@ -139,7 +139,7 @@ public:
 
 }
 
-void test_react_package_manually()
+void test_react_package_manually() noexcept
 {
     // start server
     InetAddr addr(LISTEN_ADDR, LISTEN_PORT);

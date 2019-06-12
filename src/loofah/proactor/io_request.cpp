@@ -14,7 +14,7 @@ namespace loofah
 
 #if NUT_PLATFORM_OS_WINDOWS
 IORequest::IORequest(ProactHandler *handler_, ProactHandler::mask_type event_type_,
-                     size_t buf_count_, socket_t accept_socket_)
+                     size_t buf_count_, socket_t accept_socket_) noexcept
     : handler(handler_), event_type(event_type_), accept_socket(accept_socket_),
       buf_count(buf_count_)
 {
@@ -26,7 +26,7 @@ IORequest::IORequest(ProactHandler *handler_, ProactHandler::mask_type event_typ
     ::memset(&overlapped, 0, sizeof(overlapped));
 }
 #else
-IORequest::IORequest(ProactHandler::mask_type event_type_, size_t buf_count_)
+IORequest::IORequest(ProactHandler::mask_type event_type_, size_t buf_count_) noexcept
     : event_type(event_type_), buf_count(buf_count_)
 {
     assert(ProactHandler::READ_MASK == event_type_ ||
@@ -37,7 +37,7 @@ IORequest::IORequest(ProactHandler::mask_type event_type_, size_t buf_count_)
 #if NUT_PLATFORM_OS_WINDOWS
 IORequest* IORequest::new_request(
     ProactHandler *handler, ProactHandler::mask_type event_type, size_t buf_count,
-    socket_t accept_socket)
+    socket_t accept_socket) noexcept
 {
     assert(nullptr != handler);
 
@@ -48,7 +48,7 @@ IORequest* IORequest::new_request(
     return p;
 }
 #else
-IORequest* IORequest::new_request(ProactHandler::mask_type event_type, size_t buf_count)
+IORequest* IORequest::new_request(ProactHandler::mask_type event_type, size_t buf_count) noexcept
 {
     const size_t size = sizeof(IORequest) + sizeof(struct iovec) * (std::max((size_t) 1, buf_count) - 1);
     IORequest *p = (IORequest*) ::malloc(size);
@@ -58,14 +58,14 @@ IORequest* IORequest::new_request(ProactHandler::mask_type event_type, size_t bu
 }
 #endif
 
-void IORequest::delete_request(IORequest *p)
+void IORequest::delete_request(IORequest *p) noexcept
 {
     assert(nullptr != p);
     p->~IORequest();
     ::free(p);
 }
 
-void IORequest::set_buf(size_t index, void *buf, size_t len)
+void IORequest::set_buf(size_t index, void *buf, size_t len) noexcept
 {
     assert(index < buf_count);
 
@@ -78,7 +78,7 @@ void IORequest::set_buf(size_t index, void *buf, size_t len)
 #endif
 }
 
-void IORequest::set_bufs(void* const *buf_ptrs, const size_t *len_ptrs)
+void IORequest::set_bufs(void* const *buf_ptrs, const size_t *len_ptrs) noexcept
 {
     assert(nullptr != buf_ptrs && nullptr != len_ptrs);
 

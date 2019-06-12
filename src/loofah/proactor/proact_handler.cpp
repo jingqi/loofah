@@ -8,12 +8,12 @@
 namespace loofah
 {
 
-ProactHandler::~ProactHandler()
+ProactHandler::~ProactHandler() noexcept
 {
     delete_requests();
 }
 
-void ProactHandler::delete_requests()
+void ProactHandler::delete_requests() noexcept
 {
     while (!_read_queue.empty())
     {

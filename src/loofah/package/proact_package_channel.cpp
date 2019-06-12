@@ -16,7 +16,7 @@
 namespace loofah
 {
 
-void ProactPackageChannel::set_proactor(Proactor *proactor)
+void ProactPackageChannel::set_proactor(Proactor *proactor) noexcept
 {
     assert(nullptr != proactor);
     NUT_DEBUGGING_ASSERT_ALIVE;
@@ -25,12 +25,12 @@ void ProactPackageChannel::set_proactor(Proactor *proactor)
     _poller = proactor;
 }
 
-SockStream& ProactPackageChannel::get_sock_stream()
+SockStream& ProactPackageChannel::get_sock_stream() noexcept
 {
     return _sock_stream;
 }
 
-void ProactPackageChannel::open(socket_t fd)
+void ProactPackageChannel::open(socket_t fd) noexcept
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(_sock_stream.is_null());
@@ -38,7 +38,7 @@ void ProactPackageChannel::open(socket_t fd)
     ProactChannel::open(fd);
 }
 
-void ProactPackageChannel::handle_channel_connected()
+void ProactPackageChannel::handle_channel_connected() noexcept
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(nullptr != _poller && _poller->is_in_io_thread());
@@ -49,7 +49,7 @@ void ProactPackageChannel::handle_channel_connected()
     handle_connected();
 }
 
-void ProactPackageChannel::close(int err, bool discard_write)
+void ProactPackageChannel::close(int err, bool discard_write) noexcept
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(nullptr != _poller && _poller->is_in_io_thread());
@@ -75,7 +75,7 @@ void ProactPackageChannel::close(int err, bool discard_write)
     setup_force_close_timer(err);
 }
 
-void ProactPackageChannel::force_close(int err)
+void ProactPackageChannel::force_close(int err) noexcept
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(nullptr != _poller && _poller->is_in_io_thread());
@@ -106,7 +106,7 @@ void ProactPackageChannel::force_close(int err)
     }
 }
 
-void ProactPackageChannel::launch_read()
+void ProactPackageChannel::launch_read() noexcept
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(nullptr != _poller && _poller->is_in_io_thread());
@@ -123,7 +123,7 @@ void ProactPackageChannel::launch_read()
     ((Proactor*) _poller)->launch_read(this, &buf, &buf_cap, 1);
 }
 
-void ProactPackageChannel::handle_read_completed(size_t cb)
+void ProactPackageChannel::handle_read_completed(size_t cb) noexcept
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(nullptr != _poller && _poller->is_in_io_thread());
@@ -145,7 +145,7 @@ void ProactPackageChannel::handle_read_completed(size_t cb)
     launch_read();
 }
 
-void ProactPackageChannel::write(Package *pkg)
+void ProactPackageChannel::write(Package *pkg) noexcept
 {
     assert(nullptr != pkg);
     NUT_DEBUGGING_ASSERT_ALIVE;
@@ -164,7 +164,7 @@ void ProactPackageChannel::write(Package *pkg)
         launch_write();
 }
 
-void ProactPackageChannel::launch_write()
+void ProactPackageChannel::launch_write() noexcept
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(nullptr != _poller && _poller->is_in_io_thread());
@@ -200,7 +200,7 @@ void ProactPackageChannel::launch_write()
     ((Proactor*) _poller)->launch_write(this, bufs, lens, buf_count);
 }
 
-void ProactPackageChannel::handle_write_completed(size_t cb)
+void ProactPackageChannel::handle_write_completed(size_t cb) noexcept
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(nullptr != _poller && _poller->is_in_io_thread());
@@ -240,7 +240,7 @@ void ProactPackageChannel::handle_write_completed(size_t cb)
         _sock_stream.shutdown_write(); // 主动关闭连接
 }
 
-void ProactPackageChannel::handle_io_error(int err)
+void ProactPackageChannel::handle_io_error(int err) noexcept
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(nullptr != _poller && _poller->is_in_io_thread());

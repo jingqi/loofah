@@ -31,7 +31,7 @@ bool prepared = false;
 class ServerChannel : public ReactPackageChannel
 {
 public:
-    virtual void initialize() override
+    virtual void initialize() noexcept override
     {
         set_reactor(&reactor);
         set_time_wheel(&timewheel);
@@ -48,14 +48,14 @@ public:
         write_later(pkg);
     }
 
-    virtual void handle_connected() override
+    virtual void handle_connected() noexcept override
     {
         NUT_LOG_D(TAG, "server got a connection, fd %d", get_socket());
 
         writeint(2);
     }
 
-    virtual void handle_read(Package *pkg) override
+    virtual void handle_read(Package *pkg) noexcept override
     {
         assert(nullptr != pkg);
         int rs = pkg->readable_size();
@@ -64,7 +64,7 @@ public:
         NUT_LOG_D(TAG, "server received %d bytes: %d", rs, data);
     }
 
-    virtual void handle_closed(int err) override
+    virtual void handle_closed(int err) noexcept override
     {
         NUT_LOG_D(TAG, "server closed, %d: %s", err, str_error(err));
 
@@ -76,7 +76,7 @@ public:
 
 class TestReactPackageRST : public TestFixture
 {
-    virtual void register_cases() override
+    virtual void register_cases() noexcept override
     {
         NUT_REGISTER_CASE(test_react_pkg_rst);
     }

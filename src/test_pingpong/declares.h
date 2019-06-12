@@ -40,7 +40,7 @@ struct GlobalData
 
 extern GlobalData g_global;
 
-void start_server();
-void start_client();
+void start_server() noexcept;
+void start_client() noexcept;
 
 #endif

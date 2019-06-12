@@ -22,36 +22,36 @@ class LOOFAH_API ReactPackageChannel : public ReactChannel, public PackageChanne
     NUT_REF_COUNTABLE_OVERRIDE
 
 public:
-    void set_reactor(Reactor *reactor);
+    void set_reactor(Reactor *reactor) noexcept;
 
-    virtual SockStream& get_sock_stream() final override;
+    virtual SockStream& get_sock_stream() noexcept final override;
 
     /**
      * 写数据
      */
-    virtual void write(Package *pkg) final override;
+    virtual void write(Package *pkg) noexcept final override;
 
     /**
      * 关闭连接
      *
      * @param discard_write 是否忽略尚未写入的 package, 否则等待全部写入后再关闭
      */
-    virtual void close(int err = 0, bool discard_write = false) final override;
+    virtual void close(int err = 0, bool discard_write = false) noexcept final override;
 
 public:
     /**
      * ReactChannel 接口实现
      */
-    virtual void open(socket_t fd) override;
-    virtual void handle_channel_connected() final override;
+    virtual void open(socket_t fd) noexcept override;
+    virtual void handle_channel_connected() noexcept final override;
 
-    virtual void handle_read_ready() final override;
-    virtual void handle_write_ready() final override;
-    virtual void handle_io_error(int err) final override;
+    virtual void handle_read_ready() noexcept final override;
+    virtual void handle_write_ready() noexcept final override;
+    virtual void handle_io_error(int err) noexcept final override;
 
 private:
     // 关闭连接
-    virtual void force_close(int err) final override;
+    virtual void force_close(int err) noexcept final override;
 };
 
 }

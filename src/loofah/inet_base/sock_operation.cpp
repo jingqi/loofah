@@ -27,7 +27,7 @@
 namespace loofah
 {
 
-bool SockOperation::set_nonblocking(socket_t socket_fd, bool nonblocking)
+bool SockOperation::set_nonblocking(socket_t socket_fd, bool nonblocking) noexcept
 {
 #if NUT_PLATFORM_OS_WINDOWS
     unsigned long mode = (nonblocking ? 1 : 0);
@@ -54,7 +54,7 @@ bool SockOperation::set_nonblocking(socket_t socket_fd, bool nonblocking)
 #endif
 }
 
-bool SockOperation::set_close_on_exit(socket_t socket_fd, bool close_on_exit)
+bool SockOperation::set_close_on_exit(socket_t socket_fd, bool close_on_exit) noexcept
 {
 #if NUT_PLATFORM_OS_WINDOWS
     NUT_LOG_W(TAG, "SockOperation::set_close_on_exit() not implemented in Windows");
@@ -78,7 +78,7 @@ bool SockOperation::set_close_on_exit(socket_t socket_fd, bool close_on_exit)
 #endif
 }
 
-void SockOperation::close(socket_t socket_fd)
+void SockOperation::close(socket_t socket_fd) noexcept
 {
 #if NUT_PLATFORM_OS_WINDOWS
     if (0 != ::closesocket(socket_fd))
@@ -89,7 +89,7 @@ void SockOperation::close(socket_t socket_fd)
 #endif
 }
 
-bool SockOperation::is_valid(socket_t socket_fd)
+bool SockOperation::is_valid(socket_t socket_fd) noexcept
 {
 #if NUT_PLATFORM_OS_WINDOWS
     DWORD socket_type = 0;
@@ -102,7 +102,7 @@ bool SockOperation::is_valid(socket_t socket_fd)
 #endif
 }
 
-int SockOperation::get_last_error(socket_t socket_fd)
+int SockOperation::get_last_error(socket_t socket_fd) noexcept
 {
 #if NUT_PLATFORM_OS_WINDOWS
     DWORD error = 0;
@@ -119,7 +119,7 @@ int SockOperation::get_last_error(socket_t socket_fd)
 #endif
 }
 
-bool SockOperation::set_reuse_addr(socket_t listening_socket_fd)
+bool SockOperation::set_reuse_addr(socket_t listening_socket_fd) noexcept
 {
 #if NUT_PLATFORM_OS_WINDOWS
     // NOTE 在 Windows 上，设置 ReuseAddr 与在 *nix 上不同，参见
@@ -138,7 +138,7 @@ bool SockOperation::set_reuse_addr(socket_t listening_socket_fd)
     return 0 == rs;
 }
 
-bool SockOperation::set_reuse_port(socket_t listening_socket_fd)
+bool SockOperation::set_reuse_port(socket_t listening_socket_fd) noexcept
 {
 #if NUT_PLATFORM_OS_WINDOWS
     // NOTE 在 Windows 上，设置 ReuseAddr 与在 *nix 上不同，参见
@@ -157,7 +157,7 @@ bool SockOperation::set_reuse_port(socket_t listening_socket_fd)
     return 0 == rs;
 }
 
-bool SockOperation::shutdown_read(socket_t socket_fd)
+bool SockOperation::shutdown_read(socket_t socket_fd) noexcept
 {
 #if NUT_PLATFORM_OS_WINDOWS
     const int rs = ::shutdown(socket_fd, SD_RECEIVE);
@@ -170,7 +170,7 @@ bool SockOperation::shutdown_read(socket_t socket_fd)
     return 0 == rs;
 }
 
-bool SockOperation::shutdown_write(socket_t socket_fd)
+bool SockOperation::shutdown_write(socket_t socket_fd) noexcept
 {
 #if NUT_PLATFORM_OS_WINDOWS
     const int rs = ::shutdown(socket_fd, SD_SEND);
@@ -183,7 +183,7 @@ bool SockOperation::shutdown_write(socket_t socket_fd)
     return 0 == rs;
 }
 
-ssize_t SockOperation::read(socket_t socket_fd, void *buf, size_t len)
+ssize_t SockOperation::read(socket_t socket_fd, void *buf, size_t len) noexcept
 {
     assert(nullptr != buf);
 
@@ -222,7 +222,7 @@ ssize_t SockOperation::read(socket_t socket_fd, void *buf, size_t len)
 }
 
 ssize_t SockOperation::readv(socket_t socket_fd, void* const *buf_ptrs,
-                             const size_t *len_ptrs, size_t buf_count)
+                             const size_t *len_ptrs, size_t buf_count) noexcept
 {
     assert(nullptr != buf_ptrs && nullptr != len_ptrs);
 
@@ -299,7 +299,7 @@ ssize_t SockOperation::readv(socket_t socket_fd, void* const *buf_ptrs,
 #endif
 }
 
-ssize_t SockOperation::write(socket_t socket_fd, const void *buf, size_t len)
+ssize_t SockOperation::write(socket_t socket_fd, const void *buf, size_t len) noexcept
 {
     assert(nullptr != buf);
 
@@ -334,7 +334,7 @@ ssize_t SockOperation::write(socket_t socket_fd, const void *buf, size_t len)
 }
 
 ssize_t SockOperation::writev(socket_t socket_fd, const void* const *buf_ptrs,
-                         const size_t *len_ptrs, size_t buf_count)
+                         const size_t *len_ptrs, size_t buf_count) noexcept
 {
     assert(nullptr != buf_ptrs && nullptr != len_ptrs);
 
@@ -405,7 +405,7 @@ ssize_t SockOperation::writev(socket_t socket_fd, const void* const *buf_ptrs,
 #endif
 }
 
-InetAddr SockOperation::get_local_addr(socket_t socket_fd)
+InetAddr SockOperation::get_local_addr(socket_t socket_fd) noexcept
 {
     InetAddr ret;
     socklen_t plen = ret.get_max_sockaddr_size();
@@ -415,7 +415,7 @@ InetAddr SockOperation::get_local_addr(socket_t socket_fd)
     return ret;
 }
 
-InetAddr SockOperation::get_peer_addr(socket_t socket_fd)
+InetAddr SockOperation::get_peer_addr(socket_t socket_fd) noexcept
 {
     InetAddr ret;
     socklen_t plen = ret.get_max_sockaddr_size();
@@ -425,12 +425,12 @@ InetAddr SockOperation::get_peer_addr(socket_t socket_fd)
     return ret;
 }
 
-bool SockOperation::is_self_connected(socket_t socket_fd)
+bool SockOperation::is_self_connected(socket_t socket_fd) noexcept
 {
     return get_local_addr(socket_fd) == get_peer_addr(socket_fd);
 }
 
-bool SockOperation::set_tcp_nodelay(socket_t socket_fd, bool no_delay)
+bool SockOperation::set_tcp_nodelay(socket_t socket_fd, bool no_delay) noexcept
 {
 #if NUT_PLATFORM_OS_WINDOWS
     BOOL optval = no_delay ? TRUE : FALSE;
@@ -447,7 +447,7 @@ bool SockOperation::set_tcp_nodelay(socket_t socket_fd, bool no_delay)
     return 0 == rs;
 }
 
-bool SockOperation::set_keep_alive(socket_t socket_fd, bool keep_alive)
+bool SockOperation::set_keep_alive(socket_t socket_fd, bool keep_alive) noexcept
 {
 #if NUT_PLATFORM_OS_WINDOWS
     BOOL optval = keep_alive ? TRUE : FALSE;
@@ -464,7 +464,7 @@ bool SockOperation::set_keep_alive(socket_t socket_fd, bool keep_alive)
     return 0 == rs;
 }
 
-bool SockOperation::set_linger(socket_t socket_fd, bool on, unsigned time)
+bool SockOperation::set_linger(socket_t socket_fd, bool on, unsigned time) noexcept
 {
 #if NUT_PLATFORM_OS_WINDOWS
     struct linger so_linger;

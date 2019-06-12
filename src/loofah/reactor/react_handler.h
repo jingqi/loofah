@@ -41,34 +41,34 @@ public:
 
     virtual ~ReactHandler() = default;
 
-    virtual socket_t get_socket() const = 0;
+    virtual socket_t get_socket() const noexcept = 0;
 
     /**
      * acceptor 有新链接
      */
-    virtual void handle_accept_ready() = 0;
+    virtual void handle_accept_ready() noexcept = 0;
 
     /**
      * connector 即将完成
      */
-    virtual void handle_connect_ready() = 0;
+    virtual void handle_connect_ready() noexcept = 0;
 
     /**
      * channel 可接收数据; 如果读到数据长度为 0, 则是读通道关闭事件
      */
-    virtual void handle_read_ready() = 0;
+    virtual void handle_read_ready() noexcept = 0;
 
     /**
      * channel 可发送数据
      */
-    virtual void handle_write_ready() = 0;
+    virtual void handle_write_ready() noexcept = 0;
 
     /**
      * 出错
      *
      * @param err 错误码，如 LOOFAH_ERR_PKG_OVERSIZE 等
      */
-    virtual void handle_io_error(int err) = 0;
+    virtual void handle_io_error(int err) noexcept = 0;
 
 private:
     ReactHandler(const ReactHandler&) = delete;

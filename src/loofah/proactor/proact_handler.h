@@ -46,19 +46,19 @@ public:
 
 public:
     ProactHandler() = default;
-    virtual ~ProactHandler();
+    virtual ~ProactHandler() noexcept;
 
-    virtual socket_t get_socket() const = 0;
+    virtual socket_t get_socket() const noexcept = 0;
 
     /**
      * acceptor 收到链接
      */
-    virtual void handle_accept_completed(socket_t fd) = 0;
+    virtual void handle_accept_completed(socket_t fd) noexcept = 0;
 
     /**
      * connector 连接完成
      */
-    virtual void handle_connect_completed() = 0;
+    virtual void handle_connect_completed() noexcept = 0;
 
     /**
      * channel 收到数据; 如果 cb==0, 则是读通道关闭事件
@@ -66,28 +66,28 @@ public:
      * @param cb >0 收到的字节数
      *            0 读通道关闭
      */
-    virtual void handle_read_completed(size_t cb) = 0;
+    virtual void handle_read_completed(size_t cb) noexcept = 0;
 
     /**
      * channel 发送数据
      *
      * @param cb 写入的字节数
      */
-    virtual void handle_write_completed(size_t cb) = 0;
+    virtual void handle_write_completed(size_t cb) noexcept = 0;
 
     /**
      * channel 出错
      *
      * @param err 错误码, 如 LOOFAH_ERR_PKG_OVERSIZE 等
      */
-    virtual void handle_io_error(int err) = 0;
+    virtual void handle_io_error(int err) noexcept = 0;
 
 private:
     ProactHandler(const ProactHandler&) = delete;
     ProactHandler& operator=(const ProactHandler&) = delete;
 
     // 删除所有未完成的 IORequest
-    void delete_requests();
+    void delete_requests() noexcept;
 
 protected:
     Proactor *_registered_proactor = nullptr;

@@ -14,25 +14,25 @@ class LOOFAH_API SockStream
 {
 public:
     SockStream() = default;
-    ~SockStream();
+    ~SockStream() noexcept;
 
-    void open(socket_t fd);
-    void close();
+    void open(socket_t fd) noexcept;
+    void close() noexcept;
 
-    socket_t get_socket() const;
+    socket_t get_socket() const noexcept;
 
-    bool is_null() const;
-    bool is_valid() const;
+    bool is_null() const noexcept;
+    bool is_valid() const noexcept;
 
-    int get_last_error() const;
+    int get_last_error() const noexcept;
 
-    bool shutdown_read();
-    bool is_reading_shutdown() const;
-    void mark_reading_shutdown();
+    bool shutdown_read() noexcept;
+    bool is_reading_shutdown() const noexcept;
+    void mark_reading_shutdown() noexcept;
 
-    bool shutdown_write();
-    bool is_writing_shutdown() const;
-    void mark_writing_shutdown();
+    bool shutdown_write() noexcept;
+    bool is_writing_shutdown() const noexcept;
+    void mark_writing_shutdown() noexcept;
 
     /**
      * 读
@@ -48,8 +48,8 @@ public:
      *  LOOFAH_ERR_WOULD_BLOCK
      *      非阻塞 socket 读操作将会阻塞; 或者设置过读超时, 而读超时被触发
      */
-    ssize_t read(void *buf, size_t max_len);
-    ssize_t readv(void* const *buf_ptrs, const size_t *len_ptrs, size_t buf_count);
+    ssize_t read(void *buf, size_t max_len) noexcept;
+    ssize_t readv(void* const *buf_ptrs, const size_t *len_ptrs, size_t buf_count) noexcept;
 
     /**
      * 写
@@ -63,15 +63,15 @@ public:
      *  LOOFAH_ERR_WOULD_BLOCK
      *      非阻塞 socket 写操作将会阻塞
      */
-    ssize_t write(const void *buf, size_t max_len);
-    ssize_t writev(const void* const *buf_ptrs, const size_t *len_ptrs, size_t buf_count);
+    ssize_t write(const void *buf, size_t max_len) noexcept;
+    ssize_t writev(const void* const *buf_ptrs, const size_t *len_ptrs, size_t buf_count) noexcept;
 
-    InetAddr get_local_addr() const;
-    InetAddr get_peer_addr() const;
+    InetAddr get_local_addr() const noexcept;
+    InetAddr get_peer_addr() const noexcept;
 
-    bool is_self_connected() const;
+    bool is_self_connected() const noexcept;
 
-    bool set_tcp_nodelay(bool no_delay = true);
+    bool set_tcp_nodelay(bool no_delay = true) noexcept;
 
 private:
     SockStream(const SockStream&) = delete;

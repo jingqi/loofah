@@ -20,17 +20,17 @@ class LOOFAH_API ReactConnectorBase
 public:
     virtual ~ReactConnectorBase() = default;
 
-    bool connect(Reactor *reactor, const InetAddr& address);
+    bool connect(Reactor *reactor, const InetAddr& address) noexcept;
 
 protected:
-    virtual nut::rc_ptr<ReactChannel> create_channel() = 0;
+    virtual nut::rc_ptr<ReactChannel> create_channel() noexcept = 0;
 };
 
 template <typename CHANNEL>
 class ReactConnector : public ReactConnectorBase
 {
 protected:
-    virtual nut::rc_ptr<ReactChannel> create_channel() final override
+    virtual nut::rc_ptr<ReactChannel> create_channel() noexcept final override
     {
         return nut::rc_new<CHANNEL>();
     }

@@ -48,7 +48,7 @@ namespace
 {
 
 #if NUT_PLATFORM_OS_MACOS || NUT_PLATFORM_OS_LINUX
-ProactHandler::mask_type real_mask(ProactHandler::mask_type mask)
+ProactHandler::mask_type real_mask(ProactHandler::mask_type mask) noexcept
 {
     ProactHandler::mask_type ret = 0;
     if (0 != (mask & ProactHandler::ACCEPT_READ_MASK))
@@ -61,7 +61,7 @@ ProactHandler::mask_type real_mask(ProactHandler::mask_type mask)
 
 }
 
-Proactor::Proactor()
+Proactor::Proactor() noexcept
 {
 #if NUT_PLATFORM_OS_WINDOWS
     // Create IOCP
@@ -112,12 +112,12 @@ Proactor::Proactor()
 #endif
 }
 
-Proactor::~Proactor()
+Proactor::~Proactor() noexcept
 {
     shutdown();
 }
 
-void Proactor::shutdown_later()
+void Proactor::shutdown_later() noexcept
 {
     _closing_or_closed.store(true, std::memory_order_relaxed);
 
@@ -125,7 +125,7 @@ void Proactor::shutdown_later()
         wakeup_poll_wait();
 }
 
-void Proactor::shutdown()
+void Proactor::shutdown() noexcept
 {
     assert(is_in_io_thread());
 
@@ -186,7 +186,7 @@ void Proactor::shutdown()
 #endif
 }
 
-void Proactor::register_handler_later(ProactHandler *handler)
+void Proactor::register_handler_later(ProactHandler *handler) noexcept
 {
     assert(nullptr != handler);
 
@@ -203,7 +203,7 @@ void Proactor::register_handler_later(ProactHandler *handler)
     }
 }
 
-void Proactor::register_handler(ProactHandler *handler)
+void Proactor::register_handler(ProactHandler *handler) noexcept
 {
     assert(nullptr != handler && nullptr == handler->_registered_proactor);
     assert(is_in_io_thread());
@@ -232,7 +232,7 @@ void Proactor::register_handler(ProactHandler *handler)
     handler->_registered_proactor = this;
 }
 
-void Proactor::unregister_handler_later(ProactHandler *handler)
+void Proactor::unregister_handler_later(ProactHandler *handler) noexcept
 {
     assert(nullptr != handler);
 
@@ -249,7 +249,7 @@ void Proactor::unregister_handler_later(ProactHandler *handler)
     }
 }
 
-void Proactor::unregister_handler(ProactHandler *handler)
+void Proactor::unregister_handler(ProactHandler *handler) noexcept
 {
     assert(nullptr != handler && handler->_registered_proactor == this);
     assert(is_in_io_thread());
@@ -304,7 +304,7 @@ void Proactor::unregister_handler(ProactHandler *handler)
 #endif
 }
 
-void Proactor::launch_accept_later(ProactHandler *handler)
+void Proactor::launch_accept_later(ProactHandler *handler) noexcept
 {
     assert(nullptr != handler);
 
@@ -321,7 +321,7 @@ void Proactor::launch_accept_later(ProactHandler *handler)
     }
 }
 
-void Proactor::launch_accept(ProactHandler *handler)
+void Proactor::launch_accept(ProactHandler *handler) noexcept
 {
     assert(nullptr != handler && handler->_registered_proactor == this);
     assert(is_in_io_thread());
@@ -379,7 +379,7 @@ void Proactor::launch_accept(ProactHandler *handler)
 }
 
 #if NUT_PLATFORM_OS_WINDOWS
-void Proactor::launch_connect_later(ProactHandler *handler, const InetAddr& address)
+void Proactor::launch_connect_later(ProactHandler *handler, const InetAddr& address) noexcept
 {
     assert(nullptr != handler);
 
@@ -396,7 +396,7 @@ void Proactor::launch_connect_later(ProactHandler *handler, const InetAddr& addr
     }
 }
 #else
-void Proactor::launch_connect_later(ProactHandler *handler)
+void Proactor::launch_connect_later(ProactHandler *handler) noexcept
 {
     assert(nullptr != handler);
 
@@ -416,7 +416,7 @@ void Proactor::launch_connect_later(ProactHandler *handler)
 
 
 #if NUT_PLATFORM_OS_WINDOWS
-void Proactor::launch_connect(ProactHandler *handler, const InetAddr& address)
+void Proactor::launch_connect(ProactHandler *handler, const InetAddr& address) noexcept
 {
     assert(nullptr != handler && handler->_registered_proactor == this);
     assert(is_in_io_thread());
@@ -448,7 +448,7 @@ void Proactor::launch_connect(ProactHandler *handler, const InetAddr& address)
     handler->_write_queue.push(io_request);
 }
 #else
-void Proactor::launch_connect(ProactHandler *handler)
+void Proactor::launch_connect(ProactHandler *handler) noexcept
 {
     assert(nullptr != handler && handler->_registered_proactor == this);
     assert(is_in_io_thread());
@@ -459,7 +459,7 @@ void Proactor::launch_connect(ProactHandler *handler)
 
 
 void Proactor::launch_read_later(ProactHandler *handler, void* const *buf_ptrs,
-                                 const size_t *len_ptrs, size_t buf_count)
+                                 const size_t *len_ptrs, size_t buf_count) noexcept
 {
     assert(nullptr != handler && nullptr != buf_ptrs && nullptr != len_ptrs && buf_count > 0);
 
@@ -486,7 +486,7 @@ void Proactor::launch_read_later(ProactHandler *handler, void* const *buf_ptrs,
 }
 
 void Proactor::launch_read(ProactHandler *handler, void* const *buf_ptrs,
-                           const size_t *len_ptrs, size_t buf_count)
+                           const size_t *len_ptrs, size_t buf_count) noexcept
 {
     assert(nullptr != handler && nullptr != buf_ptrs && nullptr != len_ptrs && buf_count > 0);
     assert(handler->_registered_proactor == this);
@@ -529,7 +529,7 @@ void Proactor::launch_read(ProactHandler *handler, void* const *buf_ptrs,
 }
 
 void Proactor::launch_write_later(ProactHandler *handler, void* const *buf_ptrs,
-                                  const size_t *len_ptrs, size_t buf_count)
+                                  const size_t *len_ptrs, size_t buf_count) noexcept
 {
     assert(nullptr != handler && nullptr != buf_ptrs && nullptr != len_ptrs && buf_count > 0);
 
@@ -556,7 +556,7 @@ void Proactor::launch_write_later(ProactHandler *handler, void* const *buf_ptrs,
 }
 
 void Proactor::launch_write(ProactHandler *handler, void* const *buf_ptrs,
-                            const size_t *len_ptrs, size_t buf_count)
+                            const size_t *len_ptrs, size_t buf_count) noexcept
 {
     assert(nullptr != handler && nullptr != buf_ptrs && nullptr != len_ptrs && buf_count > 0);
     assert(handler->_registered_proactor == this);
@@ -599,7 +599,7 @@ void Proactor::launch_write(ProactHandler *handler, void* const *buf_ptrs,
 }
 
 #if NUT_PLATFORM_OS_MACOS || NUT_PLATFORM_OS_LINUX
-void Proactor::enable_handler(ProactHandler *handler, ProactHandler::mask_type mask)
+void Proactor::enable_handler(ProactHandler *handler, ProactHandler::mask_type mask) noexcept
 {
     assert(nullptr != handler && 0 == (mask & ~ProactHandler::ALL_MASK));
     assert(handler->_registered_proactor == this);
@@ -658,7 +658,7 @@ void Proactor::enable_handler(ProactHandler *handler, ProactHandler::mask_type m
 #endif
 }
 
-void Proactor::disable_handler(ProactHandler *handler, ProactHandler::mask_type mask)
+void Proactor::disable_handler(ProactHandler *handler, ProactHandler::mask_type mask) noexcept
 {
     assert(nullptr != handler && 0 == (mask & ~ProactHandler::ALL_MASK));
     assert(handler->_registered_proactor == this);
@@ -707,7 +707,7 @@ void Proactor::disable_handler(ProactHandler *handler, ProactHandler::mask_type 
 }
 #endif
 
-int Proactor::poll(int timeout_ms)
+int Proactor::poll(int timeout_ms) noexcept
 {
     if (_closing_or_closed.load(std::memory_order_relaxed))
         return -1;
@@ -1092,7 +1092,7 @@ int Proactor::poll(int timeout_ms)
     return 0;
 }
 
-void Proactor::wakeup_poll_wait()
+void Proactor::wakeup_poll_wait() noexcept
 {
 #if NUT_PLATFORM_OS_WINDOWS
     if (!::PostQueuedCompletionStatus(_iocp, 0, 0, nullptr))

@@ -30,7 +30,7 @@ bool prepared = false;
 class ServerChannel : public ProactPackageChannel
 {
 public:
-    virtual void initialize() override
+    virtual void initialize()noexcept  override
     {
         set_proactor(&proactor);
         set_time_wheel(&timewheel);
@@ -39,19 +39,19 @@ public:
         prepared = true;
     }
 
-    void writeint(int data)
+    void writeint(int data) noexcept
     {
         rc_ptr<Package> pkg = rc_new<Package>();
         *pkg << data;
         write_later(pkg);
     }
 
-    virtual void handle_connected() override
+    virtual void handle_connected() noexcept override
     {
         NUT_LOG_D(TAG, "server got a connection, fd %d", get_socket());
     }
 
-    virtual void handle_read(Package *pkg) override
+    virtual void handle_read(Package *pkg) noexcept override
     {
         assert(nullptr != pkg);
         int rs = pkg->readable_size();
@@ -60,7 +60,7 @@ public:
         NUT_LOG_D(TAG, "server received %d bytes: %d", rs, data);
     }
 
-    virtual void handle_closed(int err) override
+    virtual void handle_closed(int err) noexcept override
     {
         NUT_LOG_D(TAG, "server closed, %d: %s", err, str_error(err));
 
@@ -73,26 +73,26 @@ class ClientChannel : public ProactChannel
     int _read_data = 0;
 
 public:
-    virtual void initialize() override
+    virtual void initialize() noexcept override
     {
         client = this;
     }
 
-    void write(int data)
+    void write(int data) noexcept
     {
         void *buf = &data;
         size_t len = sizeof(data);
         proactor.launch_write(this, &buf, &len, 1);
     }
 
-    void read()
+    void read() noexcept
     {
         void *buf = &_read_data;
         size_t len = sizeof(_read_data);
         proactor.launch_read(this, &buf, &len, 1);
     }
 
-    void close()
+    void close() noexcept
     {
         NUT_LOG_D(TAG, "client close");
         proactor.unregister_handler(this);
@@ -100,24 +100,24 @@ public:
         client = nullptr;
     }
 
-    virtual void handle_channel_connected() override
+    virtual void handle_channel_connected() noexcept override
     {
         NUT_LOG_D(TAG, "client make a connection, fd %d", get_socket());
 
         proactor.register_handler(this);
     }
 
-    virtual void handle_read_completed(size_t cb) override
+    virtual void handle_read_completed(size_t cb) noexcept override
     {
         NUT_LOG_D(TAG, "client received %d bytes: %d", cb, _read_data);
     }
 
-    virtual void handle_write_completed(size_t cb) override
+    virtual void handle_write_completed(size_t cb) noexcept override
     {
         NUT_LOG_D(TAG, "client send %d bytes", cb);
     }
 
-    virtual void handle_io_error(int err) override
+    virtual void handle_io_error(int err) noexcept override
     {
         NUT_LOG_D(TAG, "client exception %d", err);
     }
@@ -125,7 +125,7 @@ public:
 
 }
 
-void test_proact_package_manually()
+void test_proact_package_manually() noexcept
 {
     // start server
     InetAddr addr(LISTEN_ADDR, LISTEN_PORT);

@@ -16,7 +16,7 @@
 namespace loofah
 {
 
-void ReactPackageChannel::set_reactor(Reactor *reactor)
+void ReactPackageChannel::set_reactor(Reactor *reactor) noexcept
 {
     assert(nullptr != reactor);
     NUT_DEBUGGING_ASSERT_ALIVE;
@@ -25,12 +25,12 @@ void ReactPackageChannel::set_reactor(Reactor *reactor)
     _poller = reactor;
 }
 
-SockStream& ReactPackageChannel::get_sock_stream()
+SockStream& ReactPackageChannel::get_sock_stream() noexcept
 {
     return _sock_stream;
 }
 
-void ReactPackageChannel::open(socket_t fd)
+void ReactPackageChannel::open(socket_t fd) noexcept
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(_sock_stream.is_null());
@@ -38,7 +38,7 @@ void ReactPackageChannel::open(socket_t fd)
     ReactChannel::open(fd);
 }
 
-void ReactPackageChannel::handle_channel_connected()
+void ReactPackageChannel::handle_channel_connected() noexcept
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(nullptr != _poller && _poller->is_in_io_thread());
@@ -50,7 +50,7 @@ void ReactPackageChannel::handle_channel_connected()
     handle_connected();
 }
 
-void ReactPackageChannel::close(int err, bool discard_write)
+void ReactPackageChannel::close(int err, bool discard_write) noexcept
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(nullptr != _poller && _poller->is_in_io_thread());
@@ -77,7 +77,7 @@ void ReactPackageChannel::close(int err, bool discard_write)
     setup_force_close_timer(err);
 }
 
-void ReactPackageChannel::force_close(int err)
+void ReactPackageChannel::force_close(int err) noexcept
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(nullptr != _poller && _poller->is_in_io_thread());
@@ -108,7 +108,7 @@ void ReactPackageChannel::force_close(int err)
     }
 }
 
-void ReactPackageChannel::handle_read_ready()
+void ReactPackageChannel::handle_read_ready() noexcept
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(nullptr != _poller && _poller->is_in_io_thread());
@@ -151,7 +151,7 @@ void ReactPackageChannel::handle_read_ready()
     }
 }
 
-void ReactPackageChannel::write(Package *pkg)
+void ReactPackageChannel::write(Package *pkg) noexcept
 {
     assert(nullptr != pkg);
     NUT_DEBUGGING_ASSERT_ALIVE;
@@ -170,7 +170,7 @@ void ReactPackageChannel::write(Package *pkg)
         ((Reactor*) _poller)->enable_handler(this, ReactHandler::WRITE_MASK);
 }
 
-void ReactPackageChannel::handle_write_ready()
+void ReactPackageChannel::handle_write_ready() noexcept
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(nullptr != _poller && _poller->is_in_io_thread());
@@ -284,7 +284,7 @@ void ReactPackageChannel::handle_write_ready()
     }
 }
 
-void ReactPackageChannel::handle_io_error(int err)
+void ReactPackageChannel::handle_io_error(int err) noexcept
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(nullptr != _poller && _poller->is_in_io_thread());

@@ -27,7 +27,7 @@ LPFN_CONNECTEX func_ConnectEx = nullptr;
 LPFN_GETACCEPTEXSOCKADDRS func_GetAcceptExSockaddrs = nullptr;
 #endif
 
-bool init_network()
+bool init_network() noexcept
 {
 #if NUT_PLATFORM_OS_WINDOWS
     // 初始化网络库
@@ -89,7 +89,7 @@ bool init_network()
 #endif
 }
 
-void shutdown_network()
+void shutdown_network() noexcept
 {
 #if NUT_PLATFORM_OS_WINDOWS
     if (0 != ::WSACleanup())

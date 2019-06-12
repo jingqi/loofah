@@ -21,17 +21,17 @@ public:
     /**
      * 初始化
      */
-    virtual void initialize() = 0;
+    virtual void initialize() noexcept = 0;
 
     /**
      * 设置 socket fd
      */
-    virtual void open(socket_t sock_fd) = 0;
+    virtual void open(socket_t sock_fd) noexcept = 0;
 
     /**
      * 链接已经建立
      */
-    virtual void handle_channel_connected() = 0;
+    virtual void handle_channel_connected() noexcept = 0;
 
 private:
     Channel(const Channel&) = delete;

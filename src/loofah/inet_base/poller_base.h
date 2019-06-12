@@ -20,7 +20,8 @@ public:
     typedef std::function<void()> task_type;
 
 public:
-    PollerBase();
+    PollerBase() noexcept;
+    virtual ~PollerBase() = default;
 
     /**
      * 当前上下文是否在 IO 线程中
@@ -44,7 +45,7 @@ public:
      *   poll()
      *   shutdown()
      */
-    bool is_in_io_thread() const;
+    bool is_in_io_thread() const noexcept;
 
     /**
      * 当前上下文是否在 IO 线程中, 并且处于轮询间隔
@@ -52,13 +53,13 @@ public:
      * NOTE:
      * - ReactPackageChannel, ProactPackageChannel 的析构需要放到轮询间隔中
      */
-    bool is_in_io_thread_and_not_polling() const;
+    bool is_in_io_thread_and_not_polling() const noexcept;
 
     /**
      * 在事件循环线程且事件处理间隔中运行
      */
-    void run_later(task_type&& task);
-    void run_later(const task_type& task);
+    void run_later(task_type&& task) noexcept;
+    void run_later(const task_type& task) noexcept;
 
     /**
      * 如果 io 线程处于轮询等待状态(select() / WSAPoll() / kevent() / epoll_wait())
@@ -66,7 +67,7 @@ public:
      *
      * NOTE 该方法可以从非 io 线程调用
      */
-    virtual void wakeup_poll_wait() = 0;
+    virtual void wakeup_poll_wait() noexcept = 0;
 
 protected:
     /**
@@ -74,13 +75,13 @@ protected:
      *
      * NOTE This method can only be called from inside IO thread
      */
-    void run_later_tasks();
+    void run_later_tasks() noexcept;
 
     /**
      * 添加一个异步任务
      */
-    void add_later_task(task_type&& task);
-    void add_later_task(const task_type& task);
+    void add_later_task(task_type&& task) noexcept;
+    void add_later_task(const task_type& task) noexcept;
 
 private:
     PollerBase(const PollerBase&) = delete;

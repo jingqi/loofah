@@ -20,17 +20,17 @@ class LOOFAH_API ProactConnectorBase
 public:
     virtual ~ProactConnectorBase() = default;
 
-    bool connect(Proactor *proactor, const InetAddr& address);
+    bool connect(Proactor *proactor, const InetAddr& address) noexcept;
 
 protected:
-    virtual nut::rc_ptr<ProactChannel> create_channel() = 0;
+    virtual nut::rc_ptr<ProactChannel> create_channel() noexcept = 0;
 };
 
 template <typename CHANNEL>
 class ProactConnector : public ProactConnectorBase
 {
 protected:
-    virtual nut::rc_ptr<ProactChannel> create_channel() final override
+    virtual nut::rc_ptr<ProactChannel> create_channel() noexcept final override
     {
         return nut::rc_new<CHANNEL>();
     }

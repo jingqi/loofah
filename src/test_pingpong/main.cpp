@@ -19,13 +19,13 @@ using namespace std;
 
 GlobalData g_global;
 
-static void setup_std_logger()
+static void setup_std_logger() noexcept
 {
     rc_ptr<ConsoleLogHandler> handler = rc_new<ConsoleLogHandler>();
     Logger::get_instance()->add_handler(handler);
 }
 
-static void print_help()
+static void print_help() noexcept
 {
     cout << "test_pingpong" << endl <<
         " -h" << endl <<
@@ -34,7 +34,7 @@ static void print_help()
         " -s WAIT_SECONDS" << endl;
 }
 
-static int parse_params(int argc, char *argv[])
+static int parse_params(int argc, char *argv[]) noexcept
 {
     assert(nullptr != argv);
     if (argc <= 1)
@@ -94,7 +94,7 @@ static int parse_params(int argc, char *argv[])
     return 0;
 }
 
-std::string size_to_str(size_t size)
+std::string size_to_str(size_t size) noexcept
 {
     if (size < 1024)
         return llong_to_str(size);
@@ -122,7 +122,7 @@ std::string size_to_str(size_t size)
     return buf;
 }
 
-static void report()
+static void report() noexcept
 {
     cout << "-------------------------" << endl <<
         "thread: " << 1 << endl <<

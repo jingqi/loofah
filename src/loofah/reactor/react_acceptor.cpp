@@ -18,14 +18,14 @@
 namespace loofah
 {
 
-ReactAcceptorBase::~ReactAcceptorBase()
+ReactAcceptorBase::~ReactAcceptorBase() noexcept
 {
     if (LOOFAH_INVALID_SOCKET_FD != _listening_socket)
         SockOperation::close(_listening_socket);
     _listening_socket = LOOFAH_INVALID_SOCKET_FD;
 }
 
-bool ReactAcceptorBase::listen(const InetAddr& addr, int listen_num)
+bool ReactAcceptorBase::listen(const InetAddr& addr, int listen_num) noexcept
 {
     // Create socket
     const int domain = addr.is_ipv6() ? AF_INET6 : AF_INET;
@@ -69,12 +69,12 @@ bool ReactAcceptorBase::listen(const InetAddr& addr, int listen_num)
     return true;
 }
 
-socket_t ReactAcceptorBase::get_socket() const
+socket_t ReactAcceptorBase::get_socket() const noexcept
 {
     return _listening_socket;
 }
 
-void ReactAcceptorBase::handle_accept_ready()
+void ReactAcceptorBase::handle_accept_ready() noexcept
 {
     // NOTE 在 edge-trigger 模式下，需要一次接收干净
     while (true)
@@ -92,7 +92,7 @@ void ReactAcceptorBase::handle_accept_ready()
     }
 }
 
-socket_t ReactAcceptorBase::accept(socket_t listening_socket)
+socket_t ReactAcceptorBase::accept(socket_t listening_socket) noexcept
 {
     InetAddr peer_addr;
     socklen_t rsz = peer_addr.get_max_sockaddr_size();
@@ -131,22 +131,22 @@ socket_t ReactAcceptorBase::accept(socket_t listening_socket)
     return fd;
 }
 
-void ReactAcceptorBase::handle_connect_ready()
+void ReactAcceptorBase::handle_connect_ready() noexcept
 {
     assert(false); // Should not run into this place
 }
 
-void ReactAcceptorBase::handle_read_ready()
+void ReactAcceptorBase::handle_read_ready() noexcept
 {
     assert(false); // Should not run into this place
 }
 
-void ReactAcceptorBase::handle_write_ready()
+void ReactAcceptorBase::handle_write_ready() noexcept
 {
     assert(false); // Should not run into this place
 }
 
-void ReactAcceptorBase::handle_io_error(int err)
+void ReactAcceptorBase::handle_io_error(int err) noexcept
 {
     NUT_LOG_E(TAG, "fd %d, loofah error raised %d: %s", get_socket(),
               err, str_error(err));

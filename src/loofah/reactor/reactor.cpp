@@ -41,7 +41,7 @@ namespace
 {
 
 #if NUT_PLATFORM_OS_WINDOWS && WINVER < _WIN32_WINNT_WINBLUE && !defined(FD_COPY)
-void FD_COPY(fd_set *dst, const fd_set *src)
+void FD_COPY(fd_set *dst, const fd_set *src) noexcept
 {
     assert(nullptr != dst && nullptr != src);
     const unsigned count = src->fd_count;
@@ -50,7 +50,7 @@ void FD_COPY(fd_set *dst, const fd_set *src)
 }
 #endif
 
-ReactHandler::mask_type real_mask(ReactHandler::mask_type mask)
+ReactHandler::mask_type real_mask(ReactHandler::mask_type mask) noexcept
 {
     ReactHandler::mask_type ret = 0;
     if (0 != (mask & ReactHandler::ACCEPT_READ_MASK))
@@ -62,7 +62,7 @@ ReactHandler::mask_type real_mask(ReactHandler::mask_type mask)
 
 }
 
-Reactor::Reactor()
+Reactor::Reactor() noexcept
 {
 #if NUT_PLATFORM_OS_WINDOWS && WINVER < _WIN32_WINNT_WINBLUE
     FD_ZERO(&_read_set);
@@ -114,7 +114,7 @@ Reactor::Reactor()
 #endif
 }
 
-Reactor::~Reactor()
+Reactor::~Reactor() noexcept
 {
     shutdown();
 
@@ -128,7 +128,7 @@ Reactor::~Reactor()
 #endif
 }
 
-void Reactor::shutdown_later()
+void Reactor::shutdown_later() noexcept
 {
     _closing_or_closed.store(true, std::memory_order_relaxed);
 
@@ -136,7 +136,7 @@ void Reactor::shutdown_later()
         wakeup_poll_wait();
 }
 
-void Reactor::shutdown()
+void Reactor::shutdown() noexcept
 {
     assert(is_in_io_thread());
 
@@ -193,7 +193,7 @@ void Reactor::shutdown()
 }
 
 #if NUT_PLATFORM_OS_WINDOWS && WINVER >= _WIN32_WINNT_WINBLUE
-void Reactor::ensure_capacity(size_t new_size)
+void Reactor::ensure_capacity(size_t new_size) noexcept
 {
     if (new_size <= _capacity)
         return;
@@ -210,7 +210,7 @@ void Reactor::ensure_capacity(size_t new_size)
     _capacity = new_cap;
 }
 
-ssize_t Reactor::binary_search(ReactHandler *handler)
+ssize_t Reactor::binary_search(ReactHandler *handler) noexcept
 {
     ssize_t left = -1, right = _size;
     while (left + 1 < right)
@@ -227,7 +227,7 @@ ssize_t Reactor::binary_search(ReactHandler *handler)
 }
 #endif
 
-void Reactor::register_handler_later(ReactHandler *handler, ReactHandler::mask_type mask)
+void Reactor::register_handler_later(ReactHandler *handler, ReactHandler::mask_type mask) noexcept
 {
     assert(nullptr != handler);
 
@@ -244,7 +244,7 @@ void Reactor::register_handler_later(ReactHandler *handler, ReactHandler::mask_t
     }
 }
 
-void Reactor::register_handler(ReactHandler *handler, ReactHandler::mask_type mask)
+void Reactor::register_handler(ReactHandler *handler, ReactHandler::mask_type mask) noexcept
 {
     assert(nullptr != handler && 0 == (mask & ~ReactHandler::ALL_MASK));
     assert(nullptr == handler->_registered_reactor && 0 == handler->_enabled_events);
@@ -263,7 +263,7 @@ void Reactor::register_handler(ReactHandler *handler, ReactHandler::mask_type ma
     enable_handler(handler, mask);
 }
 
-void Reactor::unregister_handler_later(ReactHandler *handler)
+void Reactor::unregister_handler_later(ReactHandler *handler) noexcept
 {
     assert(nullptr != handler);
 
@@ -280,7 +280,7 @@ void Reactor::unregister_handler_later(ReactHandler *handler)
     }
 }
 
-void Reactor::unregister_handler(ReactHandler *handler)
+void Reactor::unregister_handler(ReactHandler *handler) noexcept
 {
     assert(nullptr != handler && handler->_registered_reactor == this);
     assert(is_in_io_thread());
@@ -347,7 +347,7 @@ void Reactor::unregister_handler(ReactHandler *handler)
 #endif
 }
 
-void Reactor::enable_handler_later(ReactHandler *handler, ReactHandler::mask_type mask)
+void Reactor::enable_handler_later(ReactHandler *handler, ReactHandler::mask_type mask) noexcept
 {
     assert(nullptr != handler);
 
@@ -364,7 +364,7 @@ void Reactor::enable_handler_later(ReactHandler *handler, ReactHandler::mask_typ
     }
 }
 
-void Reactor::enable_handler(ReactHandler *handler, ReactHandler::mask_type mask)
+void Reactor::enable_handler(ReactHandler *handler, ReactHandler::mask_type mask) noexcept
 {
     assert(nullptr != handler && 0 == (mask & ~ReactHandler::ALL_MASK));
     assert(handler->_registered_reactor == this);
@@ -468,7 +468,7 @@ void Reactor::enable_handler(ReactHandler *handler, ReactHandler::mask_type mask
 #endif
 }
 
-void Reactor::disable_handler_later(ReactHandler *handler, ReactHandler::mask_type mask)
+void Reactor::disable_handler_later(ReactHandler *handler, ReactHandler::mask_type mask) noexcept
 {
     assert(nullptr != handler);
 
@@ -485,7 +485,7 @@ void Reactor::disable_handler_later(ReactHandler *handler, ReactHandler::mask_ty
     }
 }
 
-void Reactor::disable_handler(ReactHandler *handler, ReactHandler::mask_type mask)
+void Reactor::disable_handler(ReactHandler *handler, ReactHandler::mask_type mask) noexcept
 {
     assert(nullptr != handler && 0 == (mask & ~ReactHandler::ALL_MASK));
     assert(handler->_registered_reactor == this);
@@ -553,7 +553,7 @@ void Reactor::disable_handler(ReactHandler *handler, ReactHandler::mask_type mas
 #endif
 }
 
-int Reactor::poll(int timeout_ms)
+int Reactor::poll(int timeout_ms) noexcept
 {
     if (_closing_or_closed.load(std::memory_order_relaxed))
         return -1;
@@ -812,7 +812,7 @@ int Reactor::poll(int timeout_ms)
     return 0;
 }
 
-void Reactor::wakeup_poll_wait()
+void Reactor::wakeup_poll_wait() noexcept
 {
 #if NUT_PLATFORM_OS_MACOS
     struct kevent ev;

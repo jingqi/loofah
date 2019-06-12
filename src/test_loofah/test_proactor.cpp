@@ -32,13 +32,13 @@ class ServerChannel : public ProactChannel
     int _tmp = 0;
 
 public:
-    virtual void initialize() override
+    virtual void initialize() noexcept override
     {
         server = this;
         prepared = true;
     }
 
-    virtual void handle_channel_connected() override
+    virtual void handle_channel_connected() noexcept override
     {
         NUT_LOG_D(TAG, "server got a connection, fd %d", get_socket());
 
@@ -49,7 +49,7 @@ public:
         proactor.launch_read(this, &buf, &len, 1);
     }
 
-    virtual void handle_read_completed(size_t cb) override
+    virtual void handle_read_completed(size_t cb) noexcept override
     {
         NUT_LOG_D(TAG, "server received %d bytes: %d", cb, _tmp);
         if (0 == cb) // 正常结束
@@ -70,7 +70,7 @@ public:
         proactor.launch_write(this, &buf, &len, 1);
     }
 
-    virtual void handle_write_completed(size_t cb) override
+    virtual void handle_write_completed(size_t cb) noexcept override
     {
         NUT_LOG_D(TAG, "server send %d bytes: %d", cb, _counter);
         assert(cb == sizeof(_counter));
@@ -81,7 +81,7 @@ public:
         proactor.launch_read(this, &buf, &len, 1);
     }
 
-    virtual void handle_io_error(int err) override
+    virtual void handle_io_error(int err) noexcept override
     {
         NUT_LOG_E(TAG, "server exception %d", err);
     }
@@ -93,12 +93,12 @@ class ClientChannel : public ProactChannel
     int _tmp = 0;
 
 public:
-    virtual void initialize() override
+    virtual void initialize() noexcept override
     {
         client = this;
     }
 
-    virtual void handle_channel_connected() override
+    virtual void handle_channel_connected() noexcept override
     {
         NUT_LOG_D(TAG, "client make a connection, fd %d", get_socket());
 
@@ -109,7 +109,7 @@ public:
         proactor.launch_write(this, &buf, &len, 1);
     }
 
-    virtual void handle_read_completed(size_t cb) override
+    virtual void handle_read_completed(size_t cb) noexcept override
     {
         NUT_LOG_D(TAG, "client received %d bytes: %d", cb, _tmp);
         if (0 == cb) // 正常结束
@@ -139,7 +139,7 @@ public:
         proactor.launch_write(this, &buf, &len, 1);
     }
 
-    virtual void handle_write_completed(size_t cb) override
+    virtual void handle_write_completed(size_t cb) noexcept override
     {
         NUT_LOG_D(TAG, "client send %d bytes: %d", cb, _counter);
         assert(cb == sizeof(_counter));
@@ -150,7 +150,7 @@ public:
         proactor.launch_read(this, &buf, &len, 1);
     }
 
-    virtual void handle_io_error(int err) override
+    virtual void handle_io_error(int err) noexcept override
     {
         NUT_LOG_E(TAG, "client exception %d", err);
     }
@@ -160,7 +160,7 @@ public:
 
 class TestProactor : public TestFixture
 {
-    virtual void register_cases() override
+    virtual void register_cases() noexcept override
     {
         NUT_REGISTER_CASE(test_proactor);
     }

@@ -19,41 +19,41 @@ namespace loofah
 class LOOFAH_API Reactor : public PollerBase
 {
 public:
-    Reactor();
-    ~Reactor();
+    Reactor() noexcept;
+    virtual ~Reactor() noexcept override;
 
-    void register_handler(ReactHandler *handler, ReactHandler::mask_type mask);
-    void register_handler_later(ReactHandler *handler, ReactHandler::mask_type mask);
+    void register_handler(ReactHandler *handler, ReactHandler::mask_type mask) noexcept;
+    void register_handler_later(ReactHandler *handler, ReactHandler::mask_type mask) noexcept;
 
-    void unregister_handler(ReactHandler *handler);
-    void unregister_handler_later(ReactHandler *handler);
+    void unregister_handler(ReactHandler *handler) noexcept;
+    void unregister_handler_later(ReactHandler *handler) noexcept;
 
-    void enable_handler(ReactHandler *handler, ReactHandler::mask_type mask);
-    void enable_handler_later(ReactHandler *handler, ReactHandler::mask_type mask);
+    void enable_handler(ReactHandler *handler, ReactHandler::mask_type mask) noexcept;
+    void enable_handler_later(ReactHandler *handler, ReactHandler::mask_type mask) noexcept;
 
-    void disable_handler(ReactHandler *handler, ReactHandler::mask_type mask);
-    void disable_handler_later(ReactHandler *handler, ReactHandler::mask_type mask);
+    void disable_handler(ReactHandler *handler, ReactHandler::mask_type mask) noexcept;
+    void disable_handler_later(ReactHandler *handler, ReactHandler::mask_type mask) noexcept;
 
     /**
      * 关闭 reactor
      */
-    void shutdown_later();
+    void shutdown_later() noexcept;
 
     /**
      * @param timeout_ms <0 无限等待; >=0 等待超时的毫秒数
      * @return 0 表示正常; <0 表示出错
      */
-    int poll(int timeout_ms = 1000);
+    int poll(int timeout_ms = 1000) noexcept;
 
-    virtual void wakeup_poll_wait() final override;
+    virtual void wakeup_poll_wait() noexcept final override;
 
 protected:
 #if NUT_PLATFORM_OS_WINDOWS && WINVER >= _WIN32_WINNT_WINBLUE
-    void ensure_capacity(size_t new_size);
-    ssize_t binary_search(ReactHandler *handler);
+    void ensure_capacity(size_t new_size) noexcept;
+    ssize_t binary_search(ReactHandler *handler) noexcept;
 #endif
 
-    void shutdown();
+    void shutdown() noexcept;
 
 private:
 #if NUT_PLATFORM_OS_WINDOWS && WINVER < _WIN32_WINNT_WINBLUE

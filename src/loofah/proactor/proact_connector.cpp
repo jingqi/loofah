@@ -17,7 +17,7 @@
 namespace loofah
 {
 
-bool ProactConnectorBase::connect(Proactor *proactor, const InetAddr& address)
+bool ProactConnectorBase::connect(Proactor *proactor, const InetAddr& address) noexcept
 {
     assert(nullptr != proactor);
 

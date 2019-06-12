@@ -19,40 +19,40 @@ public:
     typedef uint32_t header_type;
 
 public:
-    explicit Package(size_t init_cap = 16);
-    Package(const void *buf, size_t len);
-    ~Package();
+    explicit Package(size_t init_cap = 16) noexcept;
+    Package(const void *buf, size_t len) noexcept;
+    ~Package() noexcept;
 
-    virtual bool is_little_endian() const override;
-    virtual void set_little_endian(bool le) override;
+    virtual bool is_little_endian() const noexcept override;
+    virtual void set_little_endian(bool le) noexcept override;
 
-    void clear();
+    void clear() noexcept;
 
-    virtual size_t readable_size() const override;
-    const void* readable_data() const;
-    virtual void skip_read(size_t len) override;
-    virtual size_t read(void *buf, size_t len) override;
+    virtual size_t readable_size() const noexcept override;
+    const void* readable_data() const noexcept;
+    virtual void skip_read(size_t len) noexcept override;
+    virtual size_t read(void *buf, size_t len) noexcept override;
 
-    size_t writable_size() const;
-    void* writable_data();
-    void skip_write(size_t len);
-    void ensure_writable_size(size_t write_size);
-    virtual size_t write(const void *buf, size_t len) override;
+    size_t writable_size() const noexcept;
+    void* writable_data() noexcept;
+    void skip_write(size_t len) noexcept;
+    void ensure_writable_size(size_t write_size) noexcept;
+    virtual size_t write(const void *buf, size_t len) noexcept override;
 
     /**
      * 在数据前面添加一个 header 来存储数据大小，并设置读指针到 header
      */
-    void raw_pack();
+    void raw_pack() noexcept;
 
     /**
      * header big endian to host endian
      */
-    static header_type header_betoh(header_type header);
+    static header_type header_betoh(header_type header) noexcept;
 
     /**
      * 设置读、写指针到 header，准备写入 header
      */
-    void raw_rewind();
+    void raw_rewind() noexcept;
 
 private:
     Package(const Package&) = delete;

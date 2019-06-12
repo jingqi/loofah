@@ -14,7 +14,7 @@
 namespace loofah
 {
 
-int from_errno(int err)
+int from_errno(int err) noexcept
 {
 #if NUT_PLATFORM_OS_WINDOWS
     // Check https://docs.microsoft.com/zh-cn/windows/desktop/WinSock/windows-sockets-error-codes-2
@@ -45,7 +45,7 @@ int from_errno(int err)
     return LOOFAH_ERR_UNKNOWN;
 }
 
-const char* str_error(int err)
+LOOFAH_API const char* str_error(int err) noexcept
 {
     switch (err)
     {

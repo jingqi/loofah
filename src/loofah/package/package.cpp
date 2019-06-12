@@ -19,13 +19,13 @@
 namespace loofah
 {
 
-Package::Package(size_t init_cap)
+Package::Package(size_t init_cap) noexcept
 {
     _buffer = (uint8_t*) ::malloc(sizeof(header_type) + init_cap);
     _capacity = sizeof(header_type) + init_cap;
 }
 
-Package::Package(const void *buf, size_t len)
+Package::Package(const void *buf, size_t len) noexcept
 {
     _buffer = (uint8_t*) ::malloc(sizeof(header_type) + len);
     ::memcpy(_buffer + sizeof(header_type), buf, len);
@@ -33,22 +33,22 @@ Package::Package(const void *buf, size_t len)
     _write_index = sizeof(header_type) + len;
 }
 
-Package::~Package()
+Package::~Package() noexcept
 {
     clear();
 }
 
-bool Package::is_little_endian() const
+bool Package::is_little_endian() const noexcept
 {
     return _little_endian;
 }
 
-void Package::set_little_endian(bool le)
+void Package::set_little_endian(bool le) noexcept
 {
     _little_endian = le;
 }
 
-void Package::clear()
+void Package::clear() noexcept
 {
     if (nullptr != _buffer)
         ::free(_buffer);
@@ -58,25 +58,25 @@ void Package::clear()
     _write_index = sizeof(header_type);
 }
 
-size_t Package::readable_size() const
+size_t Package::readable_size() const noexcept
 {
     VALIDATE_MEMBERS();
     return _write_index - _read_index;
 }
 
-const void* Package::readable_data() const
+const void* Package::readable_data() const noexcept
 {
     VALIDATE_MEMBERS();
     return _buffer + _read_index;
 }
 
-void Package::skip_read(size_t len)
+void Package::skip_read(size_t len) noexcept
 {
     assert(len <= readable_size());
     _read_index += len;
 }
 
-size_t Package::read(void *buf, size_t len)
+size_t Package::read(void *buf, size_t len) noexcept
 {
     assert(nullptr != buf);
     size_t ret = std::min(len, readable_size());
@@ -85,7 +85,7 @@ size_t Package::read(void *buf, size_t len)
     return ret;
 }
 
-size_t Package::writable_size() const
+size_t Package::writable_size() const noexcept
 {
     VALIDATE_MEMBERS();
     if (0 == _capacity)
@@ -93,19 +93,19 @@ size_t Package::writable_size() const
     return _capacity - _write_index;
 }
 
-void* Package::writable_data()
+void* Package::writable_data() noexcept
 {
     VALIDATE_MEMBERS();
     return _buffer + _write_index;
 }
 
-void Package::skip_write(size_t len)
+void Package::skip_write(size_t len) noexcept
 {
     assert(len <= writable_size());
     _write_index += len;
 }
 
-void Package::ensure_writable_size(size_t write_size)
+void Package::ensure_writable_size(size_t write_size) noexcept
 {
     VALIDATE_MEMBERS();
 
@@ -145,7 +145,7 @@ void Package::ensure_writable_size(size_t write_size)
     }
 }
 
-size_t Package::write(const void *buf, size_t len)
+size_t Package::write(const void *buf, size_t len) noexcept
 {
     assert(nullptr != buf);
     ensure_writable_size(len);
@@ -154,7 +154,7 @@ size_t Package::write(const void *buf, size_t len)
     return len;
 }
 
-void Package::raw_pack()
+void Package::raw_pack() noexcept
 {
     VALIDATE_MEMBERS();
     assert(_read_index >= sizeof(header_type)); // NOTE Space for header
@@ -170,13 +170,13 @@ void Package::raw_pack()
     _read_index -= sizeof(header_type);
 }
 
-Package::header_type Package::header_betoh(header_type header)
+Package::header_type Package::header_betoh(header_type header) noexcept
 {
     assert(sizeof(header) == 4);
     return be32toh(header);
 }
 
-void Package::raw_rewind()
+void Package::raw_rewind() noexcept
 {
     VALIDATE_MEMBERS();
     assert(nullptr != _buffer);

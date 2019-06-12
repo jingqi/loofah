@@ -15,13 +15,13 @@ class LOOFAH_API ReactChannel : public Channel, public ReactHandler
     NUT_REF_COUNTABLE_OVERRIDE
 
 public:
-    SockStream& get_sock_stream();
+    SockStream& get_sock_stream() noexcept;
 
-    virtual void open(socket_t fd) override;
+    virtual void open(socket_t fd) noexcept override;
 
-    virtual socket_t get_socket() const final override;
-    virtual void handle_accept_ready() final override;
-    virtual void handle_connect_ready() final override;
+    virtual socket_t get_socket() const noexcept final override;
+    virtual void handle_accept_ready() noexcept final override;
+    virtual void handle_connect_ready() noexcept final override;
 
 protected:
     SockStream _sock_stream;

@@ -60,7 +60,7 @@ namespace loofah
  * See http://stackoverflow.com/questions/15660203/inet-pton-identifier-not-found
  */
 #if NUT_PLATFORM_OS_WINDOWS && NUT_PLATFORM_CC_MINGW
-static int inet_pton(int af, const char *src, void *dst)
+static int inet_pton(int af, const char *src, void *dst) noexcept
 {
     /* Stupid non-const API */
     const size_t maxlen = std::max(INET_ADDRSTRLEN, INET6_ADDRSTRLEN); // Include tailing '\0' already
@@ -88,7 +88,7 @@ static int inet_pton(int af, const char *src, void *dst)
     return 0;
 }
 
-static const char* inet_ntop(int af, const void *src, char *dst, socklen_t size)
+static const char* inet_ntop(int af, const void *src, char *dst, socklen_t size) noexcept
 {
     struct sockaddr_storage ss;
     ::memset(&ss, 0, sizeof(ss));
@@ -116,7 +116,7 @@ static const char* inet_ntop(int af, const void *src, char *dst, socklen_t size)
 }
 #endif
 
-InetAddr::InetAddr(int port, bool loopback, bool ipv6)
+InetAddr::InetAddr(int port, bool loopback, bool ipv6) noexcept
 {
     assert(((void*) &_sock_addr) == ((void*) &_sock_addr6));
 
@@ -142,7 +142,7 @@ InetAddr::InetAddr(int port, bool loopback, bool ipv6)
     }
 }
 
-InetAddr::InetAddr(const char *addr, int port, bool ipv6)
+InetAddr::InetAddr(const char *addr, int port, bool ipv6) noexcept
 {
     assert(nullptr != addr);
     assert(((void*) &_sock_addr) == ((void*) &_sock_addr6));
@@ -210,19 +210,19 @@ InetAddr::InetAddr(const char *addr, int port, bool ipv6)
     // NUT_LOG_D(TAG, "resolved ip: \"%s\" -> \"%s\"", addr, ::inet_ntoa(_sock_addr.sin_addr));
 }
 
-InetAddr::InetAddr(const struct sockaddr_in& sock_addr)
+InetAddr::InetAddr(const struct sockaddr_in& sock_addr) noexcept
 {
     assert(((void*) &_sock_addr) == ((void*) &_sock_addr6));
     ::memcpy(&_sock_addr, &sock_addr, sizeof(sock_addr));
 }
 
-InetAddr::InetAddr(const struct sockaddr_in6& sock_addr)
+InetAddr::InetAddr(const struct sockaddr_in6& sock_addr) noexcept
 {
     assert(((void*) &_sock_addr) == ((void*) &_sock_addr6));
     ::memcpy(&_sock_addr6, &sock_addr, sizeof(sock_addr));
 }
 
-InetAddr::InetAddr(const struct sockaddr* sock_addr)
+InetAddr::InetAddr(const struct sockaddr* sock_addr) noexcept
 {
     assert(nullptr != sock_addr);
     if (AF_INET == sock_addr->sa_family)
@@ -231,7 +231,7 @@ InetAddr::InetAddr(const struct sockaddr* sock_addr)
         ::memcpy(&_sock_addr6, sock_addr, sizeof(_sock_addr6));
 }
 
-bool InetAddr::operator==(const InetAddr& addr) const
+bool InetAddr::operator==(const InetAddr& addr) const noexcept
 {
     if (AF_INET == _sock_addr.sin_family && AF_INET == addr._sock_addr.sin_family)
     {
@@ -247,37 +247,37 @@ bool InetAddr::operator==(const InetAddr& addr) const
     return false;
 }
 
-bool InetAddr::operator!=(const InetAddr& addr) const
+bool InetAddr::operator!=(const InetAddr& addr) const noexcept
 {
     return !(*this == addr);
 }
 
-bool InetAddr::is_ipv6() const
+bool InetAddr::is_ipv6() const noexcept
 {
     return AF_INET6 == _sock_addr6.sin6_family;
 }
 
-struct sockaddr* InetAddr::cast_to_sockaddr()
+struct sockaddr* InetAddr::cast_to_sockaddr() noexcept
 {
     return (struct sockaddr*) &_sock_addr;
 }
 
-const struct sockaddr* InetAddr::cast_to_sockaddr() const
+const struct sockaddr* InetAddr::cast_to_sockaddr() const noexcept
 {
     return (const struct sockaddr*) &_sock_addr;
 }
 
-socklen_t InetAddr::get_max_sockaddr_size() const
+socklen_t InetAddr::get_max_sockaddr_size() const noexcept
 {
     return (std::max)(sizeof(_sock_addr), sizeof(_sock_addr6));
 }
 
-socklen_t InetAddr::get_sockaddr_size() const
+socklen_t InetAddr::get_sockaddr_size() const noexcept
 {
     return (AF_INET == _sock_addr.sin_family ? sizeof(_sock_addr) : sizeof(_sock_addr6));
 }
 
-std::string InetAddr::get_ip() const
+std::string InetAddr::get_ip() const noexcept
 {
     const int buflen = (std::max)(INET_ADDRSTRLEN, INET6_ADDRSTRLEN); // Include tailing '\0' already
     char buf[buflen];
@@ -290,12 +290,12 @@ std::string InetAddr::get_ip() const
     return buf;
 }
 
-int InetAddr::get_port() const
+int InetAddr::get_port() const noexcept
 {
     return is_ipv6() ? be16toh(_sock_addr6.sin6_port) : ntohs(_sock_addr.sin_port);
 }
 
-std::string InetAddr::to_string() const
+std::string InetAddr::to_string() const noexcept
 {
     std::string s = get_ip();
     s.push_back(':');

@@ -18,22 +18,22 @@ class ProactChannel;
 class LOOFAH_API ProactAcceptorBase : public ProactHandler
 {
 public:
-    ~ProactAcceptorBase();
+    ~ProactAcceptorBase() noexcept;
 
     /**
      * @param listen_num 在 windows 下, 可以使用 'SOMAXCONN' 表示最大允许链接数
      */
-    bool listen(const InetAddr& addr, int listen_num = 2048);
+    bool listen(const InetAddr& addr, int listen_num = 2048) noexcept;
 
-    virtual socket_t get_socket() const final override;
-    virtual void handle_accept_completed(socket_t fd) final override;
-    virtual void handle_connect_completed() final override;
-    virtual void handle_read_completed(size_t cb) final override;
-    virtual void handle_write_completed(size_t cb) final override;
-    virtual void handle_io_error(int err) final override;
+    virtual socket_t get_socket() const noexcept final override;
+    virtual void handle_accept_completed(socket_t fd) noexcept final override;
+    virtual void handle_connect_completed() noexcept final override;
+    virtual void handle_read_completed(size_t cb) noexcept final override;
+    virtual void handle_write_completed(size_t cb) noexcept final override;
+    virtual void handle_io_error(int err) noexcept final override;
 
 protected:
-    virtual nut::rc_ptr<ProactChannel> create_channel() = 0;
+    virtual nut::rc_ptr<ProactChannel> create_channel() noexcept = 0;
 
 private:
     socket_t _listening_socket = LOOFAH_INVALID_SOCKET_FD;
@@ -43,7 +43,7 @@ template <typename CHANNEL>
 class ProactAcceptor : public ProactAcceptorBase
 {
 private:
-    virtual nut::rc_ptr<ProactChannel> create_channel() final override
+    virtual nut::rc_ptr<ProactChannel> create_channel() noexcept final override
     {
         return nut::rc_new<CHANNEL>();
     }

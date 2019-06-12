@@ -21,29 +21,29 @@ public:
     /**
      * 设置非阻塞
      */
-    static bool set_nonblocking(socket_t socket_fd, bool nonblocking = true);
+    static bool set_nonblocking(socket_t socket_fd, bool nonblocking = true) noexcept;
 
     /**
      * 程序退出时关闭连接
      */
-    static bool set_close_on_exit(socket_t socket_fd, bool close_on_exit = true);
+    static bool set_close_on_exit(socket_t socket_fd, bool close_on_exit = true) noexcept;
 
     /**
      * 关闭 socket
      */
-    static void close(socket_t socket_fd);
+    static void close(socket_t socket_fd) noexcept;
 
     /**
      * 查看 socket 是否有效
      */
-    static bool is_valid(socket_t socket_fd);
+    static bool is_valid(socket_t socket_fd) noexcept;
 
     /**
      * 获取 socket 错误
      *
      * NOTE 该方法将重置 socket 内的错误码
      */
-    static int get_last_error(socket_t socket_fd);
+    static int get_last_error(socket_t socket_fd) noexcept;
 
     ////////////////////////////////////////////////////////////////////////////
     // Listening socket operations
@@ -52,14 +52,14 @@ public:
      * 让监听的端口可以被复用
      * NOTE 必须在 bind() 之前调用
      */
-    static bool set_reuse_addr(socket_t listening_socket_fd);
-    static bool set_reuse_port(socket_t listening_socket_fd);
+    static bool set_reuse_addr(socket_t listening_socket_fd) noexcept;
+    static bool set_reuse_port(socket_t listening_socket_fd) noexcept;
 
     ////////////////////////////////////////////////////////////////////////////
     // Socket connection operations
 
-    static bool shutdown_read(socket_t socket_fd);
-    static bool shutdown_write(socket_t socket_fd);
+    static bool shutdown_read(socket_t socket_fd) noexcept;
+    static bool shutdown_write(socket_t socket_fd) noexcept;
 
     /**
      * 读
@@ -75,9 +75,9 @@ public:
      *  LOOFAH_ERR_WOULD_BLOCK
      *      非阻塞 socket 读操作将会阻塞; 或者设置过读超时, 而读超时被触发
      */
-    static ssize_t read(socket_t socket_fd, void *buf, size_t len);
+    static ssize_t read(socket_t socket_fd, void *buf, size_t len) noexcept;
     static ssize_t readv(socket_t socket_fd, void* const *buf_ptrs,
-                         const size_t *len_ptrs, size_t buf_count);
+                         const size_t *len_ptrs, size_t buf_count) noexcept;
 
     /**
      * 写
@@ -91,24 +91,24 @@ public:
      *  LOOFAH_ERR_WOULD_BLOCK
      *      非阻塞 socket 写操作将会阻塞
      */
-    static ssize_t write(socket_t socket_fd, const void *buf, size_t len);
+    static ssize_t write(socket_t socket_fd, const void *buf, size_t len) noexcept;
     static ssize_t writev(socket_t socket_fd, const void* const *buf_ptrs,
-                          const size_t *len_ptrs, size_t buf_count);
+                          const size_t *len_ptrs, size_t buf_count) noexcept;
 
-    static InetAddr get_local_addr(socket_t socket_fd);
-    static InetAddr get_peer_addr(socket_t socket_fd);
+    static InetAddr get_local_addr(socket_t socket_fd) noexcept;
+    static InetAddr get_peer_addr(socket_t socket_fd) noexcept;
 
     /**
      * 检测 socket 是否是自连接
      */
-    static bool is_self_connected(socket_t socket_fd);
+    static bool is_self_connected(socket_t socket_fd) noexcept;
 
     /**
      * 参见 http://www.secbox.cn/hacker/5998.html
      */
-    static bool set_tcp_nodelay(socket_t socket_fd, bool no_delay = true);
+    static bool set_tcp_nodelay(socket_t socket_fd, bool no_delay = true) noexcept;
 
-    static bool set_keep_alive(socket_t socket_fd, bool keep_alive = true);
+    static bool set_keep_alive(socket_t socket_fd, bool keep_alive = true) noexcept;
 
     /**
      * - on=false: 丢弃发送缓存中的数据，发送 FIN 包
@@ -120,7 +120,7 @@ public:
      *   CLOSE 状态，清除套接字中的发送和接收缓冲区。如果存在未读数据，直接对对
      *   端发送 RST 包。可以用来减少 TIME_WAIT 套接字的数量
      */
-    static bool set_linger(socket_t socket_fd, bool on, unsigned time);
+    static bool set_linger(socket_t socket_fd, bool on, unsigned time) noexcept;
 
 private:
     SockOperation() = delete;

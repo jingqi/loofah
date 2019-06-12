@@ -27,33 +27,33 @@ namespace loofah
 class LOOFAH_API InetAddr
 {
 public:
-    explicit InetAddr(int port = 0, bool loopback = false, bool ipv6 = false);
-    InetAddr(const char *addr, int port, bool ipv6 = false);
+    explicit InetAddr(int port = 0, bool loopback = false, bool ipv6 = false) noexcept;
+    InetAddr(const char *addr, int port, bool ipv6 = false) noexcept;
 
     // IPv4 address
-    InetAddr(const struct sockaddr_in& sock_addr);
+    InetAddr(const struct sockaddr_in& sock_addr) noexcept;
 
     // IPv6 address
-    InetAddr(const struct sockaddr_in6& sock_addr);
+    InetAddr(const struct sockaddr_in6& sock_addr) noexcept;
 
     // IPv4 or IPv6
-    InetAddr(const struct sockaddr* sock_addr);
+    InetAddr(const struct sockaddr* sock_addr) noexcept;
 
-    bool operator==(const InetAddr& addr) const;
-    bool operator!=(const InetAddr& addr) const;
+    bool operator==(const InetAddr& addr) const noexcept;
+    bool operator!=(const InetAddr& addr) const noexcept;
 
-    bool is_ipv6() const;
+    bool is_ipv6() const noexcept;
 
-    struct sockaddr* cast_to_sockaddr();
-    const struct sockaddr* cast_to_sockaddr() const;
+    struct sockaddr* cast_to_sockaddr() noexcept;
+    const struct sockaddr* cast_to_sockaddr() const noexcept;
 
-    socklen_t get_max_sockaddr_size() const;
+    socklen_t get_max_sockaddr_size() const noexcept;
 
-    socklen_t get_sockaddr_size() const;
+    socklen_t get_sockaddr_size() const noexcept;
 
-    std::string get_ip() const;
-    int get_port() const;
-    std::string to_string() const;
+    std::string get_ip() const noexcept;
+    int get_port() const noexcept;
+    std::string to_string() const noexcept;
 
 private:
     union

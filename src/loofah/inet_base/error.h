@@ -83,15 +83,15 @@ namespace loofah
 {
 
 /**
- * 将 Mac/Linux 下的 errno 或者 Windows 下的 WSAGetLastError() 返回值转换为
+ * 将 Mac / Linux 下的 errno 或者 Windows 下的 WSAGetLastError() 返回值转换为
  * loofah error
  */
-int from_errno(int err);
+int from_errno(int err) noexcept;
 
 /**
  * loofah error 字符串描述
  */
-LOOFAH_API const char* str_error(int err);
+LOOFAH_API const char* str_error(int err) noexcept;
 
 }
 

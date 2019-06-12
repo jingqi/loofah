@@ -19,30 +19,30 @@ class ClientChannel : public ProactChannel
     void *_buf = nullptr;
 
 public:
-    ClientChannel()
+    ClientChannel() noexcept
     {
         _buf = ::malloc(g_global.block_size);
         ::memset(_buf, 0x9d, g_global.block_size);
     }
 
-    ~ClientChannel()
+    ~ClientChannel() noexcept
     {
         ::free(_buf);
     }
 
-    virtual void initialize() override
+    virtual void initialize() noexcept override
     {
         g_client_channels.push_back(this);
     }
 
-    virtual void handle_channel_connected() override
+    virtual void handle_channel_connected() noexcept override
     {
         NUT_LOG_D(TAG, "client channel connected, fd %d", get_socket());
         g_global.proactor.register_handler(this);
         g_global.proactor.launch_write(this, &_buf, &g_global.block_size, 1);
     }
 
-    virtual void handle_read_completed(size_t cb) override
+    virtual void handle_read_completed(size_t cb) noexcept override
     {
         if (0 == cb) // 正常结束
         {
@@ -60,7 +60,7 @@ public:
         g_global.proactor.launch_write(this, &_buf, &g_global.block_size, 1);
     }
 
-    virtual void handle_write_completed(size_t cb) override
+    virtual void handle_write_completed(size_t cb) noexcept override
     {
         if (cb != g_global.block_size)
             NUT_LOG_E(TAG, "client expect %d, but got %d received", g_global.block_size, cb);
@@ -68,7 +68,7 @@ public:
         g_global.proactor.launch_read(this, &_buf, &g_global.block_size, 1);
     }
 
-    virtual void handle_io_error(int err) final override
+    virtual void handle_io_error(int err) noexcept final override
     {
         NUT_LOG_E(TAG, "client exception %d: %s", err, str_error(err));
     }
@@ -76,7 +76,7 @@ public:
 
 }
 
-void start_client()
+void start_client() noexcept
 {
     InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
     ProactConnector<ClientChannel> con;

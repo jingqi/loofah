@@ -28,7 +28,7 @@ class ServerChannel : public ProactPackageChannel
     int _counter = 0;
 
 public:
-    virtual void initialize() override
+    virtual void initialize() noexcept override
     {
         // Initialize
         set_proactor(&proactor);
@@ -39,12 +39,12 @@ public:
         prepared = true;
     }
 
-    virtual void handle_connected() override
+    virtual void handle_connected() noexcept override
     {
         NUT_LOG_D(TAG, "server got a connection, fd %d", get_socket());
     }
 
-    virtual void handle_read(Package *pkg) override
+    virtual void handle_read(Package *pkg) noexcept override
     {
         assert(nullptr != pkg);
         NUT_LOG_D(TAG, "server received %d bytes: %d", pkg->readable_size(), _counter);
@@ -62,7 +62,7 @@ public:
         ++_counter;
     }
 
-    virtual void handle_closed(int err) override
+    virtual void handle_closed(int err) noexcept override
     {
         NUT_LOG_D(TAG, "server closed, %d: %s", err, str_error(err));
 
@@ -76,7 +76,7 @@ class ClientChannel : public ProactPackageChannel
     int _counter = 0;
 
 public:
-    virtual void initialize() override
+    virtual void initialize() noexcept override
     {
         // Initialize
         set_proactor(&proactor);
@@ -85,7 +85,7 @@ public:
         client = this;
     }
 
-    virtual void handle_connected() override
+    virtual void handle_connected() noexcept override
     {
         NUT_LOG_D(TAG, "client create a connection, fd %d", get_socket());
 
@@ -96,7 +96,7 @@ public:
         ++_counter;
     }
 
-    virtual void handle_read(Package *pkg) override
+    virtual void handle_read(Package *pkg) noexcept override
     {
         assert(nullptr != pkg);
         NUT_LOG_D(TAG, "client received %d bytes: %d", pkg->readable_size(), _counter);
@@ -121,7 +121,7 @@ public:
         }
     }
 
-    virtual void handle_closed(int err) override
+    virtual void handle_closed(int err) noexcept override
     {
         NUT_LOG_D(TAG, "client closed, %d: %s", err, str_error(err));
         client = nullptr;
@@ -132,7 +132,7 @@ public:
 
 class TestProactPackageChannel : public TestFixture
 {
-    virtual void register_cases() override
+    virtual void register_cases() noexcept override
     {
         NUT_REGISTER_CASE(test_proact_package_channel);
     }

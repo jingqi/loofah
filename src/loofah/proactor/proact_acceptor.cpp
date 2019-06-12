@@ -19,14 +19,14 @@
 namespace loofah
 {
 
-ProactAcceptorBase::~ProactAcceptorBase()
+ProactAcceptorBase::~ProactAcceptorBase() noexcept
 {
     if (LOOFAH_INVALID_SOCKET_FD != _listening_socket)
         SockOperation::close(_listening_socket);
     _listening_socket = LOOFAH_INVALID_SOCKET_FD;
 }
 
-bool ProactAcceptorBase::listen(const InetAddr& addr, int listen_num)
+bool ProactAcceptorBase::listen(const InetAddr& addr, int listen_num) noexcept
 {
     // Create socket
     const int domain = addr.is_ipv6() ? AF_INET6 : AF_INET;
@@ -91,12 +91,12 @@ bool ProactAcceptorBase::listen(const InetAddr& addr, int listen_num)
     return true;
 }
 
-socket_t ProactAcceptorBase::get_socket() const
+socket_t ProactAcceptorBase::get_socket() const noexcept
 {
     return _listening_socket;
 }
 
-void ProactAcceptorBase::handle_accept_completed(socket_t fd)
+void ProactAcceptorBase::handle_accept_completed(socket_t fd) noexcept
 {
     nut::rc_ptr<ProactChannel> channel = create_channel();
     channel->initialize();
@@ -106,24 +106,24 @@ void ProactAcceptorBase::handle_accept_completed(socket_t fd)
     _registered_proactor->launch_accept(this);
 }
 
-void ProactAcceptorBase::handle_connect_completed()
+void ProactAcceptorBase::handle_connect_completed() noexcept
 {
     assert(false); // Should not run into this place
 }
 
-void ProactAcceptorBase::handle_read_completed(size_t cb)
-{
-    UNUSED(cb);
-    assert(false); // Should not run into this place
-}
-
-void ProactAcceptorBase::handle_write_completed(size_t cb)
+void ProactAcceptorBase::handle_read_completed(size_t cb) noexcept
 {
     UNUSED(cb);
     assert(false); // Should not run into this place
 }
 
-void ProactAcceptorBase::handle_io_error(int err)
+void ProactAcceptorBase::handle_write_completed(size_t cb) noexcept
+{
+    UNUSED(cb);
+    assert(false); // Should not run into this place
+}
+
+void ProactAcceptorBase::handle_io_error(int err) noexcept
 {
     NUT_LOG_E(TAG, "fd %d, loofah error raised %d: %s", get_socket(),
               err, str_error(err));

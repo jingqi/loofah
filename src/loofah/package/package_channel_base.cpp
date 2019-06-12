@@ -13,7 +13,7 @@
 namespace loofah
 {
 
-PackageChannelBase::~PackageChannelBase()
+PackageChannelBase::~PackageChannelBase() noexcept
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
 
@@ -25,7 +25,7 @@ PackageChannelBase::~PackageChannelBase()
     cancel_force_close_timer();
 }
 
-void PackageChannelBase::set_time_wheel(nut::TimeWheel *time_wheel)
+void PackageChannelBase::set_time_wheel(nut::TimeWheel *time_wheel) noexcept
 {
     assert(nullptr != time_wheel);
     NUT_DEBUGGING_ASSERT_ALIVE;
@@ -34,22 +34,22 @@ void PackageChannelBase::set_time_wheel(nut::TimeWheel *time_wheel)
     _time_wheel = time_wheel;
 }
 
-nut::TimeWheel* PackageChannelBase::get_time_wheel() const
+nut::TimeWheel* PackageChannelBase::get_time_wheel() const noexcept
 {
     return _time_wheel;
 }
 
-void PackageChannelBase::set_max_payload_size(size_t max_size)
+void PackageChannelBase::set_max_payload_size(size_t max_size) noexcept
 {
     _max_payload_size = max_size;
 }
 
-size_t PackageChannelBase::get_max_payload_size() const
+size_t PackageChannelBase::get_max_payload_size() const noexcept
 {
     return _max_payload_size;
 }
 
-void PackageChannelBase::close_later(int err, bool discard_write)
+void PackageChannelBase::close_later(int err, bool discard_write) noexcept
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
 
@@ -70,7 +70,7 @@ void PackageChannelBase::close_later(int err, bool discard_write)
     }
 }
 
-void PackageChannelBase::setup_force_close_timer(int err)
+void PackageChannelBase::setup_force_close_timer(int err) noexcept
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(nullptr != _poller && _poller->is_in_io_thread());
@@ -91,13 +91,13 @@ void PackageChannelBase::setup_force_close_timer(int err)
         return;
     _force_close_timer = _time_wheel->add_timer(
         LOOFAH_FORCE_CLOSE_DELAY, 0,
-        [=] (nut::TimeWheel::timer_id_type id, int64_t expires) {
+        [=] (nut::TimeWheel::timer_id_type, int64_t) {
             _force_close_timer = NUT_INVALID_TIMER_ID;
             force_close(err);
         });
 }
 
-void PackageChannelBase::cancel_force_close_timer()
+void PackageChannelBase::cancel_force_close_timer() noexcept
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(nullptr != _poller && _poller->is_in_io_thread());
@@ -108,7 +108,7 @@ void PackageChannelBase::cancel_force_close_timer()
     _force_close_timer = NUT_INVALID_TIMER_ID;
 }
 
-void PackageChannelBase::split_and_handle_packages(size_t extra_readed)
+void PackageChannelBase::split_and_handle_packages(size_t extra_readed) noexcept
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
     assert(nullptr != _poller && _poller->is_in_io_thread());
@@ -213,7 +213,7 @@ void PackageChannelBase::split_and_handle_packages(size_t extra_readed)
         handle_io_error(LOOFAH_ERR_PKG_OVERSIZE);
 }
 
-void PackageChannelBase::write_later(Package *pkg)
+void PackageChannelBase::write_later(Package *pkg) noexcept
 {
     assert(nullptr != pkg);
     NUT_DEBUGGING_ASSERT_ALIVE;

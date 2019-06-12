@@ -25,8 +25,8 @@ extern LPFN_CONNECTEX func_ConnectEx;
 extern LPFN_GETACCEPTEXSOCKADDRS func_GetAcceptExSockaddrs;
 #endif
 
-LOOFAH_API bool init_network();
-LOOFAH_API void shutdown_network();
+LOOFAH_API bool init_network() noexcept;
+LOOFAH_API void shutdown_network() noexcept;
 
 }
 

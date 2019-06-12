@@ -30,20 +30,20 @@ class ServerChannel : public ReactChannel
     int _counter = 0;
 
 public:
-    virtual void initialize() override
+    virtual void initialize() noexcept override
     {
         server = this;
 		prepared = true;
     }
 
-    virtual void handle_channel_connected() override
+    virtual void handle_channel_connected() noexcept override
     {
         NUT_LOG_D(TAG, "server got a connection, fd %d", get_socket());
         reactor.register_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
         reactor.disable_handler(this, ReactHandler::WRITE_MASK);
     }
 
-    virtual void handle_read_ready() override
+    virtual void handle_read_ready() noexcept override
     {
         int seq = 0;
         int rs = _sock_stream.read(&seq, sizeof(seq));
@@ -64,7 +64,7 @@ public:
         reactor.enable_handler(this, ReactHandler::WRITE_MASK);
     }
 
-    virtual void handle_write_ready() override
+    virtual void handle_write_ready() noexcept override
     {
         int rs = _sock_stream.write(&_counter, sizeof(_counter));
         NUT_LOG_D(TAG, "server send %d bytes: %d", rs, _counter);
@@ -73,7 +73,7 @@ public:
         reactor.disable_handler(this, ReactHandler::WRITE_MASK);
     }
 
-    virtual void handle_io_error(int err) override
+    virtual void handle_io_error(int err) noexcept override
     {
         NUT_LOG_E(TAG, "server exception %d", err);
     }
@@ -84,19 +84,19 @@ class ClientChannel : public ReactChannel
     int _counter = 0;
 
 public:
-    virtual void initialize() override
+    virtual void initialize() noexcept override
     {
         client = this;
     }
 
-    virtual void handle_channel_connected() override
+    virtual void handle_channel_connected() noexcept override
     {
         NUT_LOG_D(TAG, "client make a connection, fd %d", get_socket());
         reactor.register_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
         //reactor.disable_handler(this, ReactHandler::WRITE_MASK);
     }
 
-    virtual void handle_read_ready() override
+    virtual void handle_read_ready() noexcept override
     {
         int seq = 0;
         int rs = _sock_stream.read(&seq, sizeof(seq));
@@ -125,7 +125,7 @@ public:
         reactor.enable_handler(this, ReactHandler::WRITE_MASK);
     }
 
-    virtual void handle_write_ready() override
+    virtual void handle_write_ready() noexcept override
     {
         int rs = _sock_stream.write(&_counter, sizeof(_counter));
         NUT_LOG_D(TAG, "client send %d bytes: %d", rs, _counter);
@@ -134,7 +134,7 @@ public:
         reactor.disable_handler(this, ReactHandler::WRITE_MASK);
     }
 
-    virtual void handle_io_error(int err) override
+    virtual void handle_io_error(int err) noexcept override
     {
         NUT_LOG_E(TAG, "client exception %d", err);
     }
@@ -144,7 +144,7 @@ public:
 
 class TestReactor : public TestFixture
 {
-    virtual void register_cases() override
+    virtual void register_cases() noexcept override
     {
         NUT_REGISTER_CASE(test_reactor);
     }

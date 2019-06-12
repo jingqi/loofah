@@ -15,13 +15,13 @@ class LOOFAH_API ProactChannel : public Channel, public ProactHandler
     NUT_REF_COUNTABLE_OVERRIDE
 
 public:
-    SockStream& get_sock_stream();
+    SockStream& get_sock_stream() noexcept;
 
-    virtual void open(socket_t fd) override;
+    virtual void open(socket_t fd) noexcept override;
 
-    virtual socket_t get_socket() const final override;
-    virtual void handle_accept_completed(socket_t fd) final override;
-    virtual void handle_connect_completed() final override;
+    virtual socket_t get_socket() const noexcept final override;
+    virtual void handle_accept_completed(socket_t fd) noexcept final override;
+    virtual void handle_connect_completed() noexcept final override;
 
 protected:
     SockStream _sock_stream;

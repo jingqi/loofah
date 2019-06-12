@@ -20,9 +20,9 @@ using namespace std;
 
 #define TAG "main"
 
-void test_reactor_manually();
-void test_react_package_manually();
-void test_proact_package_manually();
+void test_reactor_manually() noexcept;
+void test_react_package_manually() noexcept;
+void test_proact_package_manually() noexcept;
 
 static void setup_std_logger()
 {
