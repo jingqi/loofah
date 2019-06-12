@@ -22,7 +22,7 @@ namespace
 
 class ServerChannel;
 
-Proactor proactor;
+Proactor *proactor = nullptr;
 TimeWheel timewheel;
 
 rc_ptr<ServerChannel> server;
@@ -33,7 +33,7 @@ class ServerChannel : public ProactPackageChannel
 public:
     virtual void initialize() noexcept override
     {
-        set_proactor(&proactor);
+        set_proactor(proactor);
         set_time_wheel(&timewheel);
 
         server = this;
@@ -81,14 +81,25 @@ class TestProactPackageRST : public TestFixture
         NUT_REGISTER_CASE(test_proact_pkg_rst);
     }
 
+    virtual void set_up() override
+    {
+        proactor = new Proactor;
+    }
+
+    virtual void tear_down() override
+    {
+        delete proactor;
+        proactor = nullptr;
+    }
+
     void test_proact_pkg_rst()
     {
         // Start server
         InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
         rc_ptr<ProactAcceptor<ServerChannel>> acc = rc_new<ProactAcceptor<ServerChannel>>();
         acc->listen(addr);
-        proactor.register_handler_later(acc);
-        proactor.launch_accept_later(acc);
+        proactor->register_handler_later(acc);
+        proactor->launch_accept_later(acc);
         NUT_LOG_D(TAG, "server listening at %s, fd %d", addr.to_string().c_str(), acc->get_socket());
 
         // Client
@@ -108,7 +119,7 @@ class TestProactPackageRST : public TestFixture
         // loop
         while (!prepared || server != nullptr)
         {
-            if (proactor.poll(timewheel.get_idle()) < 0)
+            if (proactor->poll(timewheel.get_idle()) < 0)
                 break;
             timewheel.tick();
         }

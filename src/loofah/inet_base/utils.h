@@ -28,6 +28,19 @@ extern LPFN_GETACCEPTEXSOCKADDRS func_GetAcceptExSockaddrs;
 LOOFAH_API bool init_network() noexcept;
 LOOFAH_API void shutdown_network() noexcept;
 
+#if NUT_PLATFORM_OS_WINDOWS
+/**
+ * 创建一对双工互连的套接字
+ *
+ * @param family 可选 AF_INET 或 AF_INET6
+ * @param type 可选 SOCK_DGRAM 或 SOCK_STREAM
+ * @param protocol 可选 IPPROTO_UDP 或 IPPROTO_TCP 或 0
+ * @param fds 用于存放返回的两个套接字
+ * @return 成功则返回 0
+ */
+LOOFAH_API int socketpair(int family, int type, int protocol, socket_t fds[2]) noexcept;
+#endif
+
 }
 
 #endif

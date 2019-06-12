@@ -20,7 +20,7 @@ namespace
 class ServerChannel;
 class ClientChannel;
 
-Proactor proactor;
+Proactor *proactor = nullptr;
 
 rc_ptr<ServerChannel> server;
 rc_ptr<ClientChannel> client;
@@ -42,11 +42,11 @@ public:
     {
         NUT_LOG_D(TAG, "server got a connection, fd %d", get_socket());
 
-        proactor.register_handler(this);
+        proactor->register_handler(this);
 
         void *buf = &_tmp;
         size_t len = sizeof(_tmp);
-        proactor.launch_read(this, &buf, &len, 1);
+        proactor->launch_read(this, &buf, &len, 1);
     }
 
     virtual void handle_read_completed(size_t cb) noexcept override
@@ -55,7 +55,7 @@ public:
         if (0 == cb) // 正常结束
         {
             NUT_LOG_D(TAG, "server will close");
-            proactor.unregister_handler(this);
+            proactor->unregister_handler(this);
             _sock_stream.close();
             server = nullptr;
             return;
@@ -67,7 +67,7 @@ public:
 
         void *buf = &_counter;
         size_t len = sizeof(_counter);
-        proactor.launch_write(this, &buf, &len, 1);
+        proactor->launch_write(this, &buf, &len, 1);
     }
 
     virtual void handle_write_completed(size_t cb) noexcept override
@@ -78,7 +78,7 @@ public:
 
         void *buf = &_tmp;
         size_t len = sizeof(_tmp);
-        proactor.launch_read(this, &buf, &len, 1);
+        proactor->launch_read(this, &buf, &len, 1);
     }
 
     virtual void handle_io_error(int err) noexcept override
@@ -102,11 +102,11 @@ public:
     {
         NUT_LOG_D(TAG, "client make a connection, fd %d", get_socket());
 
-        proactor.register_handler(this);
+        proactor->register_handler(this);
 
         void *buf = &_counter;
         size_t len = sizeof(_counter);
-        proactor.launch_write(this, &buf, &len, 1);
+        proactor->launch_write(this, &buf, &len, 1);
     }
 
     virtual void handle_read_completed(size_t cb) noexcept override
@@ -115,7 +115,7 @@ public:
         if (0 == cb) // 正常结束
         {
             NUT_LOG_D(TAG, "client will close");
-            proactor.unregister_handler(this);
+            proactor->unregister_handler(this);
             _sock_stream.close();
             client = nullptr;
             return;
@@ -128,7 +128,7 @@ public:
         if (_counter > 20)
         {
             NUT_LOG_D(TAG, "client will close");
-            proactor.unregister_handler(this);
+            proactor->unregister_handler(this);
             _sock_stream.close();
             client = nullptr;
             return;
@@ -136,7 +136,7 @@ public:
 
         void *buf = &_counter;
         size_t len = sizeof(_counter);
-        proactor.launch_write(this, &buf, &len, 1);
+        proactor->launch_write(this, &buf, &len, 1);
     }
 
     virtual void handle_write_completed(size_t cb) noexcept override
@@ -147,7 +147,7 @@ public:
 
         void *buf = &_tmp;
         size_t len = sizeof(_tmp);
-        proactor.launch_read(this, &buf, &len, 1);
+        proactor->launch_read(this, &buf, &len, 1);
     }
 
     virtual void handle_io_error(int err) noexcept override
@@ -165,25 +165,36 @@ class TestProactor : public TestFixture
         NUT_REGISTER_CASE(test_proactor);
     }
 
+    virtual void set_up() override
+    {
+        proactor = new Proactor;
+    }
+
+    virtual void tear_down() override
+    {
+        delete proactor;
+        proactor = nullptr;
+    }
+
     void test_proactor()
     {
         // start server
         InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
         rc_ptr<ProactAcceptor<ServerChannel>> acc = rc_new<ProactAcceptor<ServerChannel>>();
         acc->listen(addr);
-        proactor.register_handler_later(acc);
-        proactor.launch_accept_later(acc);
+        proactor->register_handler_later(acc);
+        proactor->launch_accept_later(acc);
         NUT_LOG_D(TAG, "server listening at %s, fd %d", addr.to_string().c_str(), acc->get_socket());
 
         // start client
         NUT_LOG_D(TAG, "client will connect to %s", addr.to_string().c_str());
         ProactConnector<ClientChannel> con;
-        con.connect(&proactor, addr);
+        con.connect(proactor, addr);
 
         // loop
         while (!prepared || server != nullptr || client != nullptr)
         {
-            if (proactor.poll() < 0)
+            if (proactor->poll() < 0)
                 break;
         }
     }

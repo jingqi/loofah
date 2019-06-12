@@ -21,7 +21,7 @@ namespace
 class ServerChannel;
 class ClientChannel;
 
-Reactor reactor;
+Reactor *reactor = nullptr;
 TimeWheel timewheel;
 
 rc_ptr<ServerChannel> server;
@@ -33,7 +33,7 @@ class ServerChannel : public ReactPackageChannel
 public:
     virtual void initialize() noexcept override
     {
-        set_reactor(&reactor);
+        set_reactor(reactor);
         set_time_wheel(&timewheel);
 
         server = this;
@@ -82,18 +82,18 @@ public:
     void write(int data) noexcept
     {
         _write_data = data;
-        reactor.enable_handler(this, ReactHandler::WRITE_MASK);
+        reactor->enable_handler(this, ReactHandler::WRITE_MASK);
     }
 
     void read() noexcept
     {
-        reactor.enable_handler(this, ReactHandler::READ_MASK);
+        reactor->enable_handler(this, ReactHandler::READ_MASK);
     }
 
     void close() noexcept
     {
         NUT_LOG_D(TAG, "client close");
-        reactor.unregister_handler(this);
+        reactor->unregister_handler(this);
         _sock_stream.close();
 		client = nullptr;
     }
@@ -102,8 +102,8 @@ public:
     {
         NUT_LOG_D(TAG, "client make a connection, fd %d", get_socket());
 
-        reactor.register_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
-        reactor.disable_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
+        reactor->register_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
+        reactor->disable_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
     }
 
     virtual void handle_read_ready() noexcept override
@@ -116,7 +116,7 @@ public:
         //     NUT_LOG_D(TAG, "client will close");
         //     reactor.unregister_handler(this);
         //     _sock_stream.close();
-            reactor.disable_handler(this, ReactHandler::READ_MASK);
+            reactor->disable_handler(this, ReactHandler::READ_MASK);
             return;
         }
     }
@@ -128,7 +128,7 @@ public:
         // assert(rs == sizeof(_write_data));
         _write_data = 0;
 
-        reactor.disable_handler(this, ReactHandler::WRITE_MASK);
+        reactor->disable_handler(this, ReactHandler::WRITE_MASK);
     }
 
     virtual void handle_io_error(int err) noexcept override
@@ -141,24 +141,26 @@ public:
 
 void test_react_package_manually() noexcept
 {
+    reactor = new Reactor;
+
     // start server
     InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
     rc_ptr<ReactAcceptor<ServerChannel>> acc = rc_new<ReactAcceptor<ServerChannel>>();
     acc->listen(addr);
-    reactor.register_handler_later(acc, ReactHandler::ACCEPT_MASK);
+    reactor->register_handler_later(acc, ReactHandler::ACCEPT_MASK);
     NUT_LOG_D(TAG, "server listening at %s, fd %d", addr.to_string().c_str(), acc->get_socket());
 
     // start client
     NUT_LOG_D(TAG, "client will connect to %s", addr.to_string().c_str());
     ReactConnector<ClientChannel> con;
-	con.connect(&reactor, addr);
+	con.connect(reactor, addr);
 
     timewheel.add_timer(
         500, 0,
         [=](TimeWheel::timer_id_type id, uint64_t expires) {
             // server->read();
             SockOperation::shutdown_read(server->get_socket());
-            reactor.disable_handler(server, ReactHandler::READ_MASK);
+            reactor->disable_handler(server, ReactHandler::READ_MASK);
 
             server->writeint(0);
         });
@@ -186,8 +188,11 @@ void test_react_package_manually() noexcept
     // loop
     while (!prepared || server != nullptr || client != nullptr)
     {
-        if (reactor.poll(timewheel.get_idle()) < 0)
+        if (reactor->poll(timewheel.get_idle()) < 0)
             break;
         timewheel.tick();
     }
+
+    delete reactor;
+    reactor = nullptr;
 }

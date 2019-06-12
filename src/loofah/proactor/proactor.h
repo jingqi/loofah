@@ -81,6 +81,10 @@ private:
     int _kq = -1;
 #elif NUT_PLATFORM_OS_LINUX
     int _epoll_fd = -1;
+#endif
+
+#if NUT_PLATFORM_OS_LINUX
+    // eventfd
     int _event_fd = -1;
 #endif
 

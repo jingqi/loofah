@@ -22,7 +22,7 @@ namespace
 
 class ServerChannel;
 
-Reactor reactor;
+Reactor *reactor = nullptr;
 TimeWheel timewheel;
 
 rc_ptr<ServerChannel> server;
@@ -33,7 +33,7 @@ class ServerChannel : public ReactPackageChannel
 public:
     virtual void initialize() noexcept override
     {
-        set_reactor(&reactor);
+        set_reactor(reactor);
         set_time_wheel(&timewheel);
 
         server = this;
@@ -81,13 +81,24 @@ class TestReactPackageRST : public TestFixture
         NUT_REGISTER_CASE(test_react_pkg_rst);
     }
 
+    virtual void set_up() override
+    {
+        reactor = new Reactor;
+    }
+
+    virtual void tear_down() override
+    {
+        delete reactor;
+        reactor = nullptr;
+    }
+
     void test_react_pkg_rst()
     {
         // Start server
         InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
         rc_ptr<ReactAcceptor<ServerChannel>> acc = rc_new<ReactAcceptor<ServerChannel>>();
         acc->listen(addr);
-        reactor.register_handler_later(acc, ReactHandler::ACCEPT_MASK);
+        reactor->register_handler_later(acc, ReactHandler::ACCEPT_MASK);
         NUT_LOG_D(TAG, "server listening at %s, fd %d", addr.to_string().c_str(), acc->get_socket());
 
         // Client
@@ -106,7 +117,7 @@ class TestReactPackageRST : public TestFixture
         // loop
         while (!prepared || server != nullptr)
         {
-            if (reactor.poll(timewheel.get_idle()) < 0)
+            if (reactor->poll(timewheel.get_idle()) < 0)
                 break;
             timewheel.tick();
         }

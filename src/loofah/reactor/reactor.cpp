@@ -26,6 +26,7 @@
 
 #include "../inet_base/error.h"
 #include "../inet_base/sock_operation.h"
+#include "../inet_base/utils.h"
 #include "reactor.h"
 
 
@@ -65,12 +66,41 @@ ReactHandler::mask_type real_mask(ReactHandler::mask_type mask) noexcept
 Reactor::Reactor() noexcept
 {
 #if NUT_PLATFORM_OS_WINDOWS && WINVER < _WIN32_WINNT_WINBLUE
+    // fdset
     FD_ZERO(&_read_set);
     FD_ZERO(&_write_set);
     FD_ZERO(&_except_set);
+
+    // socketpair
+    if (0 != socketpair(AF_INET, SOCK_DGRAM, IPPROTO_UDP, _sockpair))
+    {
+        LOOFAH_LOG_ERRNO(socketpair);
+        return;
+    }
+    SockOperation::set_nonblocking(_sockpair[1], true);
+    SockOperation::shutdown_read(_sockpair[0]);
+    SockOperation::shutdown_write(_sockpair[1]);
+    FD_SET(_sockpair[1], &_read_set);
+    FD_SET(_sockpair[1], &_except_set);
 #elif NUT_PLATFORM_OS_WINDOWS
     _pollfds = (WSAPOLLFD*) ::malloc(sizeof(WSAPOLLFD) * _capacity);
     _handlers = (ReactHandler**) ::malloc(sizeof(ReactHandler*) * _capacity);
+
+    // socketpair
+    if (0 != socketpair(AF_INET, SOCK_DGRAM, IPPROTO_UDP, _sockpair))
+    {
+        LOOFAH_LOG_ERRNO(socketpair);
+        return;
+    }
+    SockOperation::set_nonblocking(_sockpair[1], true);
+    SockOperation::shutdown_read(_sockpair[0]);
+    SockOperation::shutdown_write(_sockpair[1]);
+    assert(_size < _capacity);
+    _pollfds[0].fd = _sockpair[1];
+    _pollfds[0].events = POLLIN;
+    _pollfds[0].revents = 0;
+    _handlers[0] = nullptr;
+    _size = 1;
 #elif NUT_PLATFORM_OS_MACOS
     // Create kqueue
     _kq = ::kqueue();
@@ -143,11 +173,25 @@ void Reactor::shutdown() noexcept
     _closing_or_closed.store(true, std::memory_order_relaxed);
 
 #if NUT_PLATFORM_OS_WINDOWS && WINVER < _WIN32_WINNT_WINBLUE
+    if (LOOFAH_INVALID_SOCKET_FD != _sockpair[0])
+        SockOperation::close(_sockpair[0]);
+    if (LOOFAH_INVALID_SOCKET_FD != _sockpair[1])
+        SockOperation::close(_sockpair[1]);
+    _sockpair[0] = LOOFAH_INVALID_SOCKET_FD;
+    _sockpair[1] = LOOFAH_INVALID_SOCKET_FD;
+
     FD_ZERO(&_read_set);
     FD_ZERO(&_write_set);
     FD_ZERO(&_except_set);
     _socket_to_handler.clear();
 #elif NUT_PLATFORM_OS_WINDOWS
+    if (LOOFAH_INVALID_SOCKET_FD != _sockpair[0])
+        SockOperation::close(_sockpair[0]);
+    if (LOOFAH_INVALID_SOCKET_FD != _sockpair[1])
+        SockOperation::close(_sockpair[1]);
+    _sockpair[0] = LOOFAH_INVALID_SOCKET_FD;
+    _sockpair[1] = LOOFAH_INVALID_SOCKET_FD;
+
     _size = 0;
 #elif NUT_PLATFORM_OS_MACOS
     if (_kq >= 0)
@@ -593,6 +637,19 @@ int Reactor::poll(int timeout_ms) noexcept
     for (unsigned i = 0; i < read_set.fd_count; ++i)
     {
         const socket_t fd = read_set.fd_array[i];
+
+        // Sockpair events
+        if (fd == _sockpair[1])
+        {
+            char data = 0;
+            while (::recv(fd, &data, 1, 0) > 0)
+            {
+                assert(1 == data);
+            }
+            continue;
+        }
+
+        // Channel events
         std::unordered_map<socket_t, ReactHandler*>::const_iterator iter = _socket_to_handler.find(fd);
         if (iter == _socket_to_handler.end())
             continue;
@@ -619,6 +676,15 @@ int Reactor::poll(int timeout_ms) noexcept
     for (unsigned i = 0; i < except_set.fd_count; ++i)
     {
         const socket_t fd = write_set.fd_array[i];
+
+        // Sockpair events
+        if (fd == _sockpair[1])
+        {
+            NUT_LOG_W(TAG, "sockpair error event, fd %d", fd);
+            continue;
+        }
+
+        // Channel events
         std::unordered_map<socket_t, ReactHandler*>::const_iterator iter = _socket_to_handler.find(fd);
         if (iter == _socket_to_handler.end())
             continue;
@@ -646,6 +712,25 @@ int Reactor::poll(int timeout_ms) noexcept
         _pollfds[i].revents = 0;
         ++found;
         ReactHandler *handler = _handlers[i];
+
+        // Sockpair events
+        if (_pollfds[i].fd == _sockpair[1])
+        {
+            assert(nullptr == handler);
+            if (0 != (revents & POLLNVAL) || 0 != (revents & POLLERR))
+            {
+                NUT_LOG_W(TAG, "sockpair error event, fd %d", _sockpair[1]);
+                continue;
+            }
+
+            assert(0 != (revents & POLLHUP) || 0 != (revents & POLLIN));
+            char data = 0;
+            while (::recv(_sockpair[1], &data, 1, 0) > 0)
+            {
+                assert(1 == data);
+            }
+            continue;
+        }
 
         /**
          * POLLERR        错误
@@ -814,7 +899,10 @@ int Reactor::poll(int timeout_ms) noexcept
 
 void Reactor::wakeup_poll_wait() noexcept
 {
-#if NUT_PLATFORM_OS_MACOS
+#if NUT_PLATFORM_OS_WINDOWS
+    const char data = 1;
+    ::send(_sockpair[0], &data, 1, 0);
+#elif NUT_PLATFORM_OS_MACOS
     struct kevent ev;
     EV_SET(&ev, KQUEUE_WAKEUP_IDENT, EVFILT_USER, 0, NOTE_TRIGGER, 0, nullptr);
     if (0 != ::kevent(_kq, &ev, 1, nullptr, 0, nullptr))

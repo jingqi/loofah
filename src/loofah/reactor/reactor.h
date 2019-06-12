@@ -75,6 +75,13 @@ private:
     // 使用 ::epoll() 实现
     int _epoll_fd = -1;
     bool _edge_triggered = false; // level-triggered or edge-triggered
+#endif
+
+#if NUT_PLATFORM_OS_WINDOWS
+    // socketpair
+    socket_t _sockpair[2]; // event input, event output
+#elif NUT_PLATFORM_OS_LINUX
+    // eventfd
     int _event_fd = -1;
 #endif
 

@@ -1,29 +1,28 @@
 ﻿/**
  * 地址相关的几个结构体定义
-
-   struct sockaddr {
-       sa_family_t sa_family;      // address family, AF_xxx
-       char        sa_data[14];    // 14 bytes of protocol address
-   };
-
-   struct sockaddr_in {
-       sa_family_t           sin_family;      // Address family
-       unsigned short int    sin_port;        // Port number
-       struct in_addr        sin_addr;        // Internet address
-
-       // Pad to size of `struct sockaddr'.
-       unsigned char __pad[__SOCK_SIZE__ - sizeof(short int) -
-                           sizeof(unsigned short int) - sizeof(struct in_addr)];
-   };
-
-   struct sockaddr_in6 {
-       unsigned short int      sin6_family;    // AF_INET6
-       __u16                   sin6_port;      // Transport layer port
-       __u32                   sin6_flowinfo;  // IPv6 flow information
-       struct in6_addr         sin6_addr;      // IPv6 address
-       __u32                   sin6_scope_id;  // scope id (new in RFC2553)
-   };
-
+ *
+ * struct sockaddr { // 总共 16 字节
+ *     sa_family_t sa_family;      // Address family, AF_INET / AF_INET6
+ *     char        sa_data[14];    // Others
+ * };
+ *
+ * struct sockaddr_in { // 总共 16 字节
+ *     sa_family_t           sin_family;      // AF_INET
+ *     unsigned short int    sin_port;        // Port
+ *     struct in_addr        sin_addr;        // Internet address
+ *
+ *     // Pad to size of `struct sockaddr'.
+ *     unsigned char __pad[__SOCK_SIZE__ - sizeof(short int) -
+ *                         sizeof(unsigned short int) - sizeof(struct in_addr)];
+ * };
+ *
+ * struct sockaddr_in6 { // 总共 28 字节
+ *     unsigned short int      sin6_family;    // AF_INET6
+ *     __u16                   sin6_port;      // Transport layer port
+ *     __u32                   sin6_flowinfo;  // IPv6 flow information
+ *     struct in6_addr         sin6_addr;      // IPv6 address
+ *     __u32                   sin6_scope_id;  // scope id (new in RFC2553)
+ * };
  *
  */
 
