@@ -53,8 +53,9 @@ void PackageChannelBase::close_later(int err, bool discard_write) noexcept
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
 
-    // 设置关闭标记
-    _closing.store(true, std::memory_order_relaxed);
+    // 如果丢弃未写入的数据, 则提早设置关闭标记
+    if (discard_write)
+        _closing.store(true, std::memory_order_relaxed);
 
     assert(nullptr != _poller);
     if (_poller->is_in_io_thread())
@@ -238,6 +239,11 @@ void PackageChannelBase::write_later(Package *pkg) noexcept
         nut::rc_ptr<Package> ref_pkg(pkg);
         _poller->run_later([=] { ref_this->write(ref_pkg); });
     }
+}
+
+bool PackageChannelBase::is_closing_or_closed() const noexcept
+{
+    return _closing.load(std::memory_order_relaxed);
 }
 
 }

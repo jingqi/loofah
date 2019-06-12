@@ -119,10 +119,11 @@ Proactor::~Proactor() noexcept
 
 void Proactor::shutdown_later() noexcept
 {
-    _closing_or_closed.store(true, std::memory_order_relaxed);
-
-    if (!is_in_io_thread())
-        wakeup_poll_wait();
+    if (!_closing_or_closed.exchange(true, std::memory_order_relaxed))
+    {
+        if (!is_in_io_thread())
+            wakeup_poll_wait();
+    }
 }
 
 void Proactor::shutdown() noexcept

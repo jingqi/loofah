@@ -74,6 +74,11 @@ public:
     virtual void close(int err = 0, bool discard_write = false) noexcept = 0;
     void close_later(int err = 0, bool discard_write = false) noexcept;
 
+    /**
+     * 正在关闭，或者已经关闭
+     */
+    bool is_closing_or_closed() const noexcept;
+
 protected:
     virtual void handle_io_error(int err) noexcept = 0;
 
