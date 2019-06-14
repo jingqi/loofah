@@ -27,8 +27,6 @@ class LOOFAH_API PackageChannelBase
     NUT_REF_COUNTABLE
 
 public:
-    virtual ~PackageChannelBase() noexcept;
-
     void set_time_wheel(nut::TimeWheel *time_wheel) noexcept;
     nut::TimeWheel* get_time_wheel() const noexcept;
 

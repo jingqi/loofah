@@ -84,7 +84,6 @@ Reactor::Reactor() noexcept
     FD_SET(_sockpair[1], &_except_set);
 #elif NUT_PLATFORM_OS_WINDOWS
     _pollfds = (WSAPOLLFD*) ::malloc(sizeof(WSAPOLLFD) * _capacity);
-    _handlers = (ReactHandler**) ::malloc(sizeof(ReactHandler*) * _capacity);
 
     // socketpair
     if (0 != socketpair(AF_INET, SOCK_DGRAM, IPPROTO_UDP, _sockpair))
@@ -95,11 +94,10 @@ Reactor::Reactor() noexcept
     SockOperation::set_nonblocking(_sockpair[1], true);
     SockOperation::shutdown_read(_sockpair[0]);
     SockOperation::shutdown_write(_sockpair[1]);
-    assert(_size < _capacity);
+    assert(_capacity > 0 && 0 == _size);
     _pollfds[0].fd = _sockpair[1];
     _pollfds[0].events = POLLIN;
     _pollfds[0].revents = 0;
-    _handlers[0] = nullptr;
     _size = 1;
 #elif NUT_PLATFORM_OS_MACOS
     // Create kqueue
@@ -149,12 +147,10 @@ Reactor::~Reactor() noexcept
     shutdown();
 
 #if NUT_PLATFORM_OS_WINDOWS && WINVER >= _WIN32_WINNT_WINBLUE
-    if (nullptr != _pollfds)
-        ::free(_pollfds);
+    assert(nullptr != _pollfds);
+    ::free(_pollfds);
     _pollfds = nullptr;
-    if (nullptr != _handlers)
-        ::free(_handlers);
-    _handlers = nullptr;
+    _capacity = 0;
 #endif
 }
 
@@ -173,6 +169,8 @@ void Reactor::shutdown() noexcept
 
     _closing_or_closed.store(true, std::memory_order_relaxed);
 
+    _handlers.clear();
+
 #if NUT_PLATFORM_OS_WINDOWS && WINVER < _WIN32_WINNT_WINBLUE
     if (LOOFAH_INVALID_SOCKET_FD != _sockpair[0])
         SockOperation::close(_sockpair[0]);
@@ -184,7 +182,6 @@ void Reactor::shutdown() noexcept
     FD_ZERO(&_read_set);
     FD_ZERO(&_write_set);
     FD_ZERO(&_except_set);
-    _socket_to_handler.clear();
 #elif NUT_PLATFORM_OS_WINDOWS
     if (LOOFAH_INVALID_SOCKET_FD != _sockpair[0])
         SockOperation::close(_sockpair[0]);
@@ -247,23 +244,20 @@ void Reactor::ensure_capacity(size_t new_size) noexcept
     if (new_cap < new_size)
         new_cap = new_size;
 
-    WSAPOLLFD *new_pollfds = (WSAPOLLFD*) ::realloc(_pollfds, sizeof(WSAPOLLFD) * new_cap);
-    ReactHandler ** new_handlers = (ReactHandler**) ::realloc(_handlers, sizeof(ReactHandler*) * new_cap);
-    assert(nullptr != new_pollfds && nullptr != new_handlers);
-    _pollfds = new_pollfds;
-    _handlers = new_handlers;
+    _pollfds = (WSAPOLLFD*) ::realloc(_pollfds, sizeof(WSAPOLLFD) * new_cap);
+    assert(nullptr != _pollfds);
     _capacity = new_cap;
 }
 
-ssize_t Reactor::binary_search(ReactHandler *handler) noexcept
+ssize_t Reactor::binary_search(socket_t fd) noexcept
 {
     ssize_t left = -1, right = _size;
     while (left + 1 < right)
     {
         size_t middle = (left + right) >> 1;
-        if (_handlers[middle] == handler)
+        if (_pollfds[middle].fd == fd)
             return middle;
-        else if (_handlers[middle] < handler)
+        else if (_pollfds[middle].fd < fd)
             left = middle;
         else
             right = middle;
@@ -303,6 +297,7 @@ void Reactor::register_handler(ReactHandler *handler, ReactHandler::mask_type ma
     assert(!handler->_registered);
 #endif
 
+    _handlers.emplace(handler->get_socket(), handler);
     handler->_registered_reactor = this;
 
     enable_handler(handler, mask);
@@ -339,19 +334,15 @@ void Reactor::unregister_handler(ReactHandler *handler) noexcept
         FD_CLR(fd, &_write_set);
     if (0 != handler->_enabled_events)
         FD_CLR(fd, &_except_set);
-    _socket_to_handler.erase(fd);
     handler->_enabled_events = 0;
     handler->_registered_reactor = nullptr;
 #elif NUT_PLATFORM_OS_WINDOWS
     if (handler->_registered)
     {
-        const ssize_t index = binary_search(handler);
+        const ssize_t index = binary_search(fd);
         assert(index >= 0);
         if (index + 1 < _size)
-        {
             ::memmove(_pollfds + index, _pollfds + index + 1, sizeof(WSAPOLLFD) * (_size - index - 1));
-            ::memmove(_handlers + index, _handlers + index + 1, sizeof(ReactHandler*) * (_size - index - 1));
-        }
         --_size;
     }
     handler->_registered = false;
@@ -390,6 +381,8 @@ void Reactor::unregister_handler(ReactHandler *handler) noexcept
     handler->_enabled_events = 0;
     handler->_registered_reactor = nullptr;
 #endif
+
+    _handlers.erase(fd); // NOTE 可能触发 handler 析构
 }
 
 void Reactor::enable_handler_later(ReactHandler *handler, ReactHandler::mask_type mask) noexcept
@@ -433,21 +426,16 @@ void Reactor::enable_handler(ReactHandler *handler, ReactHandler::mask_type mask
         FD_SET(fd, &_write_set);
     if (0 == handler->_enabled_events)
         FD_SET(fd, &_except_set);
-    _socket_to_handler.emplace(fd, handler);
     handler->_enabled_events |= mask;
 #elif NUT_PLATFORM_OS_WINDOWS
-    ssize_t index = binary_search(handler);
+    ssize_t index = binary_search(fd);
     if (!handler->_registered)
     {
         assert(index < 0);
         index = -index - 1;
         ensure_capacity(_size + 1);
         if (index < _size)
-        {
             ::memmove(_pollfds + index + 1, _pollfds + index, sizeof(WSAPOLLFD) * (_size - index));
-            ::memmove(_handlers + index + 1, _handlers + index, sizeof(ReactHandler*) * (_size - index));
-        }
-        _handlers[index] = handler;
         _pollfds[index].fd = fd;
         _pollfds[index].events = 0;
         _pollfds[index].revents = 0;
@@ -553,7 +541,7 @@ void Reactor::disable_handler(ReactHandler *handler, ReactHandler::mask_type mas
 #elif NUT_PLATFORM_OS_WINDOWS
     if (0 != need_disable)
     {
-        const ssize_t index = binary_search(handler);
+        const ssize_t index = binary_search(fd);
         assert(index >= 0);
         if (0 != (need_disable & ReactHandler::READ_MASK))
             _pollfds[index].events &= ~POLLIN;
@@ -651,10 +639,10 @@ int Reactor::poll(int timeout_ms) noexcept
         }
 
         // Channel events
-        std::unordered_map<socket_t, ReactHandler*>::const_iterator iter = _socket_to_handler.find(fd);
-        if (iter == _socket_to_handler.end())
+        auto iter = _handlers.find(fd);
+        if (iter == _handlers.end())
             continue;
-        ReactHandler *handler = iter->second;
+        nut::rc_ptr<ReactHandler> handler = iter->second;
         assert(nullptr != handler);
         if (0 != (handler->_enabled_events & ReactHandler::ACCEPT_MASK))
             handler->handle_accept_ready();
@@ -664,10 +652,10 @@ int Reactor::poll(int timeout_ms) noexcept
     for (unsigned i = 0; i < write_set.fd_count; ++i)
     {
         const socket_t fd = write_set.fd_array[i];
-        std::unordered_map<socket_t, ReactHandler*>::const_iterator iter = _socket_to_handler.find(fd);
-        if (iter == _socket_to_handler.end())
+        auto iter = _handlers.find(fd);
+        if (iter == _handlers.end())
             continue;
-        ReactHandler *handler = iter->second;
+        nut::rc_ptr<ReactHandler> handler = iter->second;
         assert(nullptr != handler);
         if (0 != (handler->_enabled_events & ReactHandler::CONNECT_MASK))
             handler->handle_connect_ready();
@@ -686,10 +674,10 @@ int Reactor::poll(int timeout_ms) noexcept
         }
 
         // Channel events
-        std::unordered_map<socket_t, ReactHandler*>::const_iterator iter = _socket_to_handler.find(fd);
-        if (iter == _socket_to_handler.end())
+        auto iter = _handlers.find(fd);
+        if (iter == _handlers.end())
             continue;
-        ReactHandler *handler = iter->second;
+        nut::rc_ptr<ReactHandler> handler = iter->second;
         assert(nullptr != handler);
         handler->handle_io_error(SockOperation::get_last_error(fd));
     }
@@ -712,21 +700,20 @@ int Reactor::poll(int timeout_ms) noexcept
 
         _pollfds[i].revents = 0;
         ++found;
-        ReactHandler *handler = _handlers[i];
 
         // Sockpair events
-        if (_pollfds[i].fd == _sockpair[1])
+        const socket_t fd = _pollfds[i].fd;
+        if (fd == _sockpair[1])
         {
-            assert(nullptr == handler);
             if (0 != (revents & POLLNVAL) || 0 != (revents & POLLERR))
             {
-                NUT_LOG_W(TAG, "sockpair error event, fd %d", _sockpair[1]);
+                NUT_LOG_W(TAG, "sockpair error event, fd %d", fd);
                 continue;
             }
 
             assert(0 != (revents & POLLHUP) || 0 != (revents & POLLIN));
             char data = 0;
-            while (::recv(_sockpair[1], &data, 1, 0) > 0)
+            while (::recv(fd, &data, 1, 0) > 0)
             {
                 assert(1 == data);
             }
@@ -745,6 +732,11 @@ int Reactor::poll(int timeout_ms) noexcept
          * POLLIN = POLLRDNORM | POLLRDBAND
          * POLLOUT = POLLWRNORM
          */
+        auto iter = _handlers.find(fd);
+        assert(iter != _handlers.end());
+        nut::rc_ptr<ReactHandler> handler = iter->second;
+        assert(nullptr != handler);
+
         if (0 != (revents & POLLNVAL))
         {
             handler->handle_io_error(LOOFAH_ERR_INVALID_FD);
@@ -772,9 +764,9 @@ int Reactor::poll(int timeout_ms) noexcept
         }
 
         // 如果结构发生改变，则重新定位搜索位置
-        if (i >= _size || _handlers[i] != handler)
+        if (i >= _size || _pollfds[i].fd != fd)
         {
-            i = binary_search(handler);
+            i = binary_search(fd);
             if (i < 0)
                 i = -i - 2; // NOTE 'i' 可能取到 -1
         }
@@ -808,7 +800,7 @@ int Reactor::poll(int timeout_ms) noexcept
         }
 
         // Socket events
-        ReactHandler *handler = (ReactHandler*) active_evs[i].udata;
+        nut::rc_ptr<ReactHandler> handler = (ReactHandler*) active_evs[i].udata;
         assert(nullptr != handler);
 
         if (EVFILT_READ == filter)
@@ -864,7 +856,7 @@ int Reactor::poll(int timeout_ms) noexcept
         }
 
         // Socket events
-        ReactHandler *handler = (ReactHandler*) events[i].data.ptr;
+        nut::rc_ptr<ReactHandler> handler = (ReactHandler*) events[i].data.ptr;
         if (0 != (events[i].events & EPOLLERR))
         {
             const int fd = handler->get_socket();

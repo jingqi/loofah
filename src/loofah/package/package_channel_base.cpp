@@ -13,18 +13,6 @@
 namespace loofah
 {
 
-PackageChannelBase::~PackageChannelBase() noexcept
-{
-    NUT_DEBUGGING_ASSERT_ALIVE;
-
-    // NOTE 由于分包后会连续调用 handle_read() / handle_io_error(), 以及
-    //      writer_later() 会导致延后操作, 故要求析构不能在事件处理过程中发生,
-    //      需要将其放到轮询间隔中
-    assert(_poller->is_in_io_thread_and_not_polling());
-
-    cancel_force_close_timer();
-}
-
 void PackageChannelBase::set_time_wheel(nut::TimeWheel *time_wheel) noexcept
 {
     assert(nullptr != time_wheel);
@@ -90,11 +78,12 @@ void PackageChannelBase::setup_force_close_timer(int err) noexcept
     // 超时强制关闭
     if (nullptr == _time_wheel || NUT_INVALID_TIMER_ID != _force_close_timer)
         return;
+    nut::rc_ptr<PackageChannelBase> ref_this(this);
     _force_close_timer = _time_wheel->add_timer(
         LOOFAH_FORCE_CLOSE_DELAY, 0,
         [=] (nut::TimeWheel::timer_id_type, int64_t) {
-            _force_close_timer = NUT_INVALID_TIMER_ID;
-            force_close(err);
+            ref_this->_force_close_timer = NUT_INVALID_TIMER_ID;
+            ref_this->force_close(err);
         });
 }
 

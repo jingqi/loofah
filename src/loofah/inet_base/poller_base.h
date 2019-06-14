@@ -49,9 +49,6 @@ public:
 
     /**
      * 当前上下文是否在 IO 线程中, 并且处于轮询间隔
-     *
-     * NOTE:
-     * - ReactPackageChannel, ProactPackageChannel 的析构需要放到轮询间隔中
      */
     bool is_in_io_thread_and_not_polling() const noexcept;
 

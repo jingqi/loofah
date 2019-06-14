@@ -50,7 +50,7 @@ public:
 protected:
 #if NUT_PLATFORM_OS_WINDOWS && WINVER >= _WIN32_WINNT_WINBLUE
     void ensure_capacity(size_t new_size) noexcept;
-    ssize_t binary_search(ReactHandler *handler) noexcept;
+    ssize_t binary_search(socket_t fd) noexcept;
 #endif
 
     void shutdown() noexcept;
@@ -58,23 +58,21 @@ protected:
 private:
 #if NUT_PLATFORM_OS_WINDOWS && WINVER < _WIN32_WINNT_WINBLUE
     // Windows 8.1 之前，使用 ::select() 实现
-    // NOTE 默认情况下受限于 FD_SETSIZE = 64 大小限制, 但是可以在包含 winsock2.h 之前
-    //      define 其为更大的值, 参见 https://msdn.microsoft.com/zh-cn/library/windows/desktop/ms740141(v=vs.85).aspx
+    // NOTE 默认情况下受限于 FD_SETSIZE = 64 大小限制, 但是可以在包含 winsock2.h
+    //      之前 define 其为更大的值
+    //      参见 https://msdn.microsoft.com/zh-cn/library/windows/desktop/ms740141(v=vs.85).aspx
     fd_set _read_set, _write_set, _except_set;
-    std::unordered_map<socket_t, ReactHandler*> _socket_to_handler;
 #elif NUT_PLATFORM_OS_WINDOWS
     // Windows 8.1 及其之后，使用 ::WSAPoll() 实现
     WSAPOLLFD *_pollfds = nullptr;
-    ReactHandler **_handlers = nullptr;
-    size_t _capacity = 16;
-    size_t _size = 0;
+    size_t _size = 0, _capacity = 16;
 #elif NUT_PLATFORM_OS_MACOS
     // 使用 ::kqueue() 实现
     int _kq = -1;
 #elif NUT_PLATFORM_OS_LINUX
     // 使用 ::epoll() 实现
     int _epoll_fd = -1;
-    bool _edge_triggered = false; // level-triggered or edge-triggered
+    bool _edge_triggered = false; // Level-Triggered or Edge-Triggered
 #endif
 
 #if NUT_PLATFORM_OS_WINDOWS
@@ -84,6 +82,8 @@ private:
     // eventfd
     int _event_fd = -1;
 #endif
+
+    std::unordered_map<socket_t, nut::rc_ptr<ReactHandler>> _handlers;
 
     std::atomic<bool> _closing_or_closed = ATOMIC_VAR_INIT(false);
 };

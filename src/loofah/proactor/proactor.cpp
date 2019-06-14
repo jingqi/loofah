@@ -132,6 +132,8 @@ void Proactor::shutdown() noexcept
 
     _closing_or_closed.store(true, std::memory_order_relaxed);
 
+    _handlers.clear();
+
 #if NUT_PLATFORM_OS_WINDOWS
     // Close IOCP
     if (nullptr != _iocp)
@@ -209,9 +211,12 @@ void Proactor::register_handler(ProactHandler *handler) noexcept
     assert(nullptr != handler && nullptr == handler->_registered_proactor);
     assert(is_in_io_thread());
 
-#if NUT_PLATFORM_OS_WINDOWS
     const socket_t fd = handler->get_socket();
-    if (_associated_sockets.find(fd) == _associated_sockets.end())
+
+#if NUT_PLATFORM_OS_WINDOWS
+    // HACK 因 IOCP 无法取消关联，只是将 _handlers 中记录的 handler 置为 nullptr
+    //      来标记其已经被关联过
+    if (_handlers.find(fd) == _handlers.end())
     {
         assert(nullptr != _iocp);
         const HANDLE rs = ::CreateIoCompletionPort((HANDLE) fd, _iocp, (ULONG_PTR) nullptr, 0);
@@ -222,7 +227,6 @@ void Proactor::register_handler(ProactHandler *handler) noexcept
             return;
         }
         assert(rs == _iocp);
-        _associated_sockets.insert(fd);
     }
 #elif NUT_PLATFORM_OS_MACOS
     assert(0 == handler->_registered_events && 0 == handler->_enabled_events);
@@ -230,6 +234,7 @@ void Proactor::register_handler(ProactHandler *handler) noexcept
     assert(!handler->_registered && 0 == handler->_enabled_events);
 #endif
 
+    _handlers[fd] = handler;
     handler->_registered_proactor = this;
 }
 
@@ -255,10 +260,10 @@ void Proactor::unregister_handler(ProactHandler *handler) noexcept
     assert(nullptr != handler && handler->_registered_proactor == this);
     assert(is_in_io_thread());
 
+    const socket_t fd = handler->get_socket();
 
 #if NUT_PLATFORM_OS_WINDOWS
     // FIXME 对于 Windows 下的 IOCP，是无法取消 socket 与 iocp 的关联的
-    const socket_t fd = handler->get_socket();
 #   if WINVER >= _WIN32_WINNT_WINBLUE
     ::CancelIoEx((HANDLE) fd, nullptr); // 取消等待执行的异步操作
 #   else
@@ -266,8 +271,12 @@ void Proactor::unregister_handler(ProactHandler *handler) noexcept
 #   endif
     handler->_registered_proactor = nullptr;
     handler->delete_requests();
+
+    // HACK 因 IOCP 无法取消关联，只是将 _handlers 中记录的 handler 置为 nullptr
+    //      来标记其已经被关联过
+    // NOTE 可能触发 handler 析构
+    _handlers[fd] = nullptr;
 #elif NUT_PLATFORM_OS_MACOS
-    const socket_t fd = handler->get_socket();
     struct kevent ev[2];
     int n = 0;
     if (0 != (handler->_registered_events & ProactHandler::READ_MASK))
@@ -284,10 +293,10 @@ void Proactor::unregister_handler(ProactHandler *handler) noexcept
     handler->_enabled_events = 0;
     handler->_registered_proactor = nullptr;
     handler->delete_requests();
+    _handlers.erase(fd); // NOTE 可能触发 handler 析构
 #elif NUT_PLATFORM_OS_LINUX
     if (handler->_registered)
     {
-        const socket_t fd = handler->get_socket();
         struct epoll_event epv;
         ::memset(&epv, 0, sizeof(epv));
         epv.data.ptr = (void*) handler;
@@ -302,6 +311,7 @@ void Proactor::unregister_handler(ProactHandler *handler) noexcept
     handler->_enabled_events = 0;
     handler->_registered_proactor = nullptr;
     handler->delete_requests();
+    _handlers.erase(fd); // NOTE 可能触发 handler 析构
 #endif
 }
 
@@ -758,7 +768,7 @@ int Proactor::poll(int timeout_ms) noexcept
         IORequest *io_request = CONTAINING_RECORD(io_overlapped, IORequest, overlapped);
         assert(nullptr != io_request);
 
-        ProactHandler *handler = io_request->handler;
+        nut::rc_ptr<ProactHandler> handler = io_request->handler;
         assert(nullptr != handler);
         if (0 != (io_request->event_type & ProactHandler::ACCEPT_READ_MASK))
         {
@@ -786,7 +796,7 @@ int Proactor::poll(int timeout_ms) noexcept
         IORequest *io_request = CONTAINING_RECORD(io_overlapped, IORequest, overlapped);
         assert(nullptr != io_request);
 
-        ProactHandler *handler = io_request->handler;
+        nut::rc_ptr<ProactHandler> handler = io_request->handler;
         assert(nullptr != handler);
         if (0 != (io_request->event_type & ProactHandler::ACCEPT_READ_MASK))
         {
@@ -903,7 +913,7 @@ int Proactor::poll(int timeout_ms) noexcept
         }
 
         // Socket events
-        ProactHandler *handler = (ProactHandler*) active_evs[i].udata;
+        nut::rc_ptr<ProactHandler> handler = (ProactHandler*) active_evs[i].udata;
         assert(nullptr != handler);
         const socket_t fd = handler->get_socket();
 
@@ -1006,7 +1016,7 @@ int Proactor::poll(int timeout_ms) noexcept
         }
 
         // Socket events
-        ProactHandler *handler = (ProactHandler*) events[i].data.ptr;
+        nut::rc_ptr<ProactHandler> handler = (ProactHandler*) events[i].data.ptr;
         assert(nullptr != handler);
         const socket_t fd = handler->get_socket();
         if (0 != (events[i].events & EPOLLERR))
