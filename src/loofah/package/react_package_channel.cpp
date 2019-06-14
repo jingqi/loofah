@@ -53,7 +53,19 @@ void ReactPackageChannel::handle_channel_connected() noexcept
 void ReactPackageChannel::close(int err, bool discard_write) noexcept
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(nullptr != _poller && _poller->is_in_poll_thread());
+    assert(nullptr != _poller);
+
+    // 如果丢弃未写入的数据, 则提早设置关闭标记
+    if (discard_write)
+        _closing.store(true, std::memory_order_relaxed);
+
+    // Check thread context
+    if (!_poller->is_in_poll_thread())
+    {
+        nut::rc_ptr<PackageChannelBase> ref_this(this);
+        _poller->run_in_poll_thread([=] { ref_this->close(err, discard_write); });
+        return;
+    }
 
     // 设置关闭标记
     _closing.store(true, std::memory_order_relaxed);
@@ -153,15 +165,25 @@ void ReactPackageChannel::write(Package *pkg) noexcept
 {
     assert(nullptr != pkg);
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(nullptr != _poller && _poller->is_in_poll_thread());
-    assert(!_sock_stream.is_null());
+    assert(nullptr != _poller);
 
+    // Check state
     if (_closing.load(std::memory_order_relaxed))
     {
         NUT_LOG_W(TAG, "channel is closing or closed, writing package discard. fd %d", get_socket());
         return;
     }
 
+    // Check thread context
+    if (!_poller->is_in_poll_thread())
+    {
+        nut::rc_ptr<PackageChannelBase> ref_this(this);
+        nut::rc_ptr<Package> ref_pkg(pkg);
+        _poller->run_in_poll_thread([=] { ref_this->write(ref_pkg); });
+        return;
+    }
+
+    assert(!_sock_stream.is_null());
     pkg->raw_pack();
     _pkg_write_queue.push_back(pkg);
     if (1 == _pkg_write_queue.size())

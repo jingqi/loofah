@@ -20,40 +20,35 @@ namespace loofah
 class LOOFAH_API Proactor : public PollerBase
 {
 public:
-    Proactor() noexcept;
+    Proactor() = default;
     virtual ~Proactor() noexcept override;
 
-    void register_handler(ProactHandler *handler) noexcept;
-    void register_handler_later(ProactHandler *handler) noexcept;
-
-    void unregister_handler(ProactHandler *handler) noexcept;
-    void unregister_handler_later(ProactHandler *handler) noexcept;
-
-    void launch_accept(ProactHandler *handler) noexcept;
-    void launch_accept_later(ProactHandler *handler) noexcept;
-
-#if NUT_PLATFORM_OS_WINDOWS
-    void launch_connect(ProactHandler *handler, const InetAddr& address) noexcept;
-    void launch_connect_later(ProactHandler *handler, const InetAddr& address) noexcept;
-#else
-    void launch_connect(ProactHandler *handler) noexcept;
-    void launch_connect_later(ProactHandler *handler) noexcept;
-#endif
-
-    void launch_read(ProactHandler *handler, void* const *buf_ptrs,
-                     const size_t *len_ptrs, size_t buf_count) noexcept;
-    void launch_read_later(ProactHandler *handler, void* const *buf_ptrs,
-                           const size_t *len_ptrs, size_t buf_count) noexcept;
-
-    void launch_write(ProactHandler *handler, void* const *buf_ptrs,
-                      const size_t *len_ptrs, size_t buf_count) noexcept;
-    void launch_write_later(ProactHandler *handler, void* const *buf_ptrs,
-                            const size_t *len_ptrs, size_t buf_count) noexcept;
+    /**
+     * 初始化
+     */
+    bool initialize() noexcept;
 
     /**
      * 关闭 proactor
      */
-    void shutdown_later() noexcept;
+    void shutdown() noexcept;
+
+    void register_handler(ProactHandler *handler) noexcept;
+    void unregister_handler(ProactHandler *handler) noexcept;
+
+    void launch_accept(ProactHandler *handler) noexcept;
+
+#if NUT_PLATFORM_OS_WINDOWS
+    void launch_connect(ProactHandler *handler, const InetAddr& address) noexcept;
+#else
+    void launch_connect(ProactHandler *handler) noexcept;
+#endif
+
+    void launch_read(ProactHandler *handler, void* const *buf_ptrs,
+                     const size_t *len_ptrs, size_t buf_count) noexcept;
+
+    void launch_write(ProactHandler *handler, void* const *buf_ptrs,
+                      const size_t *len_ptrs, size_t buf_count) noexcept;
 
     /**
      * @param timeout_ms <0 表示无限等待; >=0 等待超时的毫秒数
@@ -68,8 +63,6 @@ protected:
     void enable_handler(ProactHandler *handler, ProactHandler::mask_type mask) noexcept;
     void disable_handler(ProactHandler *handler, ProactHandler::mask_type mask) noexcept;
 #endif
-
-    void shutdown() noexcept;
 
 private:
 #if NUT_PLATFORM_OS_WINDOWS
@@ -88,8 +81,6 @@ private:
 #endif
 
     std::unordered_map<socket_t, nut::rc_ptr<ProactHandler>> _handlers;
-
-    std::atomic<bool> _closing_or_closed = ATOMIC_VAR_INIT(false);
 };
 
 }

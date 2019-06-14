@@ -20,7 +20,7 @@ public:
     typedef std::function<void()> task_type;
 
 public:
-    PollerBase() noexcept;
+    PollerBase() = default;
     virtual ~PollerBase() = default;
 
     /**
@@ -63,24 +63,32 @@ public:
 
 protected:
     /**
-     * 运行并清空所有异步任务
-     *
-     * NOTE This method can only be called from inside IO thread
+     * 初始化
      */
-    void run_deferred_tasks() noexcept;
+    void initialize_base() noexcept;
 
     /**
-     * 添加一个异步任务
+     * 运行并清空所有异步任务
+     *
+     * NOTE This method can only be called from inside polling thread
      */
-    void add_task(task_type&& task) noexcept;
-    void add_task(const task_type& task) noexcept;
+    void run_deferred_tasks() noexcept;
 
 private:
     PollerBase(const PollerBase&) = delete;
     PollerBase& operator=(const PollerBase&) = delete;
 
+protected:
+    enum class State
+    {
+        Uninitialized, // 未初始化
+        Polling, // 轮询中
+        Shutdown // 已关闭
+    };
+    std::atomic<State> _state = ATOMIC_VAR_INIT(State::Uninitialized);
+
 private:
-    std::thread::id _poller_tid;
+    std::thread::id _poller_tid; // Initial invalid id
     nut::ConcurrentQueue<task_type> _deferred_tasks;
 };
 

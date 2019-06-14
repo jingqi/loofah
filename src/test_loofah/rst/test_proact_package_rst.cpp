@@ -45,7 +45,7 @@ public:
         rc_ptr<Package> pkg = rc_new<Package>();
         pkg->set_little_endian(true);
         *pkg << data;
-        write_later(pkg);
+        write(pkg);
     }
 
     virtual void handle_connected() noexcept override
@@ -84,10 +84,12 @@ class TestProactPackageRST : public TestFixture
     virtual void set_up() override
     {
         proactor = new Proactor;
+        proactor->initialize();
     }
 
     virtual void tear_down() override
     {
+        proactor->shutdown();
         delete proactor;
         proactor = nullptr;
     }
@@ -98,8 +100,8 @@ class TestProactPackageRST : public TestFixture
         InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
         rc_ptr<ProactAcceptor<ServerChannel>> acc = rc_new<ProactAcceptor<ServerChannel>>();
         acc->listen(addr);
-        proactor->register_handler_later(acc);
-        proactor->launch_accept_later(acc);
+        proactor->register_handler(acc);
+        proactor->launch_accept(acc);
         NUT_LOG_D(TAG, "server listening at %s, fd %d", addr.to_string().c_str(), acc->get_socket());
 
         // Client

@@ -38,6 +38,8 @@ else:
 
 if platform.system() == 'Linux':
     ns.append_env_flags('LDFLAGS', '-lpthread', '-latomic')
+elif platform.system() == 'Windows':
+    ns.append_env_flags('LDFLAGS', '-latomic')
 
 ns.append_env_flags('LDFLAGS', '-L' + out_root, '-lnut', '-lloofah')
 

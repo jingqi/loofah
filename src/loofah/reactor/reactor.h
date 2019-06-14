@@ -22,22 +22,21 @@ public:
     Reactor() noexcept;
     virtual ~Reactor() noexcept override;
 
-    void register_handler(ReactHandler *handler, ReactHandler::mask_type mask) noexcept;
-    void register_handler_later(ReactHandler *handler, ReactHandler::mask_type mask) noexcept;
-
-    void unregister_handler(ReactHandler *handler) noexcept;
-    void unregister_handler_later(ReactHandler *handler) noexcept;
-
-    void enable_handler(ReactHandler *handler, ReactHandler::mask_type mask) noexcept;
-    void enable_handler_later(ReactHandler *handler, ReactHandler::mask_type mask) noexcept;
-
-    void disable_handler(ReactHandler *handler, ReactHandler::mask_type mask) noexcept;
-    void disable_handler_later(ReactHandler *handler, ReactHandler::mask_type mask) noexcept;
+    /**
+     * 初始化
+     */
+    bool initialize() noexcept;
 
     /**
      * 关闭 reactor
      */
-    void shutdown_later() noexcept;
+    void shutdown() noexcept;
+
+    void register_handler(ReactHandler *handler, ReactHandler::mask_type mask) noexcept;
+    void unregister_handler(ReactHandler *handler) noexcept;
+
+    void enable_handler(ReactHandler *handler, ReactHandler::mask_type mask) noexcept;
+    void disable_handler(ReactHandler *handler, ReactHandler::mask_type mask) noexcept;
 
     /**
      * @param timeout_ms <0 无限等待; >=0 等待超时的毫秒数
@@ -47,13 +46,11 @@ public:
 
     virtual void wakeup_poll_wait() noexcept final override;
 
-protected:
+private:
 #if NUT_PLATFORM_OS_WINDOWS && WINVER >= _WIN32_WINNT_WINBLUE
     void ensure_capacity(size_t new_size) noexcept;
     ssize_t binary_search(socket_t fd) noexcept;
 #endif
-
-    void shutdown() noexcept;
 
 private:
 #if NUT_PLATFORM_OS_WINDOWS && WINVER < _WIN32_WINNT_WINBLUE
@@ -84,8 +81,6 @@ private:
 #endif
 
     std::unordered_map<socket_t, nut::rc_ptr<ReactHandler>> _handlers;
-
-    std::atomic<bool> _closing_or_closed = ATOMIC_VAR_INIT(false);
 };
 
 }

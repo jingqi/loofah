@@ -38,11 +38,8 @@
 namespace loofah
 {
 
-namespace
-{
-
 #if NUT_PLATFORM_OS_WINDOWS && WINVER < _WIN32_WINNT_WINBLUE && !defined(FD_COPY)
-void FD_COPY(fd_set *dst, const fd_set *src) noexcept
+static void FD_COPY(fd_set *dst, const fd_set *src) noexcept
 {
     assert(nullptr != dst && nullptr != src);
     const unsigned count = src->fd_count;
@@ -51,7 +48,7 @@ void FD_COPY(fd_set *dst, const fd_set *src) noexcept
 }
 #endif
 
-ReactHandler::mask_type real_mask(ReactHandler::mask_type mask) noexcept
+static ReactHandler::mask_type real_mask(ReactHandler::mask_type mask) noexcept
 {
     ReactHandler::mask_type ret = 0;
     if (0 != (mask & ReactHandler::ACCEPT_READ_MASK))
@@ -61,10 +58,34 @@ ReactHandler::mask_type real_mask(ReactHandler::mask_type mask) noexcept
     return ret;
 }
 
-}
-
 Reactor::Reactor() noexcept
 {
+#if NUT_PLATFORM_OS_WINDOWS && WINVER >= _WIN32_WINNT_WINBLUE
+    _pollfds = (WSAPOLLFD*) ::malloc(sizeof(WSAPOLLFD) * _capacity);
+#endif
+}
+
+Reactor::~Reactor() noexcept
+{
+    assert(State::Uninitialized == _state.load(std::memory_order_relaxed) ||
+           State::Shutdown == _state.load(std::memory_order_relaxed));
+
+#if NUT_PLATFORM_OS_WINDOWS && WINVER >= _WIN32_WINNT_WINBLUE
+    assert(nullptr != _pollfds);
+    ::free(_pollfds);
+    _pollfds = nullptr;
+    _capacity = 0;
+#endif
+}
+
+bool Reactor::initialize() noexcept
+{
+    assert(State::Uninitialized == _state.load(std::memory_order_relaxed));
+
+    // Initialize base
+    initialize_base();
+
+    // Initialize reactor
 #if NUT_PLATFORM_OS_WINDOWS && WINVER < _WIN32_WINNT_WINBLUE
     // fdset
     FD_ZERO(&_read_set);
@@ -75,25 +96,25 @@ Reactor::Reactor() noexcept
     if (0 != socketpair(AF_INET, SOCK_DGRAM, IPPROTO_UDP, _sockpair))
     {
         LOOFAH_LOG_ERRNO(socketpair);
-        return;
+        return false;
     }
     SockOperation::set_nonblocking(_sockpair[1], true);
     SockOperation::shutdown_read(_sockpair[0]);
     SockOperation::shutdown_write(_sockpair[1]);
+
     FD_SET(_sockpair[1], &_read_set);
     FD_SET(_sockpair[1], &_except_set);
 #elif NUT_PLATFORM_OS_WINDOWS
-    _pollfds = (WSAPOLLFD*) ::malloc(sizeof(WSAPOLLFD) * _capacity);
-
     // socketpair
     if (0 != socketpair(AF_INET, SOCK_DGRAM, IPPROTO_UDP, _sockpair))
     {
         LOOFAH_LOG_ERRNO(socketpair);
-        return;
+        return false;
     }
     SockOperation::set_nonblocking(_sockpair[1], true);
     SockOperation::shutdown_read(_sockpair[0]);
     SockOperation::shutdown_write(_sockpair[1]);
+
     assert(_capacity > 0 && 0 == _size);
     _pollfds[0].fd = _sockpair[1];
     _pollfds[0].events = POLLIN;
@@ -105,7 +126,7 @@ Reactor::Reactor() noexcept
     if (_kq < 0)
     {
         LOOFAH_LOG_ERRNO(kqueue);
-        return;
+        return false;
     }
 
     // Register user event filter
@@ -121,7 +142,7 @@ Reactor::Reactor() noexcept
     if (_epoll_fd < 0)
     {
         LOOFAH_LOG_ERRNO(epoll_create);
-        return;
+        return false;
     }
 
     // Create eventfd
@@ -129,7 +150,7 @@ Reactor::Reactor() noexcept
     if (_event_fd < 0)
     {
         LOOFAH_LOG_ERRNO(eventfd);
-        return;
+        return false;
     }
 
     // Register eventfd to epoll fd
@@ -140,35 +161,26 @@ Reactor::Reactor() noexcept
     if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, _event_fd, &epv))
         LOOFAH_LOG_FD_ERRNO(epoll_ctl, _event_fd);
 #endif
-}
 
-Reactor::~Reactor() noexcept
-{
-    shutdown();
-
-#if NUT_PLATFORM_OS_WINDOWS && WINVER >= _WIN32_WINNT_WINBLUE
-    assert(nullptr != _pollfds);
-    ::free(_pollfds);
-    _pollfds = nullptr;
-    _capacity = 0;
-#endif
-}
-
-void Reactor::shutdown_later() noexcept
-{
-    if (!_closing_or_closed.exchange(true, std::memory_order_relaxed))
-    {
-        if (!is_in_poll_thread())
-            wakeup_poll_wait();
-    }
+    return true;
 }
 
 void Reactor::shutdown() noexcept
 {
-    assert(is_in_poll_thread());
+    assert(State::Uninitialized != _state.load(std::memory_order_relaxed));
 
-    _closing_or_closed.store(true, std::memory_order_relaxed);
+    // Check state
+    if (State::Polling != _state.load(std::memory_order_acquire))
+        return;
 
+    // Check thread context
+    if (!is_in_poll_thread())
+    {
+        run_in_poll_thread([=] { shutdown(); });
+        return;
+    }
+
+    // Shutdown
     _handlers.clear();
 
 #if NUT_PLATFORM_OS_WINDOWS && WINVER < _WIN32_WINNT_WINBLUE
@@ -232,6 +244,8 @@ void Reactor::shutdown() noexcept
     }
     _epoll_fd = -1;
 #endif
+
+    _state.store(State::Shutdown, std::memory_order_release);
 }
 
 #if NUT_PLATFORM_OS_WINDOWS && WINVER >= _WIN32_WINNT_WINBLUE
@@ -266,29 +280,21 @@ ssize_t Reactor::binary_search(socket_t fd) noexcept
 }
 #endif
 
-void Reactor::register_handler_later(ReactHandler *handler, ReactHandler::mask_type mask) noexcept
-{
-    assert(nullptr != handler);
-
-    if (is_in_poll_thread())
-    {
-        // Synchronize
-        register_handler(handler, mask);
-    }
-    else
-    {
-        // Asynchronize
-        nut::rc_ptr<ReactHandler> ref_handler(handler);
-        add_task([=] { register_handler(ref_handler, mask); });
-    }
-}
-
 void Reactor::register_handler(ReactHandler *handler, ReactHandler::mask_type mask) noexcept
 {
     assert(nullptr != handler && 0 == (mask & ~ReactHandler::ALL_MASK));
     assert(nullptr == handler->_registered_reactor && 0 == handler->_enabled_events);
-    assert(is_in_poll_thread());
+    assert(State::Polling == _state.load(std::memory_order_relaxed));
 
+    // Check thread context
+    if (!is_in_poll_thread())
+    {
+        nut::rc_ptr<ReactHandler> ref_handler(handler);
+        run_in_poll_thread([=] { register_handler(ref_handler, mask); });
+        return;
+    }
+
+    // Register
 #if NUT_PLATFORM_OS_WINDOWS && WINVER >= _WIN32_WINNT_WINBLUE
     assert(!handler->_registered);
 #elif NUT_PLATFORM_OS_MACOS
@@ -303,28 +309,20 @@ void Reactor::register_handler(ReactHandler *handler, ReactHandler::mask_type ma
     enable_handler(handler, mask);
 }
 
-void Reactor::unregister_handler_later(ReactHandler *handler) noexcept
-{
-    assert(nullptr != handler);
-
-    if (is_in_poll_thread())
-    {
-        // Synchronize
-        unregister_handler(handler);
-    }
-    else
-    {
-        // Asynchronize
-        nut::rc_ptr<ReactHandler> ref_handler(handler);
-        add_task([=] { unregister_handler(ref_handler); });
-    }
-}
-
 void Reactor::unregister_handler(ReactHandler *handler) noexcept
 {
     assert(nullptr != handler && handler->_registered_reactor == this);
-    assert(is_in_poll_thread());
+    assert(State::Polling == _state.load(std::memory_order_relaxed));
 
+    // Check thread context
+    if (!is_in_poll_thread())
+    {
+        nut::rc_ptr<ReactHandler> ref_handler(handler);
+        run_in_poll_thread([=] { unregister_handler(ref_handler); });
+        return;
+    }
+
+    // Unregister
     const socket_t fd = handler->get_socket();
 
 #if NUT_PLATFORM_OS_WINDOWS && WINVER < _WIN32_WINNT_WINBLUE
@@ -385,39 +383,32 @@ void Reactor::unregister_handler(ReactHandler *handler) noexcept
     _handlers.erase(fd); // NOTE 可能触发 handler 析构
 }
 
-void Reactor::enable_handler_later(ReactHandler *handler, ReactHandler::mask_type mask) noexcept
-{
-    assert(nullptr != handler);
-
-    if (is_in_poll_thread())
-    {
-        // Synchronize
-        enable_handler(handler, mask);
-    }
-    else
-    {
-        // Asynchronize
-        nut::rc_ptr<ReactHandler> ref_handler(handler);
-        add_task([=] { enable_handler(ref_handler, mask); });
-    }
-}
-
 void Reactor::enable_handler(ReactHandler *handler, ReactHandler::mask_type mask) noexcept
 {
     assert(nullptr != handler && 0 == (mask & ~ReactHandler::ALL_MASK));
     assert(handler->_registered_reactor == this);
-    assert(is_in_poll_thread());
+    assert(State::Polling == _state.load(std::memory_order_relaxed));
 
     if (0 == mask)
         return;
-    const socket_t fd = handler->get_socket();
 
+    // Check thread context
+    if (!is_in_poll_thread())
+    {
+        nut::rc_ptr<ReactHandler> ref_handler(handler);
+        run_in_poll_thread([=] { enable_handler(ref_handler, mask); });
+        return;
+    }
+
+    // Enable handler
     // NOTE
     // - 异步 accept
     //    - 有可读事件
     // - 异步 connect
     //   - 成功，有可写事件
     //   - 失败，有可读、可写事件
+    const socket_t fd = handler->get_socket();
+    
 #if NUT_PLATFORM_OS_WINDOWS && WINVER < _WIN32_WINNT_WINBLUE
     const ReactHandler::mask_type need_enable = ~real_mask(handler->_enabled_events) & real_mask(mask);
     if (0 != (need_enable & ReactHandler::READ_MASK))
@@ -501,31 +492,24 @@ void Reactor::enable_handler(ReactHandler *handler, ReactHandler::mask_type mask
 #endif
 }
 
-void Reactor::disable_handler_later(ReactHandler *handler, ReactHandler::mask_type mask) noexcept
-{
-    assert(nullptr != handler);
-
-    if (is_in_poll_thread())
-    {
-        // Synchronize
-        disable_handler(handler, mask);
-    }
-    else
-    {
-        // Asynchronize
-        nut::rc_ptr<ReactHandler> ref_handler(handler);
-        add_task([=] { disable_handler(ref_handler, mask); });
-    }
-}
-
 void Reactor::disable_handler(ReactHandler *handler, ReactHandler::mask_type mask) noexcept
 {
     assert(nullptr != handler && 0 == (mask & ~ReactHandler::ALL_MASK));
     assert(handler->_registered_reactor == this);
-    assert(is_in_poll_thread());
+    assert(State::Polling == _state.load(std::memory_order_relaxed));
 
     if (0 == mask)
         return;
+
+    // Check thread context
+    if (!is_in_poll_thread())
+    {
+        nut::rc_ptr<ReactHandler> ref_handler(handler);
+        run_in_poll_thread([=] { disable_handler(ref_handler, mask); });
+        return;
+    }
+
+    // Disable handler
     const socket_t fd = handler->get_socket();
     const ReactHandler::mask_type final_enabled = real_mask(handler->_enabled_events & ~mask),
         need_disable = real_mask(handler->_enabled_events) & ~final_enabled;
@@ -588,15 +572,20 @@ void Reactor::disable_handler(ReactHandler *handler, ReactHandler::mask_type mas
 
 int Reactor::poll(int timeout_ms) noexcept
 {
-    if (_closing_or_closed.load(std::memory_order_relaxed))
+    assert(State::Uninitialized != _state.load(std::memory_order_relaxed));
+
+    // Check state
+    if (State::Polling != _state.load(std::memory_order_acquire))
         return -1;
 
+    // Check thread context
     if (!is_in_poll_thread())
     {
-        NUT_LOG_F(TAG, "poll() can only be called from inside IO thread");
+        NUT_LOG_F(TAG, "poll() can only be called from inside polling thread");
         return -1;
     }
 
+    // Poll
 #if NUT_PLATFORM_OS_WINDOWS && WINVER < _WIN32_WINNT_WINBLUE
     struct timeval timeout;
     if (timeout_ms < 0)
@@ -838,10 +827,14 @@ int Reactor::poll(int timeout_ms) noexcept
             }
             else if (0 != (events[i].events & EPOLLIN))
             {
+                int rs = 0;
                 uint64_t counter = 0;
-                const int rs = ::read(_event_fd, &counter, sizeof(counter));
-                if (rs < 0)
-                    LOOFAH_LOG_FD_ERRNO(read, _event_fd);
+                do
+                {
+                    rs = ::read(_event_fd, &counter, sizeof(counter));
+                    if (rs < 0 && EAGAIN != errno && EWOULDBLOCK != errno)
+                        LOOFAH_LOG_FD_ERRNO(read, _event_fd);
+                } while (rs > 0);
             }
 
             continue;
@@ -883,6 +876,8 @@ int Reactor::poll(int timeout_ms) noexcept
 
 void Reactor::wakeup_poll_wait() noexcept
 {
+    assert(State::Polling == _state.load(std::memory_order_relaxed));
+
 #if NUT_PLATFORM_OS_WINDOWS
     const char data = 1;
     ::send(_sockpair[0], &data, 1, 0);

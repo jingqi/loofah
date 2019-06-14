@@ -20,7 +20,7 @@ namespace
 class ServerChannel;
 class ClientChannel;
 
-Proactor *proactor = nullptr;
+Proactor proactor;
 TimeWheel timewheel;
 
 rc_ptr<ServerChannel> server;
@@ -32,7 +32,7 @@ class ServerChannel : public ProactPackageChannel
 public:
     virtual void initialize()noexcept  override
     {
-        set_proactor(proactor);
+        set_proactor(&proactor);
         set_time_wheel(&timewheel);
 
         server = this;
@@ -43,7 +43,7 @@ public:
     {
         rc_ptr<Package> pkg = rc_new<Package>();
         *pkg << data;
-        write_later(pkg);
+        write(pkg);
     }
 
     virtual void handle_connected() noexcept override
@@ -82,20 +82,20 @@ public:
     {
         void *buf = &data;
         size_t len = sizeof(data);
-        proactor->launch_write(this, &buf, &len, 1);
+        proactor.launch_write(this, &buf, &len, 1);
     }
 
     void read() noexcept
     {
         void *buf = &_read_data;
         size_t len = sizeof(_read_data);
-        proactor->launch_read(this, &buf, &len, 1);
+        proactor.launch_read(this, &buf, &len, 1);
     }
 
     void close() noexcept
     {
         NUT_LOG_D(TAG, "client close");
-        proactor->unregister_handler(this);
+        proactor.unregister_handler(this);
         _sock_stream.close();
         client = nullptr;
     }
@@ -104,7 +104,7 @@ public:
     {
         NUT_LOG_D(TAG, "client make a connection, fd %d", get_socket());
 
-        proactor->register_handler(this);
+        proactor.register_handler(this);
     }
 
     virtual void handle_read_completed(size_t cb) noexcept override
@@ -127,20 +127,20 @@ public:
 
 void test_proact_package_manually() noexcept
 {
-    proactor = new Proactor;
+    proactor.initialize();
 
     // start server
     InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
     rc_ptr<ProactAcceptor<ServerChannel>> acc = rc_new<ProactAcceptor<ServerChannel>>();
     acc->listen(addr);
-    proactor->register_handler_later(acc);
-    proactor->launch_accept_later(acc);
+    proactor.register_handler(acc);
+    proactor.launch_accept(acc);
     NUT_LOG_D(TAG, "server listening at %s, fd %d", addr.to_string().c_str(), acc->get_socket());
 
     // start client
     NUT_LOG_D(TAG, "client will connect to %s", addr.to_string().c_str());
     ProactConnector<ClientChannel> con;
-    con.connect(proactor, addr);
+    con.connect(&proactor, addr);
 
     timewheel.add_timer(
         500, 0,
@@ -180,11 +180,10 @@ void test_proact_package_manually() noexcept
     // loop
     while (!prepared || server != nullptr || client != nullptr)
     {
-        if (proactor->poll(timewheel.get_idle()) < 0)
+        if (proactor.poll(timewheel.get_idle()) < 0)
             break;
         timewheel.tick();
     }
 
-    delete proactor;
-    proactor = nullptr;
+    proactor.shutdown();
 }

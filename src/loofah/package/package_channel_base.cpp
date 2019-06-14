@@ -37,28 +37,6 @@ size_t PackageChannelBase::get_max_payload_size() const noexcept
     return _max_payload_size;
 }
 
-void PackageChannelBase::close_later(int err, bool discard_write) noexcept
-{
-    NUT_DEBUGGING_ASSERT_ALIVE;
-
-    // 如果丢弃未写入的数据, 则提早设置关闭标记
-    if (discard_write)
-        _closing.store(true, std::memory_order_relaxed);
-
-    assert(nullptr != _poller);
-    if (_poller->is_in_poll_thread())
-    {
-        // Synchronize
-        close(err, discard_write);
-    }
-    else
-    {
-        // Asynchronize
-        nut::rc_ptr<PackageChannelBase> ref_this(this);
-        _poller->run_in_poll_thread([=] { ref_this->close(err, discard_write); });
-    }
-}
-
 void PackageChannelBase::setup_force_close_timer(int err) noexcept
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
@@ -201,33 +179,6 @@ void PackageChannelBase::split_and_handle_packages(size_t extra_readed) noexcept
     }
     if (payload_oversize)
         handle_io_error(LOOFAH_ERR_PKG_OVERSIZE);
-}
-
-void PackageChannelBase::write_later(Package *pkg) noexcept
-{
-    assert(nullptr != pkg);
-    NUT_DEBUGGING_ASSERT_ALIVE;
-
-    if (_closing.load(std::memory_order_relaxed))
-    {
-        const socket_t fd = get_sock_stream().get_socket();
-        NUT_LOG_W(TAG, "channel is closing or closed, writing package discard. fd %d", fd);
-        return;
-    }
-
-    assert(nullptr != _poller);
-    if (_poller->is_in_poll_thread())
-    {
-        // Synchronize
-        write(pkg);
-    }
-    else
-    {
-        // Asynchronize
-        nut::rc_ptr<PackageChannelBase> ref_this(this);
-        nut::rc_ptr<Package> ref_pkg(pkg);
-        _poller->run_in_poll_thread([=] { ref_this->write(ref_pkg); });
-    }
 }
 
 bool PackageChannelBase::is_closing_or_closed() const noexcept

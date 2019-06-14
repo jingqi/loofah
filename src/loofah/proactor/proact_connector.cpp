@@ -59,8 +59,8 @@ bool ProactConnectorBase::connect(Proactor *proactor, const InetAddr& address) n
     nut::rc_ptr<ProactChannel> channel = create_channel();
     channel->initialize();
     channel->open(fd);
-    proactor->register_handler_later(channel);
-    proactor->launch_connect_later(channel, address);
+    proactor->register_handler(channel);
+    proactor->launch_connect(channel, address);
     return true;
 #else
     // Connect
@@ -72,8 +72,8 @@ bool ProactConnectorBase::connect(Proactor *proactor, const InetAddr& address) n
             nut::rc_ptr<ProactChannel> channel = create_channel();
             channel->initialize();
             channel->open(fd);
-            proactor->register_handler_later(channel);
-            proactor->launch_connect_later(channel);
+            proactor->register_handler(channel);
+            proactor->launch_connect(channel);
             return true;
         }
 

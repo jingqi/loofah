@@ -51,7 +51,7 @@ public:
         {
             g_global.proactor.unregister_handler(this);
             _sock_stream.close();
-            g_global.proactor.shutdown_later();
+            g_global.proactor.shutdown();
             return;
         }
 
@@ -85,7 +85,7 @@ void start_server() noexcept
     g_acceptor = rc_new<ProactAcceptor<ServerChannel> >();
     InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
     g_acceptor->listen(addr);
-    g_global.proactor.register_handler_later(g_acceptor);
-    g_global.proactor.launch_accept_later(g_acceptor);
+    g_global.proactor.register_handler(g_acceptor);
+    g_global.proactor.launch_accept(g_acceptor);
     NUT_LOG_D(TAG, "server listening at %s", addr.to_string().c_str());
 }

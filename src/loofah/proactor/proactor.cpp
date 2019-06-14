@@ -44,11 +44,8 @@
 namespace loofah
 {
 
-namespace
-{
-
 #if NUT_PLATFORM_OS_MACOS || NUT_PLATFORM_OS_LINUX
-ProactHandler::mask_type real_mask(ProactHandler::mask_type mask) noexcept
+static ProactHandler::mask_type real_mask(ProactHandler::mask_type mask) noexcept
 {
     ProactHandler::mask_type ret = 0;
     if (0 != (mask & ProactHandler::ACCEPT_READ_MASK))
@@ -59,30 +56,46 @@ ProactHandler::mask_type real_mask(ProactHandler::mask_type mask) noexcept
 }
 #endif
 
+Proactor::~Proactor() noexcept
+{
+    assert(State::Uninitialized == _state.load(std::memory_order_relaxed) ||
+           State::Shutdown == _state.load(std::memory_order_relaxed));
 }
 
-Proactor::Proactor() noexcept
+bool Proactor::initialize() noexcept
 {
+    assert(State::Uninitialized == _state.load(std::memory_order_relaxed));
+
+    // Initialize base
+    initialize_base();
+
+    // Initialize proactor
 #if NUT_PLATFORM_OS_WINDOWS
     // Create IOCP
     const DWORD concurrent_threads = 1; // NOTE 目前我们只允许一个线程去执行 IOCP
     _iocp = ::CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, concurrent_threads);
     if (nullptr == _iocp)
+    {
         NUT_LOG_E(TAG, "failed to call CreateIoCompletionPort() with GetLastError() %d", ::GetLastError());
+        return false;
+    }
 #elif NUT_PLATFORM_OS_MACOS
     // Create kqueue
     _kq = ::kqueue();
     if (_kq < 0)
     {
         LOOFAH_LOG_ERRNO(kqueue);
-        return;
+        return false;
     }
 
     // Register user event filter
     struct kevent ev;
     EV_SET(&ev, KQUEUE_WAKEUP_IDENT, EVFILT_USER, EV_ADD | EV_CLEAR, NOTE_FFNOP, 0, nullptr);
     if (0 != ::kevent(_kq, &ev, 1, nullptr, 0, nullptr))
+    {
         LOOFAH_LOG_FD_ERRNO(kevent, _kq);
+        return false;
+    }
 #elif NUT_PLATFORM_OS_LINUX
     // Create epoll fd
     // NOTE 自从 Linux2.6.8 版本以后，epoll_create() 参数值其实是没什么用的, 只
@@ -91,7 +104,7 @@ Proactor::Proactor() noexcept
     if (_epoll_fd < 0)
     {
         LOOFAH_LOG_ERRNO(epoll_create);
-        return;
+        return false;
     }
 
     // Create eventfd
@@ -99,7 +112,7 @@ Proactor::Proactor() noexcept
     if (_event_fd < 0)
     {
         LOOFAH_LOG_ERRNO(eventfd);
-        return;
+        return false;
     }
 
     // Register eventfd to epoll fd
@@ -108,30 +121,31 @@ Proactor::Proactor() noexcept
     epv.data.fd = _event_fd;
     epv.events = EPOLLIN | EPOLLERR;
     if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, _event_fd, &epv))
-        LOOFAH_LOG_FD_ERRNO(epoll_ctl, _event_fd);
-#endif
-}
-
-Proactor::~Proactor() noexcept
-{
-    shutdown();
-}
-
-void Proactor::shutdown_later() noexcept
-{
-    if (!_closing_or_closed.exchange(true, std::memory_order_relaxed))
     {
-        if (!is_in_poll_thread())
-            wakeup_poll_wait();
+        LOOFAH_LOG_FD_ERRNO(epoll_ctl, _event_fd);
+        return false;
     }
+#endif
+
+    return true;
 }
 
 void Proactor::shutdown() noexcept
 {
-    assert(is_in_poll_thread());
+    assert(State::Uninitialized != _state.load(std::memory_order_relaxed));
 
-    _closing_or_closed.store(true, std::memory_order_relaxed);
+    // Check state
+    if (State::Polling != _state.load(std::memory_order_acquire))
+        return;
 
+    // Check thread context
+    if (!is_in_poll_thread())
+    {
+        run_in_poll_thread([=] { shutdown(); });
+        return;
+    }
+
+    // Shutdown
     _handlers.clear();
 
 #if NUT_PLATFORM_OS_WINDOWS
@@ -187,30 +201,24 @@ void Proactor::shutdown() noexcept
     }
     _epoll_fd = -1;
 #endif
-}
-
-void Proactor::register_handler_later(ProactHandler *handler) noexcept
-{
-    assert(nullptr != handler);
-
-    if (is_in_poll_thread())
-    {
-        // Synchronize
-        register_handler(handler);
-    }
-    else
-    {
-        // Asynchronize
-        nut::rc_ptr<ProactHandler> ref_handler(handler);
-        add_task([=] { register_handler(ref_handler); });
-    }
+    
+    _state.store(State::Shutdown, std::memory_order_release);
 }
 
 void Proactor::register_handler(ProactHandler *handler) noexcept
 {
     assert(nullptr != handler && nullptr == handler->_registered_proactor);
-    assert(is_in_poll_thread());
+    assert(State::Polling == _state.load(std::memory_order_relaxed));
 
+    // Check thread context
+    if (!is_in_poll_thread())
+    {
+        nut::rc_ptr<ProactHandler> ref_handler(handler);
+        run_in_poll_thread([=] { register_handler(ref_handler); });
+        return;
+    }
+
+    // Register
     const socket_t fd = handler->get_socket();
 
 #if NUT_PLATFORM_OS_WINDOWS
@@ -238,28 +246,20 @@ void Proactor::register_handler(ProactHandler *handler) noexcept
     handler->_registered_proactor = this;
 }
 
-void Proactor::unregister_handler_later(ProactHandler *handler) noexcept
-{
-    assert(nullptr != handler);
-
-    if (is_in_poll_thread())
-    {
-        // Synchronize
-        unregister_handler(handler);
-    }
-    else
-    {
-        // Asynchronize
-        nut::rc_ptr<ProactHandler> ref_handler(handler);
-        add_task([=] { unregister_handler(ref_handler); });
-    }
-}
-
 void Proactor::unregister_handler(ProactHandler *handler) noexcept
 {
     assert(nullptr != handler && handler->_registered_proactor == this);
-    assert(is_in_poll_thread());
+    assert(State::Polling == _state.load(std::memory_order_relaxed));
 
+    // Check thread context
+    if (!is_in_poll_thread())
+    {
+        nut::rc_ptr<ProactHandler> ref_handler(handler);
+        run_in_poll_thread([=] { unregister_handler(ref_handler); });
+        return;
+    }
+
+    // Unregister
     const socket_t fd = handler->get_socket();
 
 #if NUT_PLATFORM_OS_WINDOWS
@@ -315,28 +315,20 @@ void Proactor::unregister_handler(ProactHandler *handler) noexcept
 #endif
 }
 
-void Proactor::launch_accept_later(ProactHandler *handler) noexcept
-{
-    assert(nullptr != handler);
-
-    if (is_in_poll_thread())
-    {
-        // Synchronize
-        launch_accept(handler);
-    }
-    else
-    {
-        // Asynchronize
-        nut::rc_ptr<ProactHandler> ref_handler(handler);
-        add_task([=] { launch_accept(ref_handler); });
-    }
-}
-
 void Proactor::launch_accept(ProactHandler *handler) noexcept
 {
     assert(nullptr != handler && handler->_registered_proactor == this);
-    assert(is_in_poll_thread());
+    assert(State::Polling == _state.load(std::memory_order_relaxed));
 
+    // Check thread context
+    if (!is_in_poll_thread())
+    {
+        nut::rc_ptr<ProactHandler> ref_handler(handler);
+        run_in_poll_thread([=] { launch_accept(ref_handler); });
+        return;
+    }
+
+    // Launch accept
 #if NUT_PLATFORM_OS_WINDOWS
     // Create socket
     const socket_t accept_socket = ::WSASocket(AF_INET, SOCK_STREAM, 0, nullptr,
@@ -390,48 +382,20 @@ void Proactor::launch_accept(ProactHandler *handler) noexcept
 }
 
 #if NUT_PLATFORM_OS_WINDOWS
-void Proactor::launch_connect_later(ProactHandler *handler, const InetAddr& address) noexcept
-{
-    assert(nullptr != handler);
-
-    if (is_in_poll_thread())
-    {
-        // Synchronize
-        launch_connect(handler, address);
-    }
-    else
-    {
-        // Asynchronize
-        nut::rc_ptr<ProactHandler> ref_handler(handler);
-        add_task([=] { launch_connect(ref_handler, address); });
-    }
-}
-#else
-void Proactor::launch_connect_later(ProactHandler *handler) noexcept
-{
-    assert(nullptr != handler);
-
-    if (is_in_poll_thread())
-    {
-        // Synchronize
-        launch_connect(handler);
-    }
-    else
-    {
-        // Asynchronize
-        nut::rc_ptr<ProactHandler> ref_handler(handler);
-        add_task([=] { launch_connect(ref_handler); });
-    }
-}
-#endif
-
-
-#if NUT_PLATFORM_OS_WINDOWS
 void Proactor::launch_connect(ProactHandler *handler, const InetAddr& address) noexcept
 {
     assert(nullptr != handler && handler->_registered_proactor == this);
-    assert(is_in_poll_thread());
+    assert(State::Polling == _state.load(std::memory_order_relaxed));
 
+    // Check thread context
+    if (!is_in_poll_thread())
+    {
+        nut::rc_ptr<ProactHandler> ref_handler(handler);
+        run_in_poll_thread([=] { launch_connect(ref_handler, address); });
+        return;
+    }
+
+    // Launch connect
     IORequest *io_request = IORequest::new_request(handler, ProactHandler::CONNECT_MASK);
     assert(nullptr != io_request);
 
@@ -462,26 +426,32 @@ void Proactor::launch_connect(ProactHandler *handler, const InetAddr& address) n
 void Proactor::launch_connect(ProactHandler *handler) noexcept
 {
     assert(nullptr != handler && handler->_registered_proactor == this);
-    assert(is_in_poll_thread());
     assert(0 == (handler->_enabled_events & ProactHandler::CONNECT_MASK));
+    assert(State::Polling == _state.load(std::memory_order_relaxed));
+
+    // Check thread context
+    if (!is_in_poll_thread())
+    {
+        nut::rc_ptr<ProactHandler> ref_handler(handler);
+        run_in_poll_thread([=] { launch_connect(ref_handler); });
+        return;
+    }
+
+    // Launch connect
     enable_handler(handler, ProactHandler::CONNECT_MASK);
 }
 #endif
 
-
-void Proactor::launch_read_later(ProactHandler *handler, void* const *buf_ptrs,
-                                 const size_t *len_ptrs, size_t buf_count) noexcept
+void Proactor::launch_read(ProactHandler *handler, void* const *buf_ptrs,
+                           const size_t *len_ptrs, size_t buf_count) noexcept
 {
     assert(nullptr != handler && nullptr != buf_ptrs && nullptr != len_ptrs && buf_count > 0);
+    assert(handler->_registered_proactor == this);
+    assert(State::Polling == _state.load(std::memory_order_relaxed));
 
-    if (is_in_poll_thread())
+    // Check thread context
+    if (!is_in_poll_thread())
     {
-        // Synchronize
-        launch_read(handler, buf_ptrs, len_ptrs, buf_count);
-    }
-    else
-    {
-        // Asynchronize
         nut::rc_ptr<ProactHandler> ref_handler(handler);
 
         void **dup_buf_ptrs = (void**) ::malloc(sizeof(void*) * buf_count + sizeof(size_t) * buf_count);
@@ -489,20 +459,14 @@ void Proactor::launch_read_later(ProactHandler *handler, void* const *buf_ptrs,
         size_t *dup_len_ptrs = (size_t*) (dup_buf_ptrs + buf_count);
         ::memcpy(dup_len_ptrs, len_ptrs, sizeof(size_t) * buf_count);
 
-        add_task([=] {
+        run_in_poll_thread([=] {
             launch_read(ref_handler, dup_buf_ptrs, dup_len_ptrs, buf_count);
             ::free(dup_buf_ptrs);
         });
+        return;
     }
-}
 
-void Proactor::launch_read(ProactHandler *handler, void* const *buf_ptrs,
-                           const size_t *len_ptrs, size_t buf_count) noexcept
-{
-    assert(nullptr != handler && nullptr != buf_ptrs && nullptr != len_ptrs && buf_count > 0);
-    assert(handler->_registered_proactor == this);
-    assert(is_in_poll_thread());
-
+    // Launch read
 #if NUT_PLATFORM_OS_WINDOWS
     IORequest *io_request = IORequest::new_request(handler, ProactHandler::READ_MASK, buf_count);
     assert(nullptr != io_request);
@@ -539,19 +503,16 @@ void Proactor::launch_read(ProactHandler *handler, void* const *buf_ptrs,
 #endif
 }
 
-void Proactor::launch_write_later(ProactHandler *handler, void* const *buf_ptrs,
-                                  const size_t *len_ptrs, size_t buf_count) noexcept
+void Proactor::launch_write(ProactHandler *handler, void* const *buf_ptrs,
+                            const size_t *len_ptrs, size_t buf_count) noexcept
 {
     assert(nullptr != handler && nullptr != buf_ptrs && nullptr != len_ptrs && buf_count > 0);
+    assert(handler->_registered_proactor == this);
+    assert(State::Polling == _state.load(std::memory_order_relaxed));
 
-    if (is_in_poll_thread())
+    // Check thread context
+    if (!is_in_poll_thread())
     {
-        // Synchronize
-        launch_write(handler, buf_ptrs, len_ptrs, buf_count);
-    }
-    else
-    {
-        // Asynchronize
         nut::rc_ptr<ProactHandler> ref_handler(handler);
 
         void **dup_buf_ptrs = (void**) ::malloc(sizeof(void*) * buf_count + sizeof(size_t) * buf_count);
@@ -559,20 +520,14 @@ void Proactor::launch_write_later(ProactHandler *handler, void* const *buf_ptrs,
         size_t *dup_len_ptrs = (size_t*) (dup_buf_ptrs + buf_count);
         ::memcpy(dup_len_ptrs, len_ptrs, sizeof(size_t) * buf_count);
 
-        add_task([=] {
+        run_in_poll_thread([=] {
             launch_write(ref_handler, dup_buf_ptrs, dup_len_ptrs, buf_count);
             ::free(dup_buf_ptrs);
         });
+        return;
     }
-}
 
-void Proactor::launch_write(ProactHandler *handler, void* const *buf_ptrs,
-                            const size_t *len_ptrs, size_t buf_count) noexcept
-{
-    assert(nullptr != handler && nullptr != buf_ptrs && nullptr != len_ptrs && buf_count > 0);
-    assert(handler->_registered_proactor == this);
-    assert(is_in_poll_thread());
-
+    // Lauch write
 #if NUT_PLATFORM_OS_WINDOWS
     IORequest *io_request = IORequest::new_request(handler, ProactHandler::WRITE_MASK, buf_count);
     assert(nullptr != io_request);
@@ -720,15 +675,20 @@ void Proactor::disable_handler(ProactHandler *handler, ProactHandler::mask_type 
 
 int Proactor::poll(int timeout_ms) noexcept
 {
-    if (_closing_or_closed.load(std::memory_order_relaxed))
+    assert(State::Uninitialized != _state.load(std::memory_order_relaxed));
+    
+    // Check state
+    if (State::Polling != _state.load(std::memory_order_acquire))
         return -1;
 
+    // Check thread context
     if (!is_in_poll_thread())
     {
-        NUT_LOG_F(TAG, "poll() can only be called from inside IO thread");
+        NUT_LOG_F(TAG, "poll() can only be called from inside polling thread");
         return -1;
     }
 
+    // Poll
 #if NUT_PLATFORM_OS_WINDOWS
     const DWORD timeout = (timeout_ms < 0 ? INFINITE : timeout_ms);
     DWORD bytes_transfered = 0;
@@ -1000,10 +960,14 @@ int Proactor::poll(int timeout_ms) noexcept
             }
             else if (0 != (events[i].events & EPOLLIN))
             {
+                int rs = 0;
                 uint64_t counter = 0;
-                const int rs = ::read(_event_fd, &counter, sizeof(counter));
-                if (rs < 0)
-                    LOOFAH_LOG_FD_ERRNO(read, _event_fd);
+                do
+                {
+                    rs = ::read(_event_fd, &counter, sizeof(counter));
+                    if (rs < 0 && EAGAIN != errno && EWOULDBLOCK != errno)
+                        LOOFAH_LOG_FD_ERRNO(read, _event_fd);
+                } while (rs > 0);
             }
 
             continue;

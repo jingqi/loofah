@@ -60,7 +60,6 @@ public:
      * NOTE 调用 close() 后，再调用 write() 写的数据将被忽略
      */
     virtual void write(Package *pkg) noexcept = 0;
-    void write_later(Package *pkg) noexcept;
 
     /**
      * 关闭连接
@@ -70,7 +69,6 @@ public:
      * @param discard_write 放弃还未写入的数据
      */
     virtual void close(int err = 0, bool discard_write = false) noexcept = 0;
-    void close_later(int err = 0, bool discard_write = false) noexcept;
 
     /**
      * 正在关闭，或者已经关闭

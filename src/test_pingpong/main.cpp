@@ -152,13 +152,14 @@ int main(int argc, char *argv[])
         return -1;
     }
 
+    g_global.proactor.initialize();
     start_server();
     start_client();
     g_global.timewheel.add_timer(
         g_global.seconds * 1000, 0,
         [=](nut::TimeWheel::timer_id_type id, uint64_t expires)
         {
-            g_global.proactor.shutdown_later();
+            g_global.proactor.shutdown();
         });
 
     while (true)
@@ -169,7 +170,7 @@ int main(int argc, char *argv[])
             break;
         g_global.timewheel.tick();
     }
-    g_global.proactor.shutdown_later();
+    g_global.proactor.shutdown();
 
     shutdown_network();
     report();

@@ -116,7 +116,7 @@ public:
         if (_counter > 20)
         {
             NUT_LOG_D(TAG, "client going to close");
-            close_later();
+            close();
             return;
         }
     }
@@ -140,10 +140,12 @@ class TestReactPackageChannel : public TestFixture
     virtual void set_up() override
     {
         reactor = new Reactor;
+        reactor->initialize();
     }
 
     virtual void tear_down() override
     {
+        reactor->shutdown();
         delete reactor;
         reactor = nullptr;
     }
@@ -154,7 +156,7 @@ class TestReactPackageChannel : public TestFixture
         InetAddr addr(LISTEN_ADDR, LISTEN_PORT);
         rc_ptr<ReactAcceptor<ServerChannel>> acc = rc_new<ReactAcceptor<ServerChannel> >();
         acc->listen(addr);
-        reactor->register_handler_later(acc, ReactHandler::ACCEPT_MASK);
+        reactor->register_handler(acc, ReactHandler::ACCEPT_MASK);
         NUT_LOG_D(TAG, "server listening at %s, fd %d", addr.to_string().c_str(), acc->get_socket());
 
         // Start client

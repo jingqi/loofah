@@ -45,7 +45,7 @@ bool ReactConnectorBase::connect(Reactor *reactor, const InetAddr& address) noex
             nut::rc_ptr<ReactChannel> channel = create_channel();
             channel->initialize();
             channel->open(fd);
-            reactor->register_handler_later(channel, ReactHandler::CONNECT_MASK);
+            reactor->register_handler(channel, ReactHandler::CONNECT_MASK);
             return true;
         }
 
@@ -61,7 +61,7 @@ bool ReactConnectorBase::connect(Reactor *reactor, const InetAddr& address) noex
             nut::rc_ptr<ReactChannel> channel = create_channel();
             channel->initialize();
             channel->open(fd);
-            reactor->register_handler_later(channel, ReactHandler::CONNECT_MASK);
+            reactor->register_handler(channel, ReactHandler::CONNECT_MASK);
             return true;
         }
 
