@@ -121,14 +121,14 @@ void Proactor::shutdown_later() noexcept
 {
     if (!_closing_or_closed.exchange(true, std::memory_order_relaxed))
     {
-        if (!is_in_io_thread())
+        if (!is_in_poll_thread())
             wakeup_poll_wait();
     }
 }
 
 void Proactor::shutdown() noexcept
 {
-    assert(is_in_io_thread());
+    assert(is_in_poll_thread());
 
     _closing_or_closed.store(true, std::memory_order_relaxed);
 
@@ -193,7 +193,7 @@ void Proactor::register_handler_later(ProactHandler *handler) noexcept
 {
     assert(nullptr != handler);
 
-    if (is_in_io_thread())
+    if (is_in_poll_thread())
     {
         // Synchronize
         register_handler(handler);
@@ -202,14 +202,14 @@ void Proactor::register_handler_later(ProactHandler *handler) noexcept
     {
         // Asynchronize
         nut::rc_ptr<ProactHandler> ref_handler(handler);
-        add_later_task([=] { register_handler(ref_handler); });
+        add_task([=] { register_handler(ref_handler); });
     }
 }
 
 void Proactor::register_handler(ProactHandler *handler) noexcept
 {
     assert(nullptr != handler && nullptr == handler->_registered_proactor);
-    assert(is_in_io_thread());
+    assert(is_in_poll_thread());
 
     const socket_t fd = handler->get_socket();
 
@@ -242,7 +242,7 @@ void Proactor::unregister_handler_later(ProactHandler *handler) noexcept
 {
     assert(nullptr != handler);
 
-    if (is_in_io_thread())
+    if (is_in_poll_thread())
     {
         // Synchronize
         unregister_handler(handler);
@@ -251,14 +251,14 @@ void Proactor::unregister_handler_later(ProactHandler *handler) noexcept
     {
         // Asynchronize
         nut::rc_ptr<ProactHandler> ref_handler(handler);
-        add_later_task([=] { unregister_handler(ref_handler); });
+        add_task([=] { unregister_handler(ref_handler); });
     }
 }
 
 void Proactor::unregister_handler(ProactHandler *handler) noexcept
 {
     assert(nullptr != handler && handler->_registered_proactor == this);
-    assert(is_in_io_thread());
+    assert(is_in_poll_thread());
 
     const socket_t fd = handler->get_socket();
 
@@ -319,7 +319,7 @@ void Proactor::launch_accept_later(ProactHandler *handler) noexcept
 {
     assert(nullptr != handler);
 
-    if (is_in_io_thread())
+    if (is_in_poll_thread())
     {
         // Synchronize
         launch_accept(handler);
@@ -328,14 +328,14 @@ void Proactor::launch_accept_later(ProactHandler *handler) noexcept
     {
         // Asynchronize
         nut::rc_ptr<ProactHandler> ref_handler(handler);
-        add_later_task([=] { launch_accept(ref_handler); });
+        add_task([=] { launch_accept(ref_handler); });
     }
 }
 
 void Proactor::launch_accept(ProactHandler *handler) noexcept
 {
     assert(nullptr != handler && handler->_registered_proactor == this);
-    assert(is_in_io_thread());
+    assert(is_in_poll_thread());
 
 #if NUT_PLATFORM_OS_WINDOWS
     // Create socket
@@ -394,7 +394,7 @@ void Proactor::launch_connect_later(ProactHandler *handler, const InetAddr& addr
 {
     assert(nullptr != handler);
 
-    if (is_in_io_thread())
+    if (is_in_poll_thread())
     {
         // Synchronize
         launch_connect(handler, address);
@@ -403,7 +403,7 @@ void Proactor::launch_connect_later(ProactHandler *handler, const InetAddr& addr
     {
         // Asynchronize
         nut::rc_ptr<ProactHandler> ref_handler(handler);
-        add_later_task([=] { launch_connect(ref_handler, address); });
+        add_task([=] { launch_connect(ref_handler, address); });
     }
 }
 #else
@@ -411,7 +411,7 @@ void Proactor::launch_connect_later(ProactHandler *handler) noexcept
 {
     assert(nullptr != handler);
 
-    if (is_in_io_thread())
+    if (is_in_poll_thread())
     {
         // Synchronize
         launch_connect(handler);
@@ -420,7 +420,7 @@ void Proactor::launch_connect_later(ProactHandler *handler) noexcept
     {
         // Asynchronize
         nut::rc_ptr<ProactHandler> ref_handler(handler);
-        add_later_task([=] { launch_connect(ref_handler); });
+        add_task([=] { launch_connect(ref_handler); });
     }
 }
 #endif
@@ -430,7 +430,7 @@ void Proactor::launch_connect_later(ProactHandler *handler) noexcept
 void Proactor::launch_connect(ProactHandler *handler, const InetAddr& address) noexcept
 {
     assert(nullptr != handler && handler->_registered_proactor == this);
-    assert(is_in_io_thread());
+    assert(is_in_poll_thread());
 
     IORequest *io_request = IORequest::new_request(handler, ProactHandler::CONNECT_MASK);
     assert(nullptr != io_request);
@@ -462,7 +462,7 @@ void Proactor::launch_connect(ProactHandler *handler, const InetAddr& address) n
 void Proactor::launch_connect(ProactHandler *handler) noexcept
 {
     assert(nullptr != handler && handler->_registered_proactor == this);
-    assert(is_in_io_thread());
+    assert(is_in_poll_thread());
     assert(0 == (handler->_enabled_events & ProactHandler::CONNECT_MASK));
     enable_handler(handler, ProactHandler::CONNECT_MASK);
 }
@@ -474,7 +474,7 @@ void Proactor::launch_read_later(ProactHandler *handler, void* const *buf_ptrs,
 {
     assert(nullptr != handler && nullptr != buf_ptrs && nullptr != len_ptrs && buf_count > 0);
 
-    if (is_in_io_thread())
+    if (is_in_poll_thread())
     {
         // Synchronize
         launch_read(handler, buf_ptrs, len_ptrs, buf_count);
@@ -489,7 +489,7 @@ void Proactor::launch_read_later(ProactHandler *handler, void* const *buf_ptrs,
         size_t *dup_len_ptrs = (size_t*) (dup_buf_ptrs + buf_count);
         ::memcpy(dup_len_ptrs, len_ptrs, sizeof(size_t) * buf_count);
 
-        add_later_task([=] {
+        add_task([=] {
             launch_read(ref_handler, dup_buf_ptrs, dup_len_ptrs, buf_count);
             ::free(dup_buf_ptrs);
         });
@@ -501,7 +501,7 @@ void Proactor::launch_read(ProactHandler *handler, void* const *buf_ptrs,
 {
     assert(nullptr != handler && nullptr != buf_ptrs && nullptr != len_ptrs && buf_count > 0);
     assert(handler->_registered_proactor == this);
-    assert(is_in_io_thread());
+    assert(is_in_poll_thread());
 
 #if NUT_PLATFORM_OS_WINDOWS
     IORequest *io_request = IORequest::new_request(handler, ProactHandler::READ_MASK, buf_count);
@@ -544,7 +544,7 @@ void Proactor::launch_write_later(ProactHandler *handler, void* const *buf_ptrs,
 {
     assert(nullptr != handler && nullptr != buf_ptrs && nullptr != len_ptrs && buf_count > 0);
 
-    if (is_in_io_thread())
+    if (is_in_poll_thread())
     {
         // Synchronize
         launch_write(handler, buf_ptrs, len_ptrs, buf_count);
@@ -559,7 +559,7 @@ void Proactor::launch_write_later(ProactHandler *handler, void* const *buf_ptrs,
         size_t *dup_len_ptrs = (size_t*) (dup_buf_ptrs + buf_count);
         ::memcpy(dup_len_ptrs, len_ptrs, sizeof(size_t) * buf_count);
 
-        add_later_task([=] {
+        add_task([=] {
             launch_write(ref_handler, dup_buf_ptrs, dup_len_ptrs, buf_count);
             ::free(dup_buf_ptrs);
         });
@@ -571,7 +571,7 @@ void Proactor::launch_write(ProactHandler *handler, void* const *buf_ptrs,
 {
     assert(nullptr != handler && nullptr != buf_ptrs && nullptr != len_ptrs && buf_count > 0);
     assert(handler->_registered_proactor == this);
-    assert(is_in_io_thread());
+    assert(is_in_poll_thread());
 
 #if NUT_PLATFORM_OS_WINDOWS
     IORequest *io_request = IORequest::new_request(handler, ProactHandler::WRITE_MASK, buf_count);
@@ -614,7 +614,7 @@ void Proactor::enable_handler(ProactHandler *handler, ProactHandler::mask_type m
 {
     assert(nullptr != handler && 0 == (mask & ~ProactHandler::ALL_MASK));
     assert(handler->_registered_proactor == this);
-    assert(is_in_io_thread());
+    assert(is_in_poll_thread());
 
     if (0 == mask)
         return;
@@ -673,7 +673,7 @@ void Proactor::disable_handler(ProactHandler *handler, ProactHandler::mask_type 
 {
     assert(nullptr != handler && 0 == (mask & ~ProactHandler::ALL_MASK));
     assert(handler->_registered_proactor == this);
-    assert(is_in_io_thread());
+    assert(is_in_poll_thread());
 
     if (0 == mask)
         return;
@@ -723,7 +723,7 @@ int Proactor::poll(int timeout_ms) noexcept
     if (_closing_or_closed.load(std::memory_order_relaxed))
         return -1;
 
-    if (!is_in_io_thread())
+    if (!is_in_poll_thread())
     {
         NUT_LOG_F(TAG, "poll() can only be called from inside IO thread");
         return -1;
@@ -748,10 +748,8 @@ int Proactor::poll(int timeout_ms) noexcept
      *   - io_overlapped == NULL 收到通知 (由 PostQueuedCompletionStatus() 发送) (case 5)
      *   - io_overlapped != NULL, bytes_transfered > 0 正常返回                  (case 6)
      */
-    _poll_stage = PollStage::PollingWait;
     const BOOL rs = ::GetQueuedCompletionStatus(_iocp, &bytes_transfered, &key,
                                                 &io_overlapped, timeout);
-    _poll_stage = PollStage::HandlingEvents;
     const DWORD errcode = (FALSE == rs ? ::GetLastError() : ERROR_SUCCESS);
     if (nullptr == io_overlapped) // case 1, 2, 5: 超时 / 错误 / 收到通知
     {
@@ -898,9 +896,7 @@ int Proactor::poll(int timeout_ms) noexcept
     }
     struct kevent active_evs[LOOFAH_MAX_ACTIVE_EVENTS];
 
-    _poll_stage = PollStage::PollingWait;
     const int n = ::kevent(_kq, nullptr, 0, active_evs, LOOFAH_MAX_ACTIVE_EVENTS, &timeout);
-    _poll_stage = PollStage::HandlingEvents;
     for (int i = 0; i < n; ++i)
     {
         // User event
@@ -992,9 +988,7 @@ int Proactor::poll(int timeout_ms) noexcept
 #elif NUT_PLATFORM_OS_LINUX
     const int timeout = (timeout_ms < 0 ? -1 : timeout_ms);
     struct epoll_event events[LOOFAH_MAX_ACTIVE_EVENTS];
-    _poll_stage = PollStage::PollingWait;
     const int n = ::epoll_wait(_epoll_fd, events, LOOFAH_MAX_ACTIVE_EVENTS, timeout);
-    _poll_stage = PollStage::HandlingEvents;
     for (int i = 0; i < n; ++i)
     {
         // 'eventfd' events
@@ -1097,8 +1091,7 @@ int Proactor::poll(int timeout_ms) noexcept
 #endif
 
     // Run asynchronized tasks
-    _poll_stage = PollStage::NotPolling;
-    run_later_tasks();
+    run_deferred_tasks();
 
     return 0;
 }

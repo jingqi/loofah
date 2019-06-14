@@ -24,10 +24,10 @@ public:
     virtual ~PollerBase() = default;
 
     /**
-     * 当前上下文是否在 IO 线程中
+     * 当前上下文是否在轮询线程中
      *
      * NOTE:
-     * - reactor 的下列操作需要放到 IO 线程中:
+     * - reactor 的下列操作需要放到轮询线程中:
      *   register_handler()
      *   unregister_handler()
      *   enable_handler()
@@ -35,7 +35,7 @@ public:
      *   poll()
      *   shutdown()
      *
-     * - proactor 的下列操作需要放到 IO 线程中:
+     * - proactor 的下列操作需要放到轮询线程中:
      *   register_handler()
      *   unregister_handler()
      *   launch_accept()
@@ -45,24 +45,19 @@ public:
      *   poll()
      *   shutdown()
      */
-    bool is_in_io_thread() const noexcept;
+    bool is_in_poll_thread() const noexcept;
 
     /**
-     * 当前上下文是否在 IO 线程中, 并且处于轮询间隔
+     * 在轮询线程中运行
      */
-    bool is_in_io_thread_and_not_polling() const noexcept;
+    void run_in_poll_thread(task_type&& task) noexcept;
+    void run_in_poll_thread(const task_type& task) noexcept;
 
     /**
-     * 在事件循环线程且事件处理间隔中运行
-     */
-    void run_later(task_type&& task) noexcept;
-    void run_later(const task_type& task) noexcept;
-
-    /**
-     * 如果 io 线程处于轮询等待状态(select() / WSAPoll() / kevent() / epoll_wait())
-     * 则唤醒 io 线程
+     * 如果轮询线程处于轮询等待状态(select() / WSAPoll() / kevent() / epoll_wait())
+     * 则唤醒轮询线程
      *
-     * NOTE 该方法可以从非 io 线程调用
+     * NOTE 该方法可以从非轮询线程调用
      */
     virtual void wakeup_poll_wait() noexcept = 0;
 
@@ -72,29 +67,21 @@ protected:
      *
      * NOTE This method can only be called from inside IO thread
      */
-    void run_later_tasks() noexcept;
+    void run_deferred_tasks() noexcept;
 
     /**
      * 添加一个异步任务
      */
-    void add_later_task(task_type&& task) noexcept;
-    void add_later_task(const task_type& task) noexcept;
+    void add_task(task_type&& task) noexcept;
+    void add_task(const task_type& task) noexcept;
 
 private:
     PollerBase(const PollerBase&) = delete;
     PollerBase& operator=(const PollerBase&) = delete;
 
-protected:
-    enum class PollStage
-    {
-        PollingWait, // 等待事件, select() / WSAPoll() / kevent() / epoll_wait()
-        HandlingEvents, // 处理事件中
-        NotPolling, // 处理其他任务
-    } _poll_stage = PollStage::NotPolling;
-
 private:
-    std::thread::id _io_thread_tid;
-    nut::ConcurrentQueue<task_type> _later_tasks;
+    std::thread::id _poller_tid;
+    nut::ConcurrentQueue<task_type> _deferred_tasks;
 };
 
 }

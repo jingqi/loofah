@@ -41,7 +41,7 @@ void ReactPackageChannel::open(socket_t fd) noexcept
 void ReactPackageChannel::handle_channel_connected() noexcept
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(nullptr != _poller && _poller->is_in_io_thread());
+    assert(nullptr != _poller && _poller->is_in_poll_thread());
 
     Reactor *const reactor = (Reactor*) _poller;
     reactor->register_handler(this, ReactHandler::READ_MASK | ReactHandler::WRITE_MASK);
@@ -53,7 +53,7 @@ void ReactPackageChannel::handle_channel_connected() noexcept
 void ReactPackageChannel::close(int err, bool discard_write) noexcept
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(nullptr != _poller && _poller->is_in_io_thread());
+    assert(nullptr != _poller && _poller->is_in_poll_thread());
 
     // 设置关闭标记
     _closing.store(true, std::memory_order_relaxed);
@@ -80,7 +80,7 @@ void ReactPackageChannel::close(int err, bool discard_write) noexcept
 void ReactPackageChannel::force_close(int err) noexcept
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(nullptr != _poller && _poller->is_in_io_thread());
+    assert(nullptr != _poller && _poller->is_in_poll_thread());
 
     // 设置关闭标记
     _closing.store(true, std::memory_order_relaxed);
@@ -93,25 +93,23 @@ void ReactPackageChannel::force_close(int err) noexcept
     _sock_stream.close();
 
     // Handle close event
-    if (_poller->is_in_io_thread_and_not_polling())
+    if (_poller->is_in_poll_thread())
     {
         // Synchronize
-        // NOTE 这里可能会导致自身被析构, 需要放到轮询间隔，详见
-        //      ~PackageChannelBase() 中的说明
         handle_closed(err);
     }
     else
     {
         // Asynchronize
         nut::rc_ptr<ReactPackageChannel> ref_this(this);
-        _poller->run_later([=] { ref_this->handle_closed(err); });
+        _poller->run_in_poll_thread([=] { ref_this->handle_closed(err); });
     }
 }
 
 void ReactPackageChannel::handle_read_ready() noexcept
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(nullptr != _poller && _poller->is_in_io_thread());
+    assert(nullptr != _poller && _poller->is_in_poll_thread());
 
     Reactor *const reactor = (Reactor*) _poller;
     while (true)
@@ -155,7 +153,7 @@ void ReactPackageChannel::write(Package *pkg) noexcept
 {
     assert(nullptr != pkg);
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(nullptr != _poller && _poller->is_in_io_thread());
+    assert(nullptr != _poller && _poller->is_in_poll_thread());
     assert(!_sock_stream.is_null());
 
     if (_closing.load(std::memory_order_relaxed))
@@ -173,7 +171,7 @@ void ReactPackageChannel::write(Package *pkg) noexcept
 void ReactPackageChannel::handle_write_ready() noexcept
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(nullptr != _poller && _poller->is_in_io_thread());
+    assert(nullptr != _poller && _poller->is_in_poll_thread());
 
     // NOTE 此时 '_closing' 可能为 true, 做关闭前最后的写入
 
@@ -287,7 +285,7 @@ void ReactPackageChannel::handle_write_ready() noexcept
 void ReactPackageChannel::handle_io_error(int err) noexcept
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(nullptr != _poller && _poller->is_in_io_thread());
+    assert(nullptr != _poller && _poller->is_in_poll_thread());
 
     NUT_LOG_E(TAG, "loofah error raised, fd %d, error %d: %s", get_socket(),
               err, str_error(err));

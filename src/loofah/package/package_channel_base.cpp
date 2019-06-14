@@ -46,7 +46,7 @@ void PackageChannelBase::close_later(int err, bool discard_write) noexcept
         _closing.store(true, std::memory_order_relaxed);
 
     assert(nullptr != _poller);
-    if (_poller->is_in_io_thread())
+    if (_poller->is_in_poll_thread())
     {
         // Synchronize
         close(err, discard_write);
@@ -55,14 +55,14 @@ void PackageChannelBase::close_later(int err, bool discard_write) noexcept
     {
         // Asynchronize
         nut::rc_ptr<PackageChannelBase> ref_this(this);
-        _poller->run_later([=] { ref_this->close(err, discard_write); });
+        _poller->run_in_poll_thread([=] { ref_this->close(err, discard_write); });
     }
 }
 
 void PackageChannelBase::setup_force_close_timer(int err) noexcept
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(nullptr != _poller && _poller->is_in_io_thread());
+    assert(nullptr != _poller && _poller->is_in_poll_thread());
 
     // 不强制关闭
     if (LOOFAH_FORCE_CLOSE_DELAY <= 0)
@@ -90,7 +90,7 @@ void PackageChannelBase::setup_force_close_timer(int err) noexcept
 void PackageChannelBase::cancel_force_close_timer() noexcept
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(nullptr != _poller && _poller->is_in_io_thread());
+    assert(nullptr != _poller && _poller->is_in_poll_thread());
 
     if (nullptr == _time_wheel || NUT_INVALID_TIMER_ID == _force_close_timer)
         return;
@@ -101,7 +101,7 @@ void PackageChannelBase::cancel_force_close_timer() noexcept
 void PackageChannelBase::split_and_handle_packages(size_t extra_readed) noexcept
 {
     NUT_DEBUGGING_ASSERT_ALIVE;
-    assert(nullptr != _poller && _poller->is_in_io_thread());
+    assert(nullptr != _poller && _poller->is_in_poll_thread());
 
     // 分包
     nut::rc_ptr<Package> buffer_pkg = _reading_pkg;
@@ -216,7 +216,7 @@ void PackageChannelBase::write_later(Package *pkg) noexcept
     }
 
     assert(nullptr != _poller);
-    if (_poller->is_in_io_thread())
+    if (_poller->is_in_poll_thread())
     {
         // Synchronize
         write(pkg);
@@ -226,7 +226,7 @@ void PackageChannelBase::write_later(Package *pkg) noexcept
         // Asynchronize
         nut::rc_ptr<PackageChannelBase> ref_this(this);
         nut::rc_ptr<Package> ref_pkg(pkg);
-        _poller->run_later([=] { ref_this->write(ref_pkg); });
+        _poller->run_in_poll_thread([=] { ref_this->write(ref_pkg); });
     }
 }
 

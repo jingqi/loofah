@@ -158,14 +158,14 @@ void Reactor::shutdown_later() noexcept
 {
     if (!_closing_or_closed.exchange(true, std::memory_order_relaxed))
     {
-        if (!is_in_io_thread())
+        if (!is_in_poll_thread())
             wakeup_poll_wait();
     }
 }
 
 void Reactor::shutdown() noexcept
 {
-    assert(is_in_io_thread());
+    assert(is_in_poll_thread());
 
     _closing_or_closed.store(true, std::memory_order_relaxed);
 
@@ -270,7 +270,7 @@ void Reactor::register_handler_later(ReactHandler *handler, ReactHandler::mask_t
 {
     assert(nullptr != handler);
 
-    if (is_in_io_thread())
+    if (is_in_poll_thread())
     {
         // Synchronize
         register_handler(handler, mask);
@@ -279,7 +279,7 @@ void Reactor::register_handler_later(ReactHandler *handler, ReactHandler::mask_t
     {
         // Asynchronize
         nut::rc_ptr<ReactHandler> ref_handler(handler);
-        add_later_task([=] { register_handler(ref_handler, mask); });
+        add_task([=] { register_handler(ref_handler, mask); });
     }
 }
 
@@ -287,7 +287,7 @@ void Reactor::register_handler(ReactHandler *handler, ReactHandler::mask_type ma
 {
     assert(nullptr != handler && 0 == (mask & ~ReactHandler::ALL_MASK));
     assert(nullptr == handler->_registered_reactor && 0 == handler->_enabled_events);
-    assert(is_in_io_thread());
+    assert(is_in_poll_thread());
 
 #if NUT_PLATFORM_OS_WINDOWS && WINVER >= _WIN32_WINNT_WINBLUE
     assert(!handler->_registered);
@@ -307,7 +307,7 @@ void Reactor::unregister_handler_later(ReactHandler *handler) noexcept
 {
     assert(nullptr != handler);
 
-    if (is_in_io_thread())
+    if (is_in_poll_thread())
     {
         // Synchronize
         unregister_handler(handler);
@@ -316,14 +316,14 @@ void Reactor::unregister_handler_later(ReactHandler *handler) noexcept
     {
         // Asynchronize
         nut::rc_ptr<ReactHandler> ref_handler(handler);
-        add_later_task([=] { unregister_handler(ref_handler); });
+        add_task([=] { unregister_handler(ref_handler); });
     }
 }
 
 void Reactor::unregister_handler(ReactHandler *handler) noexcept
 {
     assert(nullptr != handler && handler->_registered_reactor == this);
-    assert(is_in_io_thread());
+    assert(is_in_poll_thread());
 
     const socket_t fd = handler->get_socket();
 
@@ -389,7 +389,7 @@ void Reactor::enable_handler_later(ReactHandler *handler, ReactHandler::mask_typ
 {
     assert(nullptr != handler);
 
-    if (is_in_io_thread())
+    if (is_in_poll_thread())
     {
         // Synchronize
         enable_handler(handler, mask);
@@ -398,7 +398,7 @@ void Reactor::enable_handler_later(ReactHandler *handler, ReactHandler::mask_typ
     {
         // Asynchronize
         nut::rc_ptr<ReactHandler> ref_handler(handler);
-        add_later_task([=] { enable_handler(ref_handler, mask); });
+        add_task([=] { enable_handler(ref_handler, mask); });
     }
 }
 
@@ -406,7 +406,7 @@ void Reactor::enable_handler(ReactHandler *handler, ReactHandler::mask_type mask
 {
     assert(nullptr != handler && 0 == (mask & ~ReactHandler::ALL_MASK));
     assert(handler->_registered_reactor == this);
-    assert(is_in_io_thread());
+    assert(is_in_poll_thread());
 
     if (0 == mask)
         return;
@@ -505,7 +505,7 @@ void Reactor::disable_handler_later(ReactHandler *handler, ReactHandler::mask_ty
 {
     assert(nullptr != handler);
 
-    if (is_in_io_thread())
+    if (is_in_poll_thread())
     {
         // Synchronize
         disable_handler(handler, mask);
@@ -514,7 +514,7 @@ void Reactor::disable_handler_later(ReactHandler *handler, ReactHandler::mask_ty
     {
         // Asynchronize
         nut::rc_ptr<ReactHandler> ref_handler(handler);
-        add_later_task([=] { disable_handler(ref_handler, mask); });
+        add_task([=] { disable_handler(ref_handler, mask); });
     }
 }
 
@@ -522,7 +522,7 @@ void Reactor::disable_handler(ReactHandler *handler, ReactHandler::mask_type mas
 {
     assert(nullptr != handler && 0 == (mask & ~ReactHandler::ALL_MASK));
     assert(handler->_registered_reactor == this);
-    assert(is_in_io_thread());
+    assert(is_in_poll_thread());
 
     if (0 == mask)
         return;
@@ -591,7 +591,7 @@ int Reactor::poll(int timeout_ms) noexcept
     if (_closing_or_closed.load(std::memory_order_relaxed))
         return -1;
 
-    if (!is_in_io_thread())
+    if (!is_in_poll_thread())
     {
         NUT_LOG_F(TAG, "poll() can only be called from inside IO thread");
         return -1;
@@ -615,9 +615,7 @@ int Reactor::poll(int timeout_ms) noexcept
     FD_COPY(&write_set, &_write_set);
     FD_COPY(&except_set, &_except_set);
 
-    _poll_stage = PollStage::PollingWait;
     const int rs = ::select(0, &read_set, &write_set, &except_set, &timeout);
-    _poll_stage = PollStage::HandlingEvents;
     if (SOCKET_ERROR == rs)
     {
         LOOFAH_LOG_ERRNO(select);
@@ -683,9 +681,7 @@ int Reactor::poll(int timeout_ms) noexcept
     }
 #elif NUT_PLATFORM_OS_WINDOWS
     const INT timeout = timeout_ms;
-    _poll_stage = PollStage::PollingWait;
     const int rs = ::WSAPoll(_pollfds, _size, timeout);
-    _poll_stage = PollStage::HandlingEvents;
     if (SOCKET_ERROR == rs)
     {
         LOOFAH_LOG_ERRNO(WSAPoll);
@@ -785,9 +781,7 @@ int Reactor::poll(int timeout_ms) noexcept
     }
     struct kevent active_evs[LOOFAH_MAX_ACTIVE_EVENTS];
 
-    _poll_stage = PollStage::PollingWait;
     const int n = ::kevent(_kq, nullptr, 0, active_evs, LOOFAH_MAX_ACTIVE_EVENTS, &timeout);
-    _poll_stage = PollStage::HandlingEvents;
     for (int i = 0; i < n; ++i)
     {
         // User event
@@ -826,9 +820,7 @@ int Reactor::poll(int timeout_ms) noexcept
 #elif NUT_PLATFORM_OS_LINUX
     const int timeout = (timeout_ms < 0 ? -1 : timeout_ms);
     struct epoll_event events[LOOFAH_MAX_ACTIVE_EVENTS];
-    _poll_stage = PollStage::PollingWait;
     const int n = ::epoll_wait(_epoll_fd, events, LOOFAH_MAX_ACTIVE_EVENTS, timeout);
-    _poll_stage = PollStage::HandlingEvents;
     if (n < 0)
     {
         LOOFAH_LOG_ERRNO(epoll_wait);
@@ -884,8 +876,7 @@ int Reactor::poll(int timeout_ms) noexcept
 #endif
 
     // Run asynchronized tasks
-    _poll_stage = PollStage::NotPolling;
-    run_later_tasks();
+    run_deferred_tasks();
 
     return 0;
 }
