@@ -17,14 +17,18 @@ namespace loofah
 int from_errno(int err) noexcept
 {
 #if NUT_PLATFORM_OS_WINDOWS
-    // Check https://docs.microsoft.com/zh-cn/windows/desktop/WinSock/windows-sockets-error-codes-2
     switch (err)
     {
+        // Windows socket error
+        // Check https://docs.microsoft.com/zh-cn/windows/desktop/WinSock/windows-sockets-error-codes-2
         CASE_MAP(WSA_INVALID_HANDLE, LOOFAH_ERR_INVALID_FD);
         CASE_MAP(WSAEWOULDBLOCK, LOOFAH_ERR_WOULD_BLOCK);
         CASE_MAP(WSAENOTCONN, LOOFAH_ERR_NOT_CONNECTED);
         CASE_MAP(WSAECONNRESET, LOOFAH_ERR_CONNECTION_RESET);
         CASE_MAP(WSAECONNABORTED, LOOFAH_ERR_CONNECTION_ABORTED);
+
+        // Windows error
+        CASE_MAP(ERROR_NETNAME_DELETED, LOOFAH_ERR_CONNECTION_ABORTED);
     }
     NUT_LOG_W(TAG, "unmanaged error for errno %d", err);
 #else

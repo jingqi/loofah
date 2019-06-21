@@ -303,8 +303,8 @@ void Reactor::register_handler(ReactHandler *handler, ReactHandler::mask_type ma
     assert(!handler->_registered);
 #endif
 
-    _handlers.emplace(handler->get_socket(), handler);
     handler->_registered_reactor = this;
+    _handlers.emplace(handler->get_socket(), handler);
 
     enable_handler(handler, mask);
 }
@@ -333,7 +333,6 @@ void Reactor::unregister_handler(ReactHandler *handler) noexcept
     if (0 != handler->_enabled_events)
         FD_CLR(fd, &_except_set);
     handler->_enabled_events = 0;
-    handler->_registered_reactor = nullptr;
 #elif NUT_PLATFORM_OS_WINDOWS
     if (handler->_registered)
     {
@@ -345,7 +344,6 @@ void Reactor::unregister_handler(ReactHandler *handler) noexcept
     }
     handler->_registered = false;
     handler->_enabled_events = 0;
-    handler->_registered_reactor = nullptr;
 #elif NUT_PLATFORM_OS_MACOS
     struct kevent ev[2];
     int n = 0;
@@ -361,7 +359,6 @@ void Reactor::unregister_handler(ReactHandler *handler) noexcept
     }
     handler->_registered_events = 0;
     handler->_enabled_events = 0;
-    handler->_registered_reactor = nullptr;
 #elif NUT_PLATFORM_OS_LINUX
     if (handler->_registered)
     {
@@ -377,9 +374,9 @@ void Reactor::unregister_handler(ReactHandler *handler) noexcept
     }
     handler->_registered = false;
     handler->_enabled_events = 0;
-    handler->_registered_reactor = nullptr;
 #endif
 
+    handler->_registered_reactor = nullptr;
     _handlers.erase(fd); // NOTE 可能触发 handler 析构
 }
 
@@ -408,7 +405,7 @@ void Reactor::enable_handler(ReactHandler *handler, ReactHandler::mask_type mask
     //   - 成功，有可写事件
     //   - 失败，有可读、可写事件
     const socket_t fd = handler->get_socket();
-    
+
 #if NUT_PLATFORM_OS_WINDOWS && WINVER < _WIN32_WINNT_WINBLUE
     const ReactHandler::mask_type need_enable = ~real_mask(handler->_enabled_events) & real_mask(mask);
     if (0 != (need_enable & ReactHandler::READ_MASK))

@@ -93,7 +93,9 @@ protected:
     Proactor *_registered_proactor = nullptr;
 
 private:
-#if NUT_PLATFORM_OS_MACOS || NUT_PLATFORM_OS_LINUX
+#if NUT_PLATFORM_OS_WINDOWS
+    HANDLE _attached_iocp = nullptr;
+#else
     // ACCEPT_MASK, CONNECT_MASK, READ_MASK, WRITE_MASK
     mask_type _enabled_events = 0;
 

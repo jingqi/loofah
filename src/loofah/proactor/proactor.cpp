@@ -222,19 +222,22 @@ void Proactor::register_handler(ProactHandler *handler) noexcept
     const socket_t fd = handler->get_socket();
 
 #if NUT_PLATFORM_OS_WINDOWS
-    // HACK 因 IOCP 无法取消关联，只是将 _handlers 中记录的 handler 置为 nullptr
-    //      来标记其已经被关联过
-    if (_handlers.find(fd) == _handlers.end())
+    // HACK 因 IOCP 无法真正取消关联, 故此要求多次调用 register_handler() 必须是
+    //      同一个 iocp
+    assert(nullptr == handler->_attached_iocp || _iocp == handler->_attached_iocp);
+    if (nullptr == handler->_attached_iocp)
     {
         assert(nullptr != _iocp);
         const HANDLE rs = ::CreateIoCompletionPort((HANDLE) fd, _iocp, (ULONG_PTR) nullptr, 0);
         if (nullptr == rs)
         {
-            NUT_LOG_E(TAG, "failed to call CreateIoCompletionPort() with GetLastError() %d", ::GetLastError());
-            handler->handle_io_error(LOOFAH_ERR_UNKNOWN);
+            const DWORD errcode = ::GetLastError();
+            NUT_LOG_E(TAG, "failed to call CreateIoCompletionPort() with GetLastError() %d", errcode);
+            handler->handle_io_error(from_errno(errcode));
             return;
         }
         assert(rs == _iocp);
+        handler->_attached_iocp = _iocp;
     }
 #elif NUT_PLATFORM_OS_MACOS
     assert(0 == handler->_registered_events && 0 == handler->_enabled_events);
@@ -242,8 +245,8 @@ void Proactor::register_handler(ProactHandler *handler) noexcept
     assert(!handler->_registered && 0 == handler->_enabled_events);
 #endif
 
-    _handlers[fd] = handler;
     handler->_registered_proactor = this;
+    _handlers.emplace(fd, handler);
 }
 
 void Proactor::unregister_handler(ProactHandler *handler) noexcept
@@ -269,13 +272,6 @@ void Proactor::unregister_handler(ProactHandler *handler) noexcept
 #   else
     ::CancelIo((HANDLE) fd); // 取消当前线程注册的尚未完成的异步操作，这里都是在一个线程中发起的异步操作
 #   endif
-    handler->_registered_proactor = nullptr;
-    handler->delete_requests();
-
-    // HACK 因 IOCP 无法取消关联，只是将 _handlers 中记录的 handler 置为 nullptr
-    //      来标记其已经被关联过
-    // NOTE 可能触发 handler 析构
-    _handlers[fd] = nullptr;
 #elif NUT_PLATFORM_OS_MACOS
     struct kevent ev[2];
     int n = 0;
@@ -291,9 +287,6 @@ void Proactor::unregister_handler(ProactHandler *handler) noexcept
     }
     handler->_registered_events = 0;
     handler->_enabled_events = 0;
-    handler->_registered_proactor = nullptr;
-    handler->delete_requests();
-    _handlers.erase(fd); // NOTE 可能触发 handler 析构
 #elif NUT_PLATFORM_OS_LINUX
     if (handler->_registered)
     {
@@ -309,10 +302,11 @@ void Proactor::unregister_handler(ProactHandler *handler) noexcept
     }
     handler->_registered = false;
     handler->_enabled_events = 0;
+#endif
+
     handler->_registered_proactor = nullptr;
     handler->delete_requests();
     _handlers.erase(fd); // NOTE 可能触发 handler 析构
-#endif
 }
 
 void Proactor::launch_accept(ProactHandler *handler) noexcept
@@ -745,7 +739,7 @@ int Proactor::poll(int timeout_ms) noexcept
         //       Also see https://stackoverflow.com/questions/28925003/calling-wsagetlasterror-from-an-iocp-thread-return-incorrect-result
         NUT_LOG_W(TAG, "failed to call ::GetQueuedCompletionStatus() with ::GetLastError() %d",
                   errcode);
-        handler->handle_io_error(LOOFAH_ERR_UNKNOWN); // 连接错误
+        handler->handle_io_error(from_errno(errcode)); // 连接错误
     }
     else // case 3, 6: 连接关闭 / 正常返回
     {
