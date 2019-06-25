@@ -48,32 +48,78 @@
 // logging errno
 #if NUT_PLATFORM_OS_WINDOWS
 
-#   define LOOFAH_LOG_ERRNO(func)                               \
-    do                                                          \
-    {                                                           \
-        NUT_LOG_E(TAG, "failed to call " #func "() with "       \
-                  "WSAGetLastError() %d", ::WSAGetLastError()); \
-    } while (false)
-
-#   define LOOFAH_LOG_FD_ERRNO(func, fd)                                \
+#define LOOFAH_LOG_ERR(func)                                            \
     do                                                                  \
     {                                                                   \
+        const int ___errcode = ::WSAGetLastError();                     \
+        char *___errstr = nullptr;                                      \
+        ::FormatMessageA(                                               \
+            FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | \
+            FORMAT_MESSAGE_IGNORE_INSERTS | FORMAT_MESSAGE_MAX_WIDTH_MASK, \
+            nullptr, ___errcode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), \
+            (LPSTR)&___errstr, 0, nullptr);                             \
+        NUT_LOG_E(TAG, "failed to call " #func "() with "               \
+                  "errno %d: %s", ___errcode, ___errstr);               \
+        ::LocalFree(___errstr);                                         \
+    } while (false)
+
+#define LOOFAH_LOG_ERR_CODE(func, errcode)                              \
+    do                                                                  \
+    {                                                                   \
+        const int ___errcode = (errcode);                               \
+        char *___errstr = nullptr;                                      \
+        ::FormatMessageA(                                               \
+            FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | \
+            FORMAT_MESSAGE_IGNORE_INSERTS | FORMAT_MESSAGE_MAX_WIDTH_MASK, \
+            nullptr, ___errcode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), \
+            (LPSTR)&___errstr, 0, nullptr);                             \
+        NUT_LOG_E(TAG, "failed to call " #func "() with "               \
+                  "errno %d: %s", ___errcode, ___errstr);               \
+        ::LocalFree(___errstr);                                         \
+    } while (false)
+
+#define LOOFAH_LOG_ERR_FD(func, fd)                                     \
+    do                                                                  \
+    {                                                                   \
+        const int ___errcode = ::WSAGetLastError();                     \
+        char *___errstr = nullptr;                                      \
+        ::FormatMessageA(                                               \
+            FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | \
+            FORMAT_MESSAGE_IGNORE_INSERTS | FORMAT_MESSAGE_MAX_WIDTH_MASK, \
+            nullptr, ___errcode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), \
+            (LPSTR)&___errstr, 0, nullptr);                             \
         NUT_LOG_E(TAG, "failed to call " #func "() with fd %d, "        \
-                  "WSAGetLastError() %d", (fd), ::WSAGetLastError());   \
+                  "errno %d: %s", (fd), ___errcode, ___errstr);         \
+        ::LocalFree(___errstr);                                         \
+    } while (false)
+
+#define LOOFAH_LOG_ERR_FD_CODE(func, fd, errcode)                       \
+    do                                                                  \
+    {                                                                   \
+        const int ___errcode = (errcode);                               \
+        char *___errstr = nullptr;                                      \
+        ::FormatMessageA(                                               \
+            FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | \
+            FORMAT_MESSAGE_IGNORE_INSERTS | FORMAT_MESSAGE_MAX_WIDTH_MASK, \
+            nullptr, ___errcode, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), \
+            (LPSTR)&___errstr, 0, nullptr);                             \
+        NUT_LOG_E(TAG, "failed to call " #func "() with fd %d, "        \
+                  "errno %d: %s", (fd), ___errcode, ___errstr);         \
+        ::LocalFree(___errstr);                                         \
     } while (false)
 
 #else /* NUT_PLATFORM_OS_WINDOWS */
 
-#   define LOOFAH_LOG_ERRNO(func)                                      \
+#define LOOFAH_LOG_ERR(func)                                           \
     do{                                                                \
         NUT_LOG_E(TAG, "failed to call " #func "() with errno %d: %s", \
                   errno, ::strerror(errno));                           \
     } while (false)
 
-#   define LOOFAH_LOG_FD_ERRNO(func, fd)                               \
-    do{                                                                \
-        NUT_LOG_E(TAG, "failed to call " #func "() with fd %d, "       \
-                  "errno %d: %s", (fd), errno, ::strerror(errno));     \
+#define LOOFAH_LOG_ERR_FD(func, fd)                                 \
+    do{                                                             \
+        NUT_LOG_E(TAG, "failed to call " #func "() with fd %d, "    \
+                  "errno %d: %s", (fd), errno, ::strerror(errno));  \
     } while (false)
 
 #endif /* NUT_PLATFORM_OS_WINDOWS */
@@ -83,8 +129,8 @@ namespace loofah
 {
 
 /**
- * 将 Mac / Linux 下的 errno 或者 Windows 下的 WSAGetLastError() 返回值转换为
- * loofah error
+ * 将 Mac / Linux 下的 errno 或者 Windows 下的 GetLastError() / WSAGetLastError()
+ * 返回值转换为 loofah error
  */
 int from_errno(int err) noexcept;
 

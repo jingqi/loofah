@@ -32,7 +32,7 @@ bool ReactAcceptorBase::listen(const InetAddr& addr, int listen_num) noexcept
     _listening_socket = ::socket(domain, SOCK_STREAM, 0);
     if (LOOFAH_INVALID_SOCKET_FD == _listening_socket)
     {
-        LOOFAH_LOG_ERRNO(socket);
+        LOOFAH_LOG_ERR(socket);
         return false;
     }
 
@@ -45,7 +45,7 @@ bool ReactAcceptorBase::listen(const InetAddr& addr, int listen_num) noexcept
     // Bind
     if (::bind(_listening_socket, addr.cast_to_sockaddr(), addr.get_sockaddr_size()) < 0)
     {
-        LOOFAH_LOG_FD_ERRNO(bind, _listening_socket);
+        LOOFAH_LOG_ERR_FD(bind, _listening_socket);
         NUT_LOG_E(TAG, "failed to call ::bind() with addr %s", addr.to_string().c_str());
         SockOperation::close(_listening_socket);
         _listening_socket = LOOFAH_INVALID_SOCKET_FD;
@@ -55,7 +55,7 @@ bool ReactAcceptorBase::listen(const InetAddr& addr, int listen_num) noexcept
     // Listen
     if (::listen(_listening_socket, listen_num) < 0)
     {
-        LOOFAH_LOG_FD_ERRNO(listen, _listening_socket);
+        LOOFAH_LOG_ERR_FD(listen, _listening_socket);
         NUT_LOG_E(TAG, "failed to call listen() with addr %s", addr.to_string().c_str());
         SockOperation::close(_listening_socket);
         _listening_socket = LOOFAH_INVALID_SOCKET_FD;
@@ -109,7 +109,7 @@ socket_t ReactAcceptorBase::accept(socket_t listening_socket) noexcept
         if (WSAEWOULDBLOCK == errcode)
             return LOOFAH_INVALID_SOCKET_FD;
 
-        LOOFAH_LOG_FD_ERRNO(accept, listening_socket);
+        LOOFAH_LOG_ERR_FD(accept, listening_socket);
         return LOOFAH_INVALID_SOCKET_FD;
 #else
         // 错误码 EINTR 表示操作被打断，需要重新尝试
@@ -120,7 +120,7 @@ socket_t ReactAcceptorBase::accept(socket_t listening_socket) noexcept
         if (EAGAIN == errno)
             return LOOFAH_INVALID_SOCKET_FD;
 
-        LOOFAH_LOG_FD_ERRNO(accept, listening_socket);
+        LOOFAH_LOG_ERR_FD(accept, listening_socket);
         return LOOFAH_INVALID_SOCKET_FD;
 #endif
     }

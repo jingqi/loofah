@@ -40,7 +40,7 @@ bool init_network() noexcept
     if (0 != rs)
     {
         // NOTE 'rs' is errno, don't call ::WSAGetLastError()
-        NUT_LOG_E(TAG, "failed to call WSAStartup() with return %d", rs);
+        NUT_LOG_E(TAG, "failed to call ::WSAStartup() with return code %d", rs);
         return false;
     }
 
@@ -48,7 +48,7 @@ bool init_network() noexcept
     SOCKET proxy_socket = ::socket(AF_INET, SOCK_STREAM, 0); // NOTE 只需要一个有效的 socket 即可，该 socket 的类型不影响什么
     if (INVALID_SOCKET == proxy_socket)
     {
-        LOOFAH_LOG_ERRNO(socket);
+        LOOFAH_LOG_ERR(socket);
         return false;
     }
     GUID func_guid = WSAID_ACCEPTEX;
@@ -57,7 +57,7 @@ bool init_network() noexcept
                     &func_AcceptEx, sizeof(func_AcceptEx), &bytes, nullptr, nullptr);
     if (0 != rs || nullptr == func_AcceptEx)
     {
-        LOOFAH_LOG_ERRNO(WSAIoctl);
+        LOOFAH_LOG_ERR(WSAIoctl);
         ::closesocket(proxy_socket);
         return false;
     }
@@ -68,7 +68,7 @@ bool init_network() noexcept
                     &func_ConnectEx, sizeof(func_ConnectEx), &bytes, nullptr, nullptr);
     if (0 != rs || nullptr == func_ConnectEx)
     {
-        LOOFAH_LOG_ERRNO(WSAIoctl);
+        LOOFAH_LOG_ERR(WSAIoctl);
         ::closesocket(proxy_socket);
         return false;
     }
@@ -79,13 +79,13 @@ bool init_network() noexcept
                     &func_GetAcceptExSockaddrs, sizeof(func_GetAcceptExSockaddrs), &bytes, nullptr, nullptr);
     if (0 != rs || nullptr == func_GetAcceptExSockaddrs)
     {
-        LOOFAH_LOG_ERRNO(WSAIoctl);
+        LOOFAH_LOG_ERR(WSAIoctl);
         ::closesocket(proxy_socket);
         return false;
     }
 
     if (0 != ::closesocket(proxy_socket))
-        LOOFAH_LOG_ERRNO(closesocket);
+        LOOFAH_LOG_ERR(closesocket);
 
     return true;
 #else
@@ -97,7 +97,7 @@ void shutdown_network() noexcept
 {
 #if NUT_PLATFORM_OS_WINDOWS
     if (0 != ::WSACleanup())
-        LOOFAH_LOG_ERRNO(WSACleanup);
+        LOOFAH_LOG_ERR(WSACleanup);
 #endif
 }
 

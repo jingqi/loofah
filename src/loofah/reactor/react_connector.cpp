@@ -26,7 +26,7 @@ bool ReactConnectorBase::connect(Reactor *reactor, const InetAddr& address) noex
     const socket_t fd = ::socket(domain, SOCK_STREAM, 0);
     if (LOOFAH_INVALID_SOCKET_FD == fd)
     {
-        LOOFAH_LOG_ERRNO(socket);
+        LOOFAH_LOG_ERR(socket);
         return false;
     }
 
@@ -49,7 +49,7 @@ bool ReactConnectorBase::connect(Reactor *reactor, const InetAddr& address) noex
             return true;
         }
 
-        LOOFAH_LOG_FD_ERRNO(connect, fd);
+        LOOFAH_LOG_ERR_FD(connect, fd);
         SockOperation::close(fd);
         return false;
     }
@@ -65,7 +65,7 @@ bool ReactConnectorBase::connect(Reactor *reactor, const InetAddr& address) noex
             return true;
         }
 
-        LOOFAH_LOG_FD_ERRNO(connect, fd);
+        LOOFAH_LOG_ERR_FD(connect, fd);
         SockOperation::close(fd);
         return false;
     }

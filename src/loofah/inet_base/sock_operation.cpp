@@ -33,13 +33,13 @@ bool SockOperation::set_nonblocking(socket_t socket_fd, bool nonblocking) noexce
     unsigned long mode = (nonblocking ? 1 : 0);
     const int rs = ::ioctlsocket(socket_fd, FIONBIO, &mode);
     if (0 != rs)
-        LOOFAH_LOG_FD_ERRNO(ioctlsocket, socket_fd);
+        LOOFAH_LOG_ERR_FD(ioctlsocket, socket_fd);
     return 0 == rs;
 #else
     int flags = ::fcntl(socket_fd, F_GETFL, 0);
     if (flags < 0)
     {
-        LOOFAH_LOG_FD_ERRNO(fcntl, socket_fd);
+        LOOFAH_LOG_ERR_FD(fcntl, socket_fd);
         return false;
     }
 
@@ -49,7 +49,7 @@ bool SockOperation::set_nonblocking(socket_t socket_fd, bool nonblocking) noexce
         flags &= ~O_NONBLOCK;
     const int rs = ::fcntl(socket_fd, F_SETFL, flags);
     if (0 != rs)
-        LOOFAH_LOG_FD_ERRNO(fcntl, socket_fd);
+        LOOFAH_LOG_ERR_FD(fcntl, socket_fd);
     return 0 == rs;
 #endif
 }
@@ -63,7 +63,7 @@ bool SockOperation::set_close_on_exit(socket_t socket_fd, bool close_on_exit) no
     int flags = ::fcntl(socket_fd, F_GETFL, 0);
     if (flags < 0)
     {
-        LOOFAH_LOG_FD_ERRNO(fcntl, socket_fd);
+        LOOFAH_LOG_ERR_FD(fcntl, socket_fd);
         return false;
     }
 
@@ -73,7 +73,7 @@ bool SockOperation::set_close_on_exit(socket_t socket_fd, bool close_on_exit) no
         flags &= ~O_CLOEXEC;
     const int rs = ::fcntl(socket_fd, F_SETFL, flags);
     if (0 != rs)
-        LOOFAH_LOG_FD_ERRNO(fcntl, socket_fd);
+        LOOFAH_LOG_ERR_FD(fcntl, socket_fd);
     return 0 == rs;
 #endif
 }
@@ -82,10 +82,10 @@ void SockOperation::close(socket_t socket_fd) noexcept
 {
 #if NUT_PLATFORM_OS_WINDOWS
     if (0 != ::closesocket(socket_fd))
-        LOOFAH_LOG_FD_ERRNO(closesocket, socket_fd);
+        LOOFAH_LOG_ERR_FD(closesocket, socket_fd);
 #else
     if (0 != ::close(socket_fd))
-        LOOFAH_LOG_FD_ERRNO(close, socket_fd);
+        LOOFAH_LOG_ERR_FD(close, socket_fd);
 #endif
 }
 
@@ -134,7 +134,7 @@ bool SockOperation::set_reuse_addr(socket_t listening_socket_fd) noexcept
 #endif
 
     if (0 != rs)
-        LOOFAH_LOG_FD_ERRNO(setsockopt, listening_socket_fd);
+        LOOFAH_LOG_ERR_FD(setsockopt, listening_socket_fd);
     return 0 == rs;
 }
 
@@ -153,7 +153,7 @@ bool SockOperation::set_reuse_port(socket_t listening_socket_fd) noexcept
 #endif
 
     if (0 != rs)
-        LOOFAH_LOG_FD_ERRNO(setsockopt, listening_socket_fd);
+        LOOFAH_LOG_ERR_FD(setsockopt, listening_socket_fd);
     return 0 == rs;
 }
 
@@ -166,7 +166,7 @@ bool SockOperation::shutdown_read(socket_t socket_fd) noexcept
 #endif
 
     if (0 != rs)
-        LOOFAH_LOG_FD_ERRNO(shutdown, socket_fd);
+        LOOFAH_LOG_ERR_FD(shutdown, socket_fd);
     return 0 == rs;
 }
 
@@ -179,7 +179,7 @@ bool SockOperation::shutdown_write(socket_t socket_fd) noexcept
 #endif
 
     if (0 != rs)
-        LOOFAH_LOG_FD_ERRNO(shutdown, socket_fd);
+        LOOFAH_LOG_ERR_FD(shutdown, socket_fd);
     return 0 == rs;
 }
 
@@ -211,12 +211,12 @@ ssize_t SockOperation::read(socket_t socket_fd, void *buf, size_t len) noexcept
         return 0;
     else if (WSAEWOULDBLOCK == err)
         return LOOFAH_ERR_WOULD_BLOCK;
-    LOOFAH_LOG_FD_ERRNO(recv, socket_fd);
+    LOOFAH_LOG_ERR_FD(recv, socket_fd);
     return from_errno(err);
 #else
     if (EAGAIN == errno || EWOULDBLOCK == errno)
         return LOOFAH_ERR_WOULD_BLOCK;
-    LOOFAH_LOG_FD_ERRNO(recv, socket_fd);
+    LOOFAH_LOG_ERR_FD(recv, socket_fd);
     return from_errno(errno);
 #endif
 }
@@ -275,7 +275,7 @@ ssize_t SockOperation::readv(socket_t socket_fd, void* const *buf_ptrs,
     else if (WSAEWOULDBLOCK == err)
         return LOOFAH_ERR_WOULD_BLOCK;
 
-    LOOFAH_LOG_FD_ERRNO(WSARecv, socket_fd);
+    LOOFAH_LOG_ERR_FD(WSARecv, socket_fd);
     return from_errno(err);
 #else
     struct iovec *iovs = (struct iovec*) ::alloca(sizeof(struct iovec) * buf_count);
@@ -294,7 +294,7 @@ ssize_t SockOperation::readv(socket_t socket_fd, void* const *buf_ptrs,
     else if (EAGAIN == errno || EWOULDBLOCK == errno)
         return LOOFAH_ERR_WOULD_BLOCK;
 
-    LOOFAH_LOG_FD_ERRNO(readv, socket_fd);
+    LOOFAH_LOG_ERR_FD(readv, socket_fd);
     return from_errno(errno);
 #endif
 }
@@ -323,12 +323,12 @@ ssize_t SockOperation::write(socket_t socket_fd, const void *buf, size_t len) no
     const int err = ::WSAGetLastError();
     if (WSAEWOULDBLOCK == err)
         return LOOFAH_ERR_WOULD_BLOCK;
-    LOOFAH_LOG_FD_ERRNO(send, socket_fd);
+    LOOFAH_LOG_ERR_FD(send, socket_fd);
     return from_errno(err);
 #else
     if (EAGAIN == errno || EWOULDBLOCK == errno)
         return LOOFAH_ERR_WOULD_BLOCK;
-    LOOFAH_LOG_FD_ERRNO(send, socket_fd);
+    LOOFAH_LOG_ERR_FD(send, socket_fd);
     return from_errno(errno);
 #endif
 }
@@ -381,7 +381,7 @@ ssize_t SockOperation::writev(socket_t socket_fd, const void* const *buf_ptrs,
     else if (WSAEWOULDBLOCK == err)
         return LOOFAH_ERR_WOULD_BLOCK;
 
-    LOOFAH_LOG_FD_ERRNO(WSASend, socket_fd);
+    LOOFAH_LOG_ERR_FD(WSASend, socket_fd);
     return from_errno(err);
 #else
     struct iovec *iovs = (struct iovec*) ::alloca(sizeof(struct iovec) * buf_count);
@@ -400,7 +400,7 @@ ssize_t SockOperation::writev(socket_t socket_fd, const void* const *buf_ptrs,
     else if (EAGAIN == errno || EWOULDBLOCK == errno)
         return LOOFAH_ERR_WOULD_BLOCK;
 
-    LOOFAH_LOG_FD_ERRNO(writev, socket_fd);
+    LOOFAH_LOG_ERR_FD(writev, socket_fd);
     return from_errno(errno);
 #endif
 }
@@ -411,7 +411,7 @@ InetAddr SockOperation::get_local_addr(socket_t socket_fd) noexcept
     socklen_t plen = ret.get_max_sockaddr_size();
     const int rs = ::getsockname(socket_fd, ret.cast_to_sockaddr(), &plen);
     if (0 != rs)
-        LOOFAH_LOG_FD_ERRNO(getsockname, socket_fd);
+        LOOFAH_LOG_ERR_FD(getsockname, socket_fd);
     return ret;
 }
 
@@ -421,7 +421,7 @@ InetAddr SockOperation::get_peer_addr(socket_t socket_fd) noexcept
     socklen_t plen = ret.get_max_sockaddr_size();
     const int rs = ::getpeername(socket_fd, ret.cast_to_sockaddr(), &plen);
     if (0 != rs)
-        LOOFAH_LOG_FD_ERRNO(getpeername, socket_fd);
+        LOOFAH_LOG_ERR_FD(getpeername, socket_fd);
     return ret;
 }
 
@@ -443,7 +443,7 @@ bool SockOperation::set_tcp_nodelay(socket_t socket_fd, bool no_delay) noexcept
 #endif
 
     if (0 != rs)
-        LOOFAH_LOG_FD_ERRNO(setsockopt, socket_fd);
+        LOOFAH_LOG_ERR_FD(setsockopt, socket_fd);
     return 0 == rs;
 }
 
@@ -460,7 +460,7 @@ bool SockOperation::set_keep_alive(socket_t socket_fd, bool keep_alive) noexcept
 #endif
 
     if (0 != rs)
-        LOOFAH_LOG_FD_ERRNO(setsockopt, socket_fd);
+        LOOFAH_LOG_ERR_FD(setsockopt, socket_fd);
     return 0 == rs;
 }
 
@@ -481,7 +481,7 @@ bool SockOperation::set_linger(socket_t socket_fd, bool on, unsigned time) noexc
 #endif
 
     if (0 != rs)
-        LOOFAH_LOG_FD_ERRNO(setsockopt, socket_fd);
+        LOOFAH_LOG_ERR_FD(setsockopt, socket_fd);
     return 0 == rs;
 }
 

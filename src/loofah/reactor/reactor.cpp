@@ -95,7 +95,7 @@ bool Reactor::initialize() noexcept
     // socketpair
     if (0 != socketpair(AF_INET, SOCK_DGRAM, IPPROTO_UDP, _sockpair))
     {
-        LOOFAH_LOG_ERRNO(socketpair);
+        LOOFAH_LOG_ERR(socketpair);
         return false;
     }
     SockOperation::set_nonblocking(_sockpair[1], true);
@@ -108,7 +108,7 @@ bool Reactor::initialize() noexcept
     // socketpair
     if (0 != socketpair(AF_INET, SOCK_DGRAM, IPPROTO_UDP, _sockpair))
     {
-        LOOFAH_LOG_ERRNO(socketpair);
+        LOOFAH_LOG_ERR(socketpair);
         return false;
     }
     SockOperation::set_nonblocking(_sockpair[1], true);
@@ -125,7 +125,7 @@ bool Reactor::initialize() noexcept
     _kq = ::kqueue();
     if (_kq < 0)
     {
-        LOOFAH_LOG_ERRNO(kqueue);
+        LOOFAH_LOG_ERR(kqueue);
         return false;
     }
 
@@ -133,7 +133,7 @@ bool Reactor::initialize() noexcept
     struct kevent ev;
     EV_SET(&ev, KQUEUE_WAKEUP_IDENT, EVFILT_USER, EV_ADD | EV_CLEAR, NOTE_FFNOP, 0, nullptr);
     if (0 != ::kevent(_kq, &ev, 1, nullptr, 0, nullptr))
-        LOOFAH_LOG_FD_ERRNO(kevent, _kq);
+        LOOFAH_LOG_ERR_FD(kevent, _kq);
 #elif NUT_PLATFORM_OS_LINUX
     // Create epoll fd
     // NOTE 自从 Linux2.6.8 版本以后，epoll_create() 参数值其实是没什么用的, 只
@@ -141,7 +141,7 @@ bool Reactor::initialize() noexcept
     _epoll_fd = ::epoll_create(2048);
     if (_epoll_fd < 0)
     {
-        LOOFAH_LOG_ERRNO(epoll_create);
+        LOOFAH_LOG_ERR(epoll_create);
         return false;
     }
 
@@ -149,7 +149,7 @@ bool Reactor::initialize() noexcept
     _event_fd = ::eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
     if (_event_fd < 0)
     {
-        LOOFAH_LOG_ERRNO(eventfd);
+        LOOFAH_LOG_ERR(eventfd);
         return false;
     }
 
@@ -159,7 +159,7 @@ bool Reactor::initialize() noexcept
     epv.data.fd = _event_fd;
     epv.events = EPOLLIN | EPOLLERR;
     if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, _event_fd, &epv))
-        LOOFAH_LOG_FD_ERRNO(epoll_ctl, _event_fd);
+        LOOFAH_LOG_ERR_FD(epoll_ctl, _event_fd);
 #endif
 
     return true;
@@ -210,11 +210,11 @@ void Reactor::shutdown() noexcept
         struct kevent ev;
         EV_SET(&ev, KQUEUE_WAKEUP_IDENT, EVFILT_USER, EV_DELETE, 0, 0, nullptr);
         if (0 != ::kevent(_kq, &ev, 1, nullptr, 0, nullptr))
-            LOOFAH_LOG_FD_ERRNO(kevent, _kq);
+            LOOFAH_LOG_ERR_FD(kevent, _kq);
 
         // Close kqueue
         if (0 != ::close(_kq))
-            LOOFAH_LOG_ERRNO(close);
+            LOOFAH_LOG_ERR(close);
     }
     _kq = -1;
 #elif NUT_PLATFORM_OS_LINUX
@@ -225,14 +225,14 @@ void Reactor::shutdown() noexcept
         ::memset(&epv, 0, sizeof(epv));
         epv.data.fd = _event_fd;
         if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_DEL, _event_fd, &epv))
-            LOOFAH_LOG_FD_ERRNO(epoll_ctl, _event_fd);
+            LOOFAH_LOG_ERR_FD(epoll_ctl, _event_fd);
     }
 
     // Close eventfd
     if (_event_fd >= 0)
     {
         if (0 != ::close(_event_fd))
-            LOOFAH_LOG_ERRNO(close);
+            LOOFAH_LOG_ERR(close);
     }
     _event_fd = -1;
 
@@ -240,7 +240,7 @@ void Reactor::shutdown() noexcept
     if (_epoll_fd >= 0)
     {
         if (0 != ::close(_epoll_fd))
-            LOOFAH_LOG_ERRNO(close);
+            LOOFAH_LOG_ERR(close);
     }
     _epoll_fd = -1;
 #endif
@@ -353,7 +353,7 @@ void Reactor::unregister_handler(ReactHandler *handler) noexcept
         EV_SET(ev + n++, fd, EVFILT_WRITE, EV_DELETE, 0, 0, (void*) handler);
     if (n > 0 && 0 != ::kevent(_kq, ev, n, nullptr, 0, nullptr))
     {
-        LOOFAH_LOG_FD_ERRNO(kevent, fd);
+        LOOFAH_LOG_ERR_FD(kevent, fd);
         handler->handle_io_error(from_errno(errno));
         return;
     }
@@ -367,7 +367,7 @@ void Reactor::unregister_handler(ReactHandler *handler) noexcept
         epv.data.ptr = (void*) handler;
         if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_DEL, fd, &epv))
         {
-            LOOFAH_LOG_FD_ERRNO(epoll_ctl, fd);
+            LOOFAH_LOG_ERR_FD(epoll_ctl, fd);
             handler->handle_io_error(from_errno(errno));
             return;
         }
@@ -457,7 +457,7 @@ void Reactor::enable_handler(ReactHandler *handler, ReactHandler::mask_type mask
     }
     if (n > 0 && 0 != ::kevent(_kq, ev, n, nullptr, 0, nullptr))
     {
-        LOOFAH_LOG_FD_ERRNO(kevent, fd);
+        LOOFAH_LOG_ERR_FD(kevent, fd);
         handler->handle_io_error(from_errno(errno));
         return;
     }
@@ -479,7 +479,7 @@ void Reactor::enable_handler(ReactHandler *handler, ReactHandler::mask_type mask
             epv.events |= EPOLLET;
         if (0 != ::epoll_ctl(_epoll_fd, (handler->_registered ? EPOLL_CTL_MOD : EPOLL_CTL_ADD), fd, &epv))
         {
-            LOOFAH_LOG_FD_ERRNO(epoll_ctl, fd);
+            LOOFAH_LOG_ERR_FD(epoll_ctl, fd);
             handler->handle_io_error(from_errno(errno));
             return;
         }
@@ -539,7 +539,7 @@ void Reactor::disable_handler(ReactHandler *handler, ReactHandler::mask_type mas
         EV_SET(ev + n++, fd, EVFILT_WRITE, EV_DISABLE, 0, 0, (void*) handler);
     if (n > 0 && 0 != ::kevent(_kq, ev, n, nullptr, 0, nullptr))
     {
-        LOOFAH_LOG_FD_ERRNO(kevent, fd);
+        LOOFAH_LOG_ERR_FD(kevent, fd);
         handler->handle_io_error(from_errno(errno));
         return;
     }
@@ -558,7 +558,7 @@ void Reactor::disable_handler(ReactHandler *handler, ReactHandler::mask_type mas
             epv.events |= EPOLLET;
         if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_MOD, fd, &epv))
         {
-            LOOFAH_LOG_FD_ERRNO(epoll_ctl, fd);
+            LOOFAH_LOG_ERR_FD(epoll_ctl, fd);
             handler->handle_io_error(from_errno(errno));
             return;
         }
@@ -604,7 +604,7 @@ int Reactor::poll(int timeout_ms) noexcept
     const int rs = ::select(0, &read_set, &write_set, &except_set, &timeout);
     if (SOCKET_ERROR == rs)
     {
-        LOOFAH_LOG_ERRNO(select);
+        LOOFAH_LOG_ERR(select);
         return -1;
     }
     for (unsigned i = 0; i < read_set.fd_count; ++i)
@@ -670,7 +670,7 @@ int Reactor::poll(int timeout_ms) noexcept
     const int rs = ::WSAPoll(_pollfds, _size, timeout);
     if (SOCKET_ERROR == rs)
     {
-        LOOFAH_LOG_ERRNO(WSAPoll);
+        LOOFAH_LOG_ERR(WSAPoll);
         return -1;
     }
     size_t found = 0;
@@ -809,7 +809,7 @@ int Reactor::poll(int timeout_ms) noexcept
     const int n = ::epoll_wait(_epoll_fd, events, LOOFAH_MAX_ACTIVE_EVENTS, timeout);
     if (n < 0)
     {
-        LOOFAH_LOG_ERRNO(epoll_wait);
+        LOOFAH_LOG_ERR(epoll_wait);
         return -1;
     }
 
@@ -830,7 +830,7 @@ int Reactor::poll(int timeout_ms) noexcept
                 {
                     rs = ::read(_event_fd, &counter, sizeof(counter));
                     if (rs < 0 && EAGAIN != errno && EWOULDBLOCK != errno)
-                        LOOFAH_LOG_FD_ERRNO(read, _event_fd);
+                        LOOFAH_LOG_ERR_FD(read, _event_fd);
                 } while (rs > 0);
             }
 
@@ -882,12 +882,12 @@ void Reactor::wakeup_poll_wait() noexcept
     struct kevent ev;
     EV_SET(&ev, KQUEUE_WAKEUP_IDENT, EVFILT_USER, 0, NOTE_TRIGGER, 0, nullptr);
     if (0 != ::kevent(_kq, &ev, 1, nullptr, 0, nullptr))
-        LOOFAH_LOG_FD_ERRNO(kevent, _kq);
+        LOOFAH_LOG_ERR_FD(kevent, _kq);
 #elif NUT_PLATFORM_OS_LINUX
     const uint64_t counter = 1;
     const int rs = ::write(_event_fd, &counter, sizeof(counter));
     if (rs < 0)
-        LOOFAH_LOG_FD_ERRNO(write, _event_fd);
+        LOOFAH_LOG_ERR_FD(write, _event_fd);
 #endif
 }
 

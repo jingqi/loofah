@@ -27,7 +27,7 @@ bool ProactConnectorBase::connect(Proactor *proactor, const InetAddr& address) n
     const socket_t fd = ::WSASocket(domain, SOCK_STREAM, 0, nullptr, 0, WSA_FLAG_OVERLAPPED);
     if (LOOFAH_INVALID_SOCKET_FD == fd)
     {
-        LOOFAH_LOG_ERRNO(WSASocket);
+        LOOFAH_LOG_ERR(WSASocket);
         return false;
     }
 #else
@@ -35,7 +35,7 @@ bool ProactConnectorBase::connect(Proactor *proactor, const InetAddr& address) n
     const socket_t fd = ::socket(domain, SOCK_STREAM, 0);
     if (LOOFAH_INVALID_SOCKET_FD == fd)
     {
-        LOOFAH_LOG_ERRNO(socket);
+        LOOFAH_LOG_ERR(socket);
         return false;
     }
 #endif
@@ -49,7 +49,7 @@ bool ProactConnectorBase::connect(Proactor *proactor, const InetAddr& address) n
     InetAddr local_addr(0, false, address.is_ipv6()); // port 0 on INADDR_ANY
     if (::bind(fd, local_addr.cast_to_sockaddr(), local_addr.get_sockaddr_size()) < 0)
     {
-        LOOFAH_LOG_FD_ERRNO(bind, fd);
+        LOOFAH_LOG_ERR_FD(bind, fd);
         NUT_LOG_E(TAG, "failed to call ::bind() with addr %s", local_addr.to_string().c_str());
         SockOperation::close(fd);
         return false;
@@ -77,7 +77,7 @@ bool ProactConnectorBase::connect(Proactor *proactor, const InetAddr& address) n
             return true;
         }
 
-        LOOFAH_LOG_FD_ERRNO(connect, fd);
+        LOOFAH_LOG_ERR_FD(connect, fd);
         SockOperation::close(fd);
         return false;
     }

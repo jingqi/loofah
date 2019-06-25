@@ -36,14 +36,14 @@ bool ProactAcceptorBase::listen(const InetAddr& addr, int listen_num) noexcept
     _listening_socket = ::WSASocket(domain, SOCK_STREAM, 0, nullptr, 0, WSA_FLAG_OVERLAPPED);
     if (INVALID_SOCKET == _listening_socket)
     {
-        LOOFAH_LOG_ERRNO(WSASocket);
+        LOOFAH_LOG_ERR(WSASocket);
         return false;
     }
 #else
     _listening_socket = ::socket(domain, SOCK_STREAM, 0);
     if (-1 == _listening_socket)
     {
-        LOOFAH_LOG_ERRNO(socket);
+        LOOFAH_LOG_ERR(socket);
         return false;
     }
 #endif
@@ -62,7 +62,7 @@ bool ProactAcceptorBase::listen(const InetAddr& addr, int listen_num) noexcept
     if (rs < 0)
 #endif
     {
-        LOOFAH_LOG_FD_ERRNO(bind, _listening_socket);
+        LOOFAH_LOG_ERR_FD(bind, _listening_socket);
         NUT_LOG_E(TAG, "failed to call bind() with addr %s", addr.to_string().c_str());
         SockOperation::close(_listening_socket);
         _listening_socket = LOOFAH_INVALID_SOCKET_FD;
@@ -77,7 +77,7 @@ bool ProactAcceptorBase::listen(const InetAddr& addr, int listen_num) noexcept
     if (rs < 0)
 #endif
     {
-        LOOFAH_LOG_FD_ERRNO(listen, _listening_socket);
+        LOOFAH_LOG_ERR_FD(listen, _listening_socket);
         NUT_LOG_E(TAG, "failed to call listen() with addr %s", addr.to_string().c_str());
         SockOperation::close(_listening_socket);
         _listening_socket = LOOFAH_INVALID_SOCKET_FD;

@@ -44,8 +44,11 @@
 namespace loofah
 {
 
+namespace
+{
+
 #if NUT_PLATFORM_OS_MACOS || NUT_PLATFORM_OS_LINUX
-static ProactHandler::mask_type real_mask(ProactHandler::mask_type mask) noexcept
+ProactHandler::mask_type real_mask(ProactHandler::mask_type mask) noexcept
 {
     ProactHandler::mask_type ret = 0;
     if (0 != (mask & ProactHandler::ACCEPT_READ_MASK))
@@ -55,6 +58,8 @@ static ProactHandler::mask_type real_mask(ProactHandler::mask_type mask) noexcep
     return ret;
 }
 #endif
+
+}
 
 Proactor::~Proactor() noexcept
 {
@@ -76,7 +81,7 @@ bool Proactor::initialize() noexcept
     _iocp = ::CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, concurrent_threads);
     if (nullptr == _iocp)
     {
-        NUT_LOG_E(TAG, "failed to call CreateIoCompletionPort() with GetLastError() %d", ::GetLastError());
+        LOOFAH_LOG_ERR(CreateIoCompletionPort);
         return false;
     }
 #elif NUT_PLATFORM_OS_MACOS
@@ -84,7 +89,7 @@ bool Proactor::initialize() noexcept
     _kq = ::kqueue();
     if (_kq < 0)
     {
-        LOOFAH_LOG_ERRNO(kqueue);
+        LOOFAH_LOG_ERR(kqueue);
         return false;
     }
 
@@ -93,7 +98,7 @@ bool Proactor::initialize() noexcept
     EV_SET(&ev, KQUEUE_WAKEUP_IDENT, EVFILT_USER, EV_ADD | EV_CLEAR, NOTE_FFNOP, 0, nullptr);
     if (0 != ::kevent(_kq, &ev, 1, nullptr, 0, nullptr))
     {
-        LOOFAH_LOG_FD_ERRNO(kevent, _kq);
+        LOOFAH_LOG_ERR_FD(kevent, _kq);
         return false;
     }
 #elif NUT_PLATFORM_OS_LINUX
@@ -103,7 +108,7 @@ bool Proactor::initialize() noexcept
     _epoll_fd = ::epoll_create(2048);
     if (_epoll_fd < 0)
     {
-        LOOFAH_LOG_ERRNO(epoll_create);
+        LOOFAH_LOG_ERR(epoll_create);
         return false;
     }
 
@@ -111,7 +116,7 @@ bool Proactor::initialize() noexcept
     _event_fd = ::eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
     if (_event_fd < 0)
     {
-        LOOFAH_LOG_ERRNO(eventfd);
+        LOOFAH_LOG_ERR(eventfd);
         return false;
     }
 
@@ -122,7 +127,7 @@ bool Proactor::initialize() noexcept
     epv.events = EPOLLIN | EPOLLERR;
     if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, _event_fd, &epv))
     {
-        LOOFAH_LOG_FD_ERRNO(epoll_ctl, _event_fd);
+        LOOFAH_LOG_ERR_FD(epoll_ctl, _event_fd);
         return false;
     }
 #endif
@@ -157,7 +162,7 @@ void Proactor::shutdown() noexcept
         //      要这样做
 
         if (FALSE == ::CloseHandle(_iocp))
-            NUT_LOG_E(TAG, "failed to call CloseHandle() with GetLastError() %d", ::GetLastError());
+            LOOFAH_LOG_ERR(CloseHandle);
     }
     _iocp = nullptr;
 #elif NUT_PLATFORM_OS_MACOS
@@ -167,11 +172,11 @@ void Proactor::shutdown() noexcept
         struct kevent ev;
         EV_SET(&ev, KQUEUE_WAKEUP_IDENT, EVFILT_USER, EV_DELETE, 0, 0, nullptr);
         if (0 != ::kevent(_kq, &ev, 1, nullptr, 0, nullptr))
-            LOOFAH_LOG_FD_ERRNO(kevent, _kq);
+            LOOFAH_LOG_ERR_FD(kevent, _kq);
 
         // Close kqueue
         if (0 != ::close(_kq))
-            LOOFAH_LOG_ERRNO(close);
+            LOOFAH_LOG_ERR(close);
     }
     _kq = -1;
 #elif NUT_PLATFORM_OS_LINUX
@@ -182,14 +187,14 @@ void Proactor::shutdown() noexcept
         ::memset(&epv, 0, sizeof(epv));
         epv.data.fd = _event_fd;
         if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_DEL, _event_fd, &epv))
-            LOOFAH_LOG_FD_ERRNO(epoll_ctl, _event_fd);
+            LOOFAH_LOG_ERR_FD(epoll_ctl, _event_fd);
     }
 
     // Close eventfd
     if (_event_fd >= 0)
     {
         if (0 != ::close(_event_fd))
-            LOOFAH_LOG_ERRNO(close);
+            LOOFAH_LOG_ERR(close);
     }
     _event_fd = -1;
 
@@ -197,11 +202,11 @@ void Proactor::shutdown() noexcept
     if (_epoll_fd >= 0)
     {
         if (0 != ::close(_epoll_fd))
-            LOOFAH_LOG_ERRNO(close);
+            LOOFAH_LOG_ERR(close);
     }
     _epoll_fd = -1;
 #endif
-    
+
     _state.store(State::Shutdown, std::memory_order_release);
 }
 
@@ -232,7 +237,7 @@ void Proactor::register_handler(ProactHandler *handler) noexcept
         if (nullptr == rs)
         {
             const DWORD errcode = ::GetLastError();
-            NUT_LOG_E(TAG, "failed to call CreateIoCompletionPort() with GetLastError() %d", errcode);
+            LOOFAH_LOG_ERR_CODE(CreateIoCompletionPort, errcode);
             handler->handle_io_error(from_errno(errcode));
             return;
         }
@@ -270,7 +275,7 @@ void Proactor::unregister_handler(ProactHandler *handler) noexcept
 #   if WINVER >= _WIN32_WINNT_WINBLUE
     ::CancelIoEx((HANDLE) fd, nullptr); // 取消等待执行的异步操作
 #   else
-    ::CancelIo((HANDLE) fd); // 取消当前线程注册的尚未完成的异步操作，这里都是在一个线程中发起的异步操作
+    ::CancelIo((HANDLE) fd); // 取消当前线程注册的尚未完成的异步操作。由于都是在轮询线程中发起的异步操作，故都能取消掉
 #   endif
 #elif NUT_PLATFORM_OS_MACOS
     struct kevent ev[2];
@@ -281,7 +286,7 @@ void Proactor::unregister_handler(ProactHandler *handler) noexcept
         EV_SET(ev + n++, fd, EVFILT_WRITE, EV_DELETE, 0, 0, (void*) handler);
     if (n > 0 && 0 != ::kevent(_kq, ev, n, nullptr, 0, nullptr))
     {
-        LOOFAH_LOG_FD_ERRNO(kevent, fd);
+        LOOFAH_LOG_ERR_FD(kevent, fd);
         handler->handle_io_error(from_errno(errno));
         return;
     }
@@ -295,7 +300,7 @@ void Proactor::unregister_handler(ProactHandler *handler) noexcept
         epv.data.ptr = (void*) handler;
         if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_DEL, fd, &epv))
         {
-            LOOFAH_LOG_FD_ERRNO(epoll_ctl, fd);
+            LOOFAH_LOG_ERR_FD(epoll_ctl, fd);
             handler->handle_io_error(from_errno(errno));
             return;
         }
@@ -329,7 +334,7 @@ void Proactor::launch_accept(ProactHandler *handler) noexcept
                                                0, WSA_FLAG_OVERLAPPED);
     if (INVALID_SOCKET == accept_socket)
     {
-        LOOFAH_LOG_ERRNO(WSASocket);
+        LOOFAH_LOG_ERR(WSASocket);
         return;
     }
 
@@ -360,9 +365,9 @@ void Proactor::launch_accept(ProactHandler *handler) noexcept
         // NOTE ERROR_IO_PENDING 说明异步调用没有可立即处理的数据，属于正常情况
         if (ERROR_IO_PENDING != errcode)
         {
-            LOOFAH_LOG_FD_ERRNO(AcceptEx, listening_socket);
+            LOOFAH_LOG_ERR_FD(AcceptEx, listening_socket);
             if (0 != ::closesocket(accept_socket))
-                LOOFAH_LOG_FD_ERRNO(closesocket, accept_socket);
+                LOOFAH_LOG_ERR_FD(closesocket, accept_socket);
             IORequest::delete_request(io_request);
             handler->handle_io_error(from_errno(errcode));
             return;
@@ -408,7 +413,7 @@ void Proactor::launch_connect(ProactHandler *handler, const InetAddr& address) n
         // NOTE ERROR_IO_PENDING 说明异步调用没有可立即处理的数据，属于正常情况
         if (ERROR_IO_PENDING != errcode)
         {
-            LOOFAH_LOG_FD_ERRNO(ConnectEx, fd);
+            LOOFAH_LOG_ERR_FD(ConnectEx, fd);
             IORequest::delete_request(io_request);
             handler->handle_io_error(from_errno(errcode));
             return;
@@ -480,7 +485,7 @@ void Proactor::launch_read(ProactHandler *handler, void* const *buf_ptrs,
         const int errcode = ::WSAGetLastError();
         if (ERROR_IO_PENDING != errcode)
         {
-            LOOFAH_LOG_FD_ERRNO(WSARecv, fd);
+            LOOFAH_LOG_ERR_FD(WSARecv, fd);
             IORequest::delete_request(io_request);
             handler->handle_io_error(from_errno(errcode));
             return;
@@ -541,7 +546,7 @@ void Proactor::launch_write(ProactHandler *handler, void* const *buf_ptrs,
         const int errcode = ::WSAGetLastError();
         if (ERROR_IO_PENDING != errcode)
         {
-            LOOFAH_LOG_FD_ERRNO(WSASend, fd);
+            LOOFAH_LOG_ERR_FD(WSASend, fd);
             IORequest::delete_request(io_request);
             handler->handle_io_error(from_errno(errcode));
             return;
@@ -589,7 +594,7 @@ void Proactor::enable_handler(ProactHandler *handler, ProactHandler::mask_type m
     }
     if (n > 0 && 0 != ::kevent(_kq, ev, n, nullptr, 0, nullptr))
     {
-        LOOFAH_LOG_FD_ERRNO(kevent, fd);
+        LOOFAH_LOG_ERR_FD(kevent, fd);
         handler->handle_io_error(from_errno(errno));
         return;
     }
@@ -608,7 +613,7 @@ void Proactor::enable_handler(ProactHandler *handler, ProactHandler::mask_type m
             epv.events |= EPOLLOUT | EPOLLERR;
         if (0 != ::epoll_ctl(_epoll_fd, (handler->_registered ? EPOLL_CTL_MOD : EPOLL_CTL_ADD), fd, &epv))
         {
-            LOOFAH_LOG_FD_ERRNO(epoll_ctl, fd);
+            LOOFAH_LOG_ERR_FD(epoll_ctl, fd);
             handler->handle_io_error(from_errno(errno));
             return;
         }
@@ -639,7 +644,7 @@ void Proactor::disable_handler(ProactHandler *handler, ProactHandler::mask_type 
         EV_SET(ev + n++, fd, EVFILT_WRITE, EV_DISABLE, 0, 0, (void*) handler);
     if (n > 0 && 0 != ::kevent(_kq, ev, n, nullptr, 0, nullptr))
     {
-        LOOFAH_LOG_FD_ERRNO(kevent, fd);
+        LOOFAH_LOG_ERR_FD(kevent, fd);
         handler->handle_io_error(from_errno(errno));
         return;
     }
@@ -657,7 +662,7 @@ void Proactor::disable_handler(ProactHandler *handler, ProactHandler::mask_type 
             epv.events |= EPOLLOUT | EPOLLERR;
         if (0 != ::epoll_ctl(_epoll_fd, EPOLL_CTL_MOD, fd, &epv))
         {
-            LOOFAH_LOG_FD_ERRNO(epoll_ctl, fd);
+            LOOFAH_LOG_ERR_FD(epoll_ctl, fd);
             handler->handle_io_error(from_errno(errno));
             return;
         }
@@ -670,7 +675,7 @@ void Proactor::disable_handler(ProactHandler *handler, ProactHandler::mask_type 
 int Proactor::poll(int timeout_ms) noexcept
 {
     assert(State::Uninitialized != _state.load(std::memory_order_relaxed));
-    
+
     // Check state
     if (State::Polling != _state.load(std::memory_order_acquire))
         return -1;
@@ -689,6 +694,7 @@ int Proactor::poll(int timeout_ms) noexcept
     ULONG_PTR key = 0;
     OVERLAPPED *io_overlapped = nullptr;
     assert(nullptr != _iocp);
+
     /**
      * GetQueuedCompletionStatus() 返回值处理
      * - rs == FALSE
@@ -702,15 +708,14 @@ int Proactor::poll(int timeout_ms) noexcept
      *   - io_overlapped == NULL 收到通知 (由 PostQueuedCompletionStatus() 发送) (case 5)
      *   - io_overlapped != NULL, bytes_transfered > 0 正常返回                  (case 6)
      */
-    const BOOL rs = ::GetQueuedCompletionStatus(_iocp, &bytes_transfered, &key,
-                                                &io_overlapped, timeout);
+    const BOOL rs = ::GetQueuedCompletionStatus(
+        _iocp, &bytes_transfered, &key, &io_overlapped, timeout);
     const DWORD errcode = (FALSE == rs ? ::GetLastError() : ERROR_SUCCESS);
     if (nullptr == io_overlapped) // case 1, 2, 5: 超时 / 错误 / 收到通知
     {
         if (FALSE == rs && WAIT_TIMEOUT != errcode) // case 2: 错误
         {
-            NUT_LOG_W(TAG, "failed to call ::GetQueuedCompletionStatus() with ::GetLastError() %d",
-                      errcode);
+            LOOFAH_LOG_ERR_CODE(GetQueuedCompletionStatus, errcode);
             return -1;
         }
         // 忽略 case 1, 5
@@ -737,8 +742,7 @@ int Proactor::poll(int timeout_ms) noexcept
         // FIXME 因为 ::GetQueuedCompletionStatus() 不返回底层网络驱动的错误
         //       码，导致低层网络驱动错误码被丢失
         //       Also see https://stackoverflow.com/questions/28925003/calling-wsagetlasterror-from-an-iocp-thread-return-incorrect-result
-        NUT_LOG_W(TAG, "failed to call ::GetQueuedCompletionStatus() with ::GetLastError() %d",
-                  errcode);
+        LOOFAH_LOG_ERR_CODE(GetQueuedCompletionStatus, errcode);
         handler->handle_io_error(from_errno(errcode)); // 连接错误
     }
     else // case 3, 6: 连接关闭 / 正常返回
@@ -794,7 +798,7 @@ int Proactor::poll(int timeout_ms) noexcept
             {
                 const int errcode = ::WSAGetLastError();
                 if (0 != ::closesocket(accept_socket))
-                    LOOFAH_LOG_FD_ERRNO(closesocket, accept_socket);
+                    LOOFAH_LOG_ERR_FD(closesocket, accept_socket);
                 handler->handle_io_error(from_errno(errcode));
                 break;
             }
@@ -812,7 +816,7 @@ int Proactor::poll(int timeout_ms) noexcept
                 fd, SOL_SOCKET, SO_UPDATE_ACCEPT_CONTEXT, (char*) &fd, sizeof(fd));
             if (0 != opt_rs)
             {
-                LOOFAH_LOG_FD_ERRNO(setsockopt, fd);
+                LOOFAH_LOG_ERR_FD(setsockopt, fd);
                 handler->handle_io_error(from_errno(::WSAGetLastError()));
                 break;
             }
@@ -960,7 +964,7 @@ int Proactor::poll(int timeout_ms) noexcept
                 {
                     rs = ::read(_event_fd, &counter, sizeof(counter));
                     if (rs < 0 && EAGAIN != errno && EWOULDBLOCK != errno)
-                        LOOFAH_LOG_FD_ERRNO(read, _event_fd);
+                        LOOFAH_LOG_ERR_FD(read, _event_fd);
                 } while (rs > 0);
             }
 
@@ -1058,17 +1062,17 @@ void Proactor::wakeup_poll_wait() noexcept
 {
 #if NUT_PLATFORM_OS_WINDOWS
     if (!::PostQueuedCompletionStatus(_iocp, 0, 0, nullptr))
-        NUT_LOG_E(TAG, "failed to call ::PostQueuedCompletionStatus() with ::GetLastError() %d", ::GetLastError());
+        LOOFAH_LOG_ERR(PostQueuedCompletionStatus);
 #elif NUT_PLATFORM_OS_MACOS
     struct kevent ev;
     EV_SET(&ev, KQUEUE_WAKEUP_IDENT, EVFILT_USER, 0, NOTE_TRIGGER, 0, nullptr);
     if (0 != ::kevent(_kq, &ev, 1, nullptr, 0, nullptr))
-        LOOFAH_LOG_FD_ERRNO(kevent, _kq);
+        LOOFAH_LOG_ERR_FD(kevent, _kq);
 #elif NUT_PLATFORM_OS_LINUX
     const uint64_t counter = 1;
     const int rs = ::write(_event_fd, &counter, sizeof(counter));
     if (rs < 0)
-        LOOFAH_LOG_FD_ERRNO(write, _event_fd);
+        LOOFAH_LOG_ERR_FD(write, _event_fd);
 #endif
 }
 
