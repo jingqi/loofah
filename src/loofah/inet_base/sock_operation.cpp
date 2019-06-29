@@ -108,13 +108,13 @@ int SockOperation::get_last_error(socket_t socket_fd) noexcept
     DWORD error = 0;
     int len = sizeof(error);
     if (0 != ::getsockopt(socket_fd, SOL_SOCKET, SO_ERROR, (char*) &error, &len))
-        return from_errno(::WSAGetLastError());
+        return ::WSAGetLastError();
     return (int) error;
 #else
     int error = 0;
     socklen_t len = sizeof(error);
     if (0 != ::getsockopt(socket_fd, SOL_SOCKET, SO_ERROR, &error, &len))
-        return from_errno(errno);
+        return errno;
     return error;
 #endif
 }
@@ -261,7 +261,7 @@ ssize_t SockOperation::readv(socket_t socket_fd, void* const *buf_ptrs,
                              wsabufs,
                              buf_count, // wsabuf 的数量
                              &bytes, // 如果接收操作立即完成，这里会返回函数调用所接收到的字节数
-                             &flags, // FIXME 貌似这里设置为 nullptr 会导致错误
+                             &flags, // NOTE 貌似这里设置为 nullptr 会导致错误
                              nullptr,
                              nullptr);
     if (SOCKET_ERROR != rs)

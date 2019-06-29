@@ -663,7 +663,7 @@ int Reactor::poll(int timeout_ms) noexcept
             continue;
         nut::rc_ptr<ReactHandler> handler = iter->second;
         assert(nullptr != handler);
-        handler->handle_io_error(SockOperation::get_last_error(fd));
+        handler->handle_io_error(from_errno(SockOperation::get_last_error(fd)));
     }
 #elif NUT_PLATFORM_OS_WINDOWS
     const INT timeout = timeout_ms;
@@ -842,8 +842,8 @@ int Reactor::poll(int timeout_ms) noexcept
         if (0 != (events[i].events & EPOLLERR))
         {
             const int fd = handler->get_socket();
-            const int errcode = SockOperation::get_last_error(fd);
-            handler->handle_io_error(from_errno(errcode));
+            const int errcode = from_errno(SockOperation::get_last_error(fd));
+            handler->handle_io_error(errcode);
             continue;
         }
 

@@ -33,11 +33,14 @@ void ReactChannel::handle_accept_ready() noexcept
 void ReactChannel::handle_connect_ready() noexcept
 {
     const int errcode = _sock_stream.get_last_error();
-    _registered_reactor->unregister_handler(this);
-    if (0 == errcode)
-        handle_channel_connected();
-    else
+    if (0 != errcode)
+    {
         handle_io_error(errcode);
+        return;
+    }
+
+    _registered_reactor->unregister_handler(this);
+    handle_channel_connected();
 }
 
 }

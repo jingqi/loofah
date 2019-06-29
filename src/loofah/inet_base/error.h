@@ -27,22 +27,25 @@
 // socket 未连接完成
 #define LOOFAH_ERR_NOT_CONNECTED -4
 
+// 连接被拒绝
+#define LOOFAH_ERR_CONN_REFUSED -5
+
 // 连接被重置
 // NOTE 对端发送了 RST 包
-#define LOOFAH_ERR_CONNECTION_RESET -5
+#define LOOFAH_ERR_CONNECTION_RESET -6
 
 // socket 被放弃
 // NOTE 对端发送了 FIN 之后又发送了 RST 包
-#define LOOFAH_ERR_CONNECTION_ABORTED -6
+#define LOOFAH_ERR_CONNECTION_ABORTED -7
 
 // linux 上收到 RST 包之后，继续 write 会触发该错误，并且会收到 SIGPIPE 信号
-#define LOOFAH_ERR_BROKEN_PIPE -7
+#define LOOFAH_ERR_BROKEN_PIPE -8
 
 // package 大小超限
-#define LOOFAH_ERR_PKG_OVERSIZE -8
+#define LOOFAH_ERR_PKG_OVERSIZE -9
 
 // 超时
-#define LOOFAH_ERR_TIMEOUT -9
+#define LOOFAH_ERR_TIMEOUT -10
 
 
 // logging errno

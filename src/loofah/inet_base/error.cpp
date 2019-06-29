@@ -19,6 +19,8 @@ int from_errno(int err) noexcept
 #if NUT_PLATFORM_OS_WINDOWS
     switch (err)
     {
+        CASE_MAP(0, 0);
+
         // Windows socket error
         // Check https://docs.microsoft.com/zh-cn/windows/desktop/WinSock/windows-sockets-error-codes-2
         CASE_MAP(WSA_INVALID_HANDLE, LOOFAH_ERR_INVALID_FD);
@@ -26,6 +28,7 @@ int from_errno(int err) noexcept
         CASE_MAP(WSAENOTCONN, LOOFAH_ERR_NOT_CONNECTED);
         CASE_MAP(WSAECONNRESET, LOOFAH_ERR_CONNECTION_RESET);
         CASE_MAP(WSAECONNABORTED, LOOFAH_ERR_CONNECTION_ABORTED);
+        CASE_MAP(WSAECONNREFUSED, LOOFAH_ERR_CONN_REFUSED);
 
         // Windows error
         CASE_MAP(ERROR_NETNAME_DELETED, LOOFAH_ERR_CONNECTION_ABORTED);
@@ -34,11 +37,14 @@ int from_errno(int err) noexcept
 #else
     switch (err)
     {
+        CASE_MAP(0, 0);
+
         CASE_MAP(EAGAIN, LOOFAH_ERR_WOULD_BLOCK);
 #   if defined(EWOULDBLOCK) && EWOULDBLOCK != EAGAIN
         CASE_MAP(EWOULDBLOCK, LOOFAH_ERR_WOULD_BLOCK);
 #   endif
         CASE_MAP(ENOTCONN, LOOFAH_ERR_NOT_CONNECTED);
+        CASE_MAP(ECONNREFUSED, LOOFAH_ERR_CONN_REFUSED);
         CASE_MAP(ECONNRESET, LOOFAH_ERR_CONNECTION_RESET);
         CASE_MAP(ECONNABORTED, LOOFAH_ERR_CONNECTION_ABORTED);
         CASE_MAP(EPIPE, LOOFAH_ERR_BROKEN_PIPE);
@@ -62,6 +68,7 @@ LOOFAH_API const char* str_error(int err) noexcept
 #endif
         CASE_MAP(LOOFAH_ERR_WOULD_BLOCK, "Resource temporarily unavailable, operation would bolck");
         CASE_MAP(LOOFAH_ERR_NOT_CONNECTED, "Socket is not connected");
+        CASE_MAP(LOOFAH_ERR_CONN_REFUSED, "Connection refused");
         CASE_MAP(LOOFAH_ERR_CONNECTION_RESET, "Connection reset by peer");
         CASE_MAP(LOOFAH_ERR_CONNECTION_ABORTED, "Software caused connection abort");
         CASE_MAP(LOOFAH_ERR_BROKEN_PIPE, "Broken pipe");

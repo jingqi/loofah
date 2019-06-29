@@ -55,10 +55,7 @@ bool SockStream::is_valid() const noexcept
 
 int SockStream::get_last_error() const noexcept
 {
-    const int err = SockOperation::get_last_error(_socket_fd);
-    if (0 == err)
-        return err;
-    return from_errno(err);
+    return from_errno(SockOperation::get_last_error(_socket_fd));
 }
 
 bool SockStream::shutdown_read() noexcept

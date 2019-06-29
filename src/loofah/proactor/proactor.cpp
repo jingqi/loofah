@@ -271,7 +271,7 @@ void Proactor::unregister_handler(ProactHandler *handler) noexcept
     const socket_t fd = handler->get_socket();
 
 #if NUT_PLATFORM_OS_WINDOWS
-    // FIXME 对于 Windows 下的 IOCP，是无法取消 socket 与 iocp 的关联的
+    // NOTE 对于 Windows 下的 IOCP，是无法取消 socket 与 iocp 的关联的
 #   if WINVER >= _WIN32_WINNT_WINBLUE
     ::CancelIoEx((HANDLE) fd, nullptr); // 取消等待执行的异步操作
 #   else
@@ -477,7 +477,7 @@ void Proactor::launch_read(ProactHandler *handler, void* const *buf_ptrs,
                              io_request->wsabufs,
                              buf_count, // wsabuf 的数量
                              &bytes, // 如果接收操作立即完成，这里会返回函数调用所接收到的字节数
-                             &flags, // FIXME 貌似这里设置为 nullptr 会导致错误
+                             &flags, // NOTE 貌似这里设置为 nullptr 会导致错误
                              &io_request->overlapped,
                              nullptr);
     if (SOCKET_ERROR == rs)
@@ -739,9 +739,9 @@ int Proactor::poll(int timeout_ms) noexcept
         }
         IORequest::delete_request(io_request);
 
-        // FIXME 因为 ::GetQueuedCompletionStatus() 不返回底层网络驱动的错误
-        //       码，导致低层网络驱动错误码被丢失
-        //       Also see https://stackoverflow.com/questions/28925003/calling-wsagetlasterror-from-an-iocp-thread-return-incorrect-result
+        // NOTE 因为 ::GetQueuedCompletionStatus() 不返回底层网络驱动的错误
+        //      码，导致低层网络驱动错误码被丢失
+        //      Also see https://stackoverflow.com/questions/28925003/calling-wsagetlasterror-from-an-iocp-thread-return-incorrect-result
         LOOFAH_LOG_ERR_CODE(GetQueuedCompletionStatus, errcode);
         handler->handle_io_error(from_errno(errcode)); // 连接错误
     }
@@ -911,7 +911,7 @@ int Proactor::poll(int timeout_ms) noexcept
         {
             if (0 != (handler->_enabled_events & ProactHandler::CONNECT_MASK))
             {
-                const int errcode = SockOperation::get_last_error(fd);
+                const int errcode = from_errno(SockOperation::get_last_error(fd));
                 disable_handler(handler, ProactHandler::CONNECT_MASK);
                 if (0 == errcode)
                     handler->handle_connect_completed();
@@ -977,8 +977,8 @@ int Proactor::poll(int timeout_ms) noexcept
         const socket_t fd = handler->get_socket();
         if (0 != (events[i].events & EPOLLERR))
         {
-            const int errcode = SockOperation::get_last_error(fd);
-            handler->handle_io_error(from_errno(errcode));
+            const int errcode = from_errno(SockOperation::get_last_error(fd));
+            handler->handle_io_error(errcode);
             continue;
         }
 
@@ -1023,7 +1023,7 @@ int Proactor::poll(int timeout_ms) noexcept
         {
             if (0 != (handler->_enabled_events & ProactHandler::CONNECT_MASK))
             {
-                const int errcode = SockOperation::get_last_error(fd);
+                const int errcode = from_errno(SockOperation::get_last_error(fd));
                 disable_handler(handler, ProactHandler::CONNECT_MASK);
                 if (0 == errcode)
                     handler->handle_connect_completed();
