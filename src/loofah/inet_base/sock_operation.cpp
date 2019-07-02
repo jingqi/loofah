@@ -17,7 +17,9 @@
 #   include <string.h> // for ::strerror()
 #endif
 
+#include <nut/nut_config.h>
 #include <nut/logging/logger.h>
+#include <nut/memtool/free_guard.h>
 
 #include "sock_operation.h"
 #include "error.h"
@@ -228,7 +230,18 @@ ssize_t SockOperation::readv(socket_t socket_fd, void* const *buf_ptrs,
     assert(nullptr != buf_ptrs && nullptr != len_ptrs);
 
 #if NUT_PLATFORM_OS_WINDOWS
-    WSABUF *wsabufs = (WSABUF*) ::alloca(sizeof(WSABUF) * buf_count);
+    nut::FreeGuard g;
+    const size_t alloc_size = sizeof(WSABUF) * buf_count;
+    WSABUF *wsabufs;
+    if (alloc_size <= NUT_MAX_ALLOCA_SIZE)
+    {
+        wsabufs = (WSABUF*) ::alloca(alloc_size);
+    }
+    else
+    {
+        wsabufs = (WSABUF*) ::malloc(alloc_size);
+        g.set(wsabufs);
+    }
     size_t total_bytes = 0;
     for (size_t i = 0; i < buf_count; ++i)
     {
@@ -341,7 +354,18 @@ ssize_t SockOperation::writev(socket_t socket_fd, const void* const *buf_ptrs,
     assert(nullptr != buf_ptrs && nullptr != len_ptrs);
 
 #if NUT_PLATFORM_OS_WINDOWS
-    WSABUF *wsabufs = (WSABUF*) ::alloca(sizeof(WSABUF) * buf_count);
+    nut::FreeGuard g;
+    const size_t alloc_size = sizeof(WSABUF) * buf_count;
+    WSABUF *wsabufs;
+    if (alloc_size <= NUT_MAX_ALLOCA_SIZE)
+    {
+        wsabufs = (WSABUF*) ::alloca(alloc_size);
+    }
+    else
+    {
+        wsabufs = (WSABUF*) ::malloc(alloc_size);
+        g.set(wsabufs);
+    }
     size_t total_bytes = 0;
     for (size_t i = 0; i < buf_count; ++i)
     {

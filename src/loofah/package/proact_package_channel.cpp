@@ -10,8 +10,10 @@
 #   include <limits.h> // for IOV_MAX
 #endif
 
+#include <nut/nut_config.h>
 #include <nut/rc/rc_new.h>
 #include <nut/logging/logger.h>
+#include <nut/memtool/free_guard.h>
 
 #include "../inet_base/error.h"
 #include "proact_package_channel.h"
@@ -211,10 +213,21 @@ void ProactPackageChannel::launch_write() noexcept
     assert(!_pkg_write_queue.empty());
 #if NUT_PLATFORM_OS_WINDOWS
     const size_t buf_count = _pkg_write_queue.size();
+    nut::FreeGuard g;
+    const size_t alloc_size = sizeof(void*) * buf_count + sizeof(size_t) * buf_count;
+    void **bufs;
+    if (alloc_size <= NUT_MAX_ALLOCA_SIZE)
+    {
+        bufs = (void**) ::alloca(alloc_size);
+    }
+    {
+        bufs = (void**) ::malloc(alloc_size);
+        g.set(bufs);
+    }
 #else
     const size_t buf_count = std::min<size_t>(IOV_MAX, _pkg_write_queue.size());
-#endif
     void **bufs = (void**) ::alloca(sizeof(void*) * buf_count + sizeof(size_t) * buf_count);
+#endif
     size_t *lens = (size_t*) (bufs + buf_count);
 
     queue_t::const_iterator iter = _pkg_write_queue.begin();
