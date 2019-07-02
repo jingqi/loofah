@@ -4,7 +4,7 @@
 
 #include "../loofah_config.h"
 
-#include <queue>
+#include <list>
 
 #include <nut/platform/platform.h>
 
@@ -86,8 +86,12 @@ private:
     ProactHandler(const ProactHandler&) = delete;
     ProactHandler& operator=(const ProactHandler&) = delete;
 
+#if NUT_PLATFORM_OS_WINDOWS
+    void cancel_requests() noexcept;
+#else
     // 删除所有未完成的 IORequest
     void delete_requests() noexcept;
+#endif
 
 protected:
     Proactor *_registered_proactor = nullptr;
@@ -104,7 +108,7 @@ private:
 #endif
 
     // 读写请求队列
-    std::queue<IORequest*> _read_queue, _write_queue;
+    std::list<IORequest*> _read_queue, _write_queue;
 
     // 用于记录注册状态，参见 Proactor 的实现
 #if NUT_PLATFORM_OS_MACOS
