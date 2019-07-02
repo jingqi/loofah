@@ -4,6 +4,12 @@
 #include <assert.h>
 #include <algorithm> // for std::min()
 
+#include <nut/platform/platform.h>
+
+#if !NUT_PLATFORM_OS_WINDOWS
+#   include <limits.h> // for IOV_MAX
+#endif
+
 #include <nut/rc/rc_new.h>
 #include <nut/logging/logger.h>
 
@@ -203,7 +209,11 @@ void ProactPackageChannel::launch_write() noexcept
 #endif
 
     assert(!_pkg_write_queue.empty());
+#if NUT_PLATFORM_OS_WINDOWS
     const size_t buf_count = _pkg_write_queue.size();
+#else
+    const size_t buf_count = std::min<size_t>(IOV_MAX, _pkg_write_queue.size());
+#endif
     void **bufs = (void**) ::alloca(sizeof(void*) * buf_count + sizeof(size_t) * buf_count);
     size_t *lens = (size_t*) (bufs + buf_count);
 

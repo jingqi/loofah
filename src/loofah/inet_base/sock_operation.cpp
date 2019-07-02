@@ -12,6 +12,7 @@
 #   include <netinet/tcp.h> // for defination of TCP_NODELAY
 #   include <fcntl.h> // for ::fcntl()
 #   include <sys/uio.h> // for ::readv()
+#   include <limits.h> // for IOV_MAX
 #   include <errno.h>
 #   include <string.h> // for ::strerror()
 #endif
@@ -278,6 +279,7 @@ ssize_t SockOperation::readv(socket_t socket_fd, void* const *buf_ptrs,
     LOOFAH_LOG_ERR_FD(WSARecv, socket_fd);
     return from_errno(err);
 #else
+    assert(buf_count <= IOV_MAX);
     struct iovec *iovs = (struct iovec*) ::alloca(sizeof(struct iovec) * buf_count);
     for (size_t i = 0; i < buf_count; ++i)
     {
@@ -384,6 +386,7 @@ ssize_t SockOperation::writev(socket_t socket_fd, const void* const *buf_ptrs,
     LOOFAH_LOG_ERR_FD(WSASend, socket_fd);
     return from_errno(err);
 #else
+    assert(buf_count <= IOV_MAX);
     struct iovec *iovs = (struct iovec*) ::alloca(sizeof(struct iovec) * buf_count);
     for (size_t i = 0; i < buf_count; ++i)
     {
