@@ -66,19 +66,19 @@ public:
 
     const size_t buf_count = 0;
 
-    // NOTE 这一部分是变长的，应该作为最后一个成员
-    WSABUF wsabufs[1];
-
     // XXX IOCP 比较蛋疼，CancelIo() 后不能立即删除 IORequest, 还需要在
     //     GetQueuedCompletionStatus() 的返回中处理删除
     bool canceled = false;
+
+    // NOTE 这一部分是变长的，应该作为最后一个成员!!
+    WSABUF wsabufs[1];
 #else
     // 事件类型
     const ProactHandler::mask_type event_type = 0;
 
     const size_t buf_count = 0;
 
-    // NOTE 这一部分是变长的，应该作为最后一个成员
+    // NOTE 这一部分是变长的，应该作为最后一个成员!!
     struct iovec iovs[1];
 #endif
 };
