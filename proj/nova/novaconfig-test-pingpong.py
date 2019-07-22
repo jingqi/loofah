@@ -11,16 +11,16 @@ from nova.builtin import compile_c, file_op
 CWD = dirname(realpath(__file__))
 
 ns = globals()['namespace']
-ns.set_name('test_pingpong')
+ns.set_name('test-pingpong')
 
-ns.get_app().import_namespace(join(CWD, 'novaconfig_loofah.py'))
+ns.get_app().import_namespace(join(CWD, 'novaconfig-loofah.py'))
 
 ## Vars
-src_root = join(CWD, '../../src/test_pingpong')
+src_root = join(CWD, '../../src/test-pingpong')
 out_dir = platform.system().lower() + '-' + ('debug' if ns['DEBUG'] == '1' else 'release')
 out_root = join(CWD, out_dir)
-obj_root = join(out_root, 'obj/test_pingpong')
-header_root = join(out_root, 'include/test_pingpong')
+obj_root = join(out_root, 'obj/test-pingpong')
+header_root = join(out_root, 'include/test-pingpong')
 nut_proj_root = join(ns.getenv('NUT_PATH', join(CWD, '../../lib/nut.git')), 'proj/nova')
 
 ## Flags
@@ -57,7 +57,7 @@ for src in file_utils.iterfiles(src_root, '.h'):
     ns.set_recipe(ih, file_op.copyfile)
     ns.add_chained_deps('@headers', ih, h)
 
-program = join(out_root, 'test_pingpong' + ns['PROGRAM_SUFFIX'])
+program = join(out_root, 'test-pingpong' + ns['PROGRAM_SUFFIX'])
 ns.set_recipe('@read_deps', compile_c.read_deps)
 for src in file_utils.iterfiles(src_root, '.c', '.cpp'):
     c = src

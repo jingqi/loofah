@@ -1,5 +1,5 @@
 
-TARGET = test_loofah
+TARGET = test-pingpong
 TEMPLATE = app
 
 include(../loofah_common.pri)
@@ -9,7 +9,7 @@ CONFIG += console
 CONFIG -= app_bundle
 
 # INCLUDE 路径
-SRC_ROOT = $$PWD/../../../../src/test_loofah
+SRC_ROOT = $$PWD/../../../../src/test-pingpong
 INCLUDEPATH += $${SRC_ROOT}
 
 # 头文件
@@ -32,6 +32,8 @@ else: LIBS += -lnut
 
 # 连接库
 win32: {
+    LIBS += -latomic
+
     # NOTE 这些 win 网络库必须放在最后，否则会出错
     #      See http://stackoverflow.com/questions/2033608/mingw-linker-error-winsock
     LIBS += -lws2_32 -lwininet -lwsock32 -lmswsock

@@ -7,24 +7,24 @@ export NUT_PATH=$(CURDIR)/../../lib/nut.git
 all:
 	cd ${NUT_PATH}/proj/makefile ; $(MAKE) -f nut.mk
 	$(MAKE) -f loofah.mk
-	$(MAKE) -f test_loofah.mk
-	$(MAKE) -f test_pingpong.mk
+	$(MAKE) -f test-loofah.mk
+	$(MAKE) -f test-pingpong.mk
 
 clean:
 	cd ${NUT_PATH}/proj/makefile ; $(MAKE) -f nut.mk clean
 	$(MAKE) -f loofah.mk clean
-	$(MAKE) -f test_loofah.mk clean
-	$(MAKE) -f test_pingpong.mk clean
+	$(MAKE) -f test-loofah.mk clean
+	$(MAKE) -f test-pingpong.mk clean
 
 rebuild:
 	$(MAKE) clean
 	$(MAKE) all
 
 run:
-	$(MAKE) -f test_loofah.mk run
+	$(MAKE) -f test-loofah.mk run
 
-run_pingpong:
-	$(MAKE) -f test_pingpong.mk run
+run-pingpong:
+	$(MAKE) -f test-pingpong.mk run
 
 valgrind:
-	$(MAKE) -f test_loofah.mk valgrind
+	$(MAKE) -f test-loofah.mk valgrind

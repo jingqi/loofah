@@ -13,7 +13,7 @@ ns = globals()['namespace']
 ns.set_name('loofah')
 
 nut_proj_root = join(ns.getenv('NUT_PATH', join(CWD, '../../lib/nut.git')), 'proj/nova')
-ns.get_app().import_namespace(join(nut_proj_root, 'novaconfig_nut.py'))
+ns.get_app().import_namespace(join(nut_proj_root, 'novaconfig-nut.py'))
 
 
 ## Vars

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="test-loofah">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="test-loofah\rst">
+      <UniqueIdentifier>{d6e31aff-3e2a-4f84-b3eb-82e20c154e8a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="test-loofah\manually">
+      <UniqueIdentifier>{1bc76d85-b33a-4366-bf89-b56ce07a5148}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\..\src\test-loofah\main.cpp">
+      <Filter>test-loofah</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\test-loofah\test_reactor.cpp">
+      <Filter>test-loofah</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\test-loofah\test_proactor.cpp">
+      <Filter>test-loofah</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\test-loofah\manually\test_proact_package_manually.cpp">
+      <Filter>test-loofah\manually</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\test-loofah\manually\test_react_package_manually.cpp">
+      <Filter>test-loofah\manually</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\test-loofah\manually\test_reactor_manually.cpp">
+      <Filter>test-loofah\manually</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\test-loofah\rst\test_proact_package_rst.cpp">
+      <Filter>test-loofah\rst</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\test-loofah\rst\test_react_package_rst.cpp">
+      <Filter>test-loofah\rst</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\test-loofah\test_proact_package_channel.cpp">
+      <Filter>test-loofah</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\test-loofah\test_react_package_channel.cpp">
+      <Filter>test-loofah</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>

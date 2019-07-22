@@ -1,4 +1,4 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
 VisualStudioVersion = 14.0.24720.0
@@ -8,7 +8,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "loofah", "loofah\loofah.vcx
 		{918B37F6-E5AD-4A20-9671-798F5AF50957} = {918B37F6-E5AD-4A20-9671-798F5AF50957}
 	EndProjectSection
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test_loofah", "test_loofah\test_loofah.vcxproj", "{C5FF09B4-E89F-4DB8-B74F-F597D606008F}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test-loofah", "test-loofah\test-loofah.vcxproj", "{C5FF09B4-E89F-4DB8-B74F-F597D606008F}"
 	ProjectSection(ProjectDependencies) = postProject
 		{13D7AA02-0C52-4C3A-929E-8172F06CE873} = {13D7AA02-0C52-4C3A-929E-8172F06CE873}
 		{918B37F6-E5AD-4A20-9671-798F5AF50957} = {918B37F6-E5AD-4A20-9671-798F5AF50957}
@@ -16,7 +16,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test_loofah", "test_loofah\
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "nut", "..\..\lib\nut.git\proj\vs2019\nut\nut.vcxproj", "{918B37F6-E5AD-4A20-9671-798F5AF50957}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test_pingpong", "test_pingpong\test_pingpong.vcxproj", "{B9EA4939-EF36-4480-8842-707A69D8B5E7}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "test-pingpong", "test-pingpong\test-pingpong.vcxproj", "{B9EA4939-EF36-4480-8842-707A69D8B5E7}"
 	ProjectSection(ProjectDependencies) = postProject
 		{13D7AA02-0C52-4C3A-929E-8172F06CE873} = {13D7AA02-0C52-4C3A-929E-8172F06CE873}
 		{918B37F6-E5AD-4A20-9671-798F5AF50957} = {918B37F6-E5AD-4A20-9671-798F5AF50957}

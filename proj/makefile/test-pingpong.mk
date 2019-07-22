@@ -1,6 +1,6 @@
 #!/user/bin/env make
 
-TARGET_NAME = test_loofah
+TARGET_NAME = test-pingpong
 SRC_ROOT = ../../src/${TARGET_NAME}
 
 # Preface rules
@@ -32,11 +32,13 @@ TARGET = ${OUT_DIR}/${TARGET_NAME}
 all: ${TARGET}
 
 clean:
-	rm -rf ${OBJS} ${DEPS} ${TARGET}
+	rm -rf ${OBJS}
+	rm -rf ${DEPS}
+	rm -rf ${TARGET}
 
 rebuild:
-	$(MAKE) -f test_loofah.mk clean
-	$(MAKE) -f test_loofah.mk all
+	$(MAKE) -f test-pingpong.mk clean
+	$(MAKE) -f test-pingpong.mk all
 
 ${NUT_PATH}/proj/makefile/${OUT_DIR_NAME}/libnut.${DL_SUFFIX}:
 	cd ${NUT_PATH}/proj/makefile ; $(MAKE) -f nut.mk
