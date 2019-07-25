@@ -30,23 +30,21 @@ ns.append_env_flags('CPPFLAGS',
 ns.append_env_flags('CFLAGS', '-std=c11')
 ns.append_env_flags('CXXFLAGS', '-std=c++11')
 
-if platform.system() == 'Darwin':
-    ns.append_env_flags('CXXFLAGS', '-stdlib=libc++')
-    ns.append_env_flags('LDFLAGS', '-lc++')
-else:
-    ns.append_env_flags('LDFLAGS', '-lstdc++')
+ns.append_env_flags('LDFLAGS', '-L' + out_root, '-lloofah', '-lnut')
+
+if platform.system() == 'Windows':
+    ns.append_env_flags('LDFLAGS', '-lwininet', '-lws2_32', '-lwsock32')
 
 if platform.system() == 'Linux':
     ns.append_env_flags('LDFLAGS', '-lpthread', '-latomic')
 elif platform.system() == 'Windows':
     ns.append_env_flags('LDFLAGS', '-latomic')
 
-ns.append_env_flags('LDFLAGS', '-L' + out_root, '-lnut', '-lloofah')
-
-# NOTE 这些 win 网络库必须放在最后，否则会出错
-#      See http://stackoverflow.com/questions/2033608/mingw-linker-error-winsock
-if platform.system() == 'Windows':
-    ns.append_env_flags('LDFLAGS', '-lwininet', '-lws2_32', '-lwsock32')
+if platform.system() == 'Darwin':
+    ns.append_env_flags('CXXFLAGS', '-stdlib=libc++')
+    ns.append_env_flags('LDFLAGS', '-lc++')
+else:
+    ns.append_env_flags('LDFLAGS', '-lstdc++')
 
 ## Dependencies
 

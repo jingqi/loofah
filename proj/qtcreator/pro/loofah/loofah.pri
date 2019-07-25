@@ -25,11 +25,10 @@ LIBS += -L$$OUT_PWD/../nut$${OUT_TAIL}
 win32: LIBS += -lnut1
 else: LIBS += -lnut
 
-# 连接库
-win32: {
-    LIBS += -latomic
-
-    # NOTE 这些 win 网络库必须放在最后，否则会出错
-    #      See http://stackoverflow.com/questions/2033608/mingw-linker-error-winsock
-    LIBS += -lwininet -lws2_32 -lwsock32
+# 其他链接库
+# NOTE 链接时缺少的符号只会按顺序往后搜索, 故基础库应放在最后
+#      See http://stackoverflow.com/questions/2033608/mingw-linker-error-winsock
+win32 {
+    LIBS += -lwininet -lws2_32 -lwsock32 \
+            -latomic
 }
