@@ -129,7 +129,7 @@ bool SockOperation::set_reuse_addr(socket_t listening_socket_fd) noexcept
     // http://stackoverflow.com/questions/17212789/multiple-processes-listening-on-the-same-port
     BOOL optval = TRUE;
     const int rs = ::setsockopt(listening_socket_fd, SOL_SOCKET, SO_REUSEADDR,
-                                (char*) &optval, sizeof(optval));
+                                (const char*) &optval, sizeof(optval));
 #else
     int optval = 1;
     const int rs = ::setsockopt(listening_socket_fd, SOL_SOCKET, SO_REUSEADDR,
@@ -148,7 +148,7 @@ bool SockOperation::set_reuse_port(socket_t listening_socket_fd) noexcept
     // http://stackoverflow.com/questions/17212789/multiple-processes-listening-on-the-same-port
     BOOL optval = TRUE;
     const int rs = ::setsockopt(listening_socket_fd, SOL_SOCKET, SO_REUSEADDR,
-                                (char*) &optval, sizeof(optval));
+                                (const char*) &optval, sizeof(optval));
 #else
     int optval = 1;
     const int rs = ::setsockopt(listening_socket_fd, SOL_SOCKET, SO_REUSEPORT,
@@ -462,7 +462,7 @@ bool SockOperation::set_tcp_nodelay(socket_t socket_fd, bool no_delay) noexcept
 #if NUT_PLATFORM_OS_WINDOWS
     BOOL optval = no_delay ? TRUE : FALSE;
     const int rs = ::setsockopt(socket_fd, IPPROTO_TCP, TCP_NODELAY,
-                                (char*) &optval, sizeof(optval));
+                                (const char*) &optval, sizeof(optval));
 #else
     int optval = no_delay ? 1 : 0;
     const int rs = ::setsockopt(socket_fd, IPPROTO_TCP, TCP_NODELAY,
@@ -479,7 +479,7 @@ bool SockOperation::set_keep_alive(socket_t socket_fd, bool keep_alive) noexcept
 #if NUT_PLATFORM_OS_WINDOWS
     BOOL optval = keep_alive ? TRUE : FALSE;
     const int rs = ::setsockopt(socket_fd, SOL_SOCKET, SO_KEEPALIVE,
-                                (char*) &optval, sizeof(optval));
+                                (const char*) &optval, sizeof(optval));
 #else
     int optval = keep_alive ? 1 : 0;
     const int rs = ::setsockopt(socket_fd, SOL_SOCKET, SO_KEEPALIVE,
@@ -491,6 +491,69 @@ bool SockOperation::set_keep_alive(socket_t socket_fd, bool keep_alive) noexcept
     return 0 == rs;
 }
 
+bool SockOperation::set_keep_alive_idle(socket_t socket_fd, unsigned seconds) noexcept
+{
+#if NUT_PLATFORM_CC_MINGW && !defined(TCP_KEEPIDLE)
+#   warning TCP_KEEPIDLE not defined
+    return false;
+#else
+#   if NUT_PLATFORM_OS_WINDOWS
+    const int rs = ::setsockopt(socket_fd, IPPROTO_TCP, TCP_KEEPIDLE,
+                                (const char*) &seconds, sizeof(seconds));
+#   elif NUT_PLATFORM_OS_MACOS
+    const int rs = ::setsockopt(socket_fd, IPPROTO_TCP, TCP_KEEPALIVE,
+                                &seconds, sizeof(seconds));
+#   else
+    const int rs = ::setsockopt(socket_fd, IPPROTO_TCP, TCP_KEEPIDLE,
+                                &seconds, sizeof(seconds));
+#   endif
+
+    if (0 != rs)
+        LOOFAH_LOG_ERR_FD(setsockopt, socket_fd);
+    return 0 == rs;
+#endif
+}
+
+bool SockOperation::set_keep_alive_count(socket_t socket_fd, unsigned count) noexcept
+{
+#if NUT_PLATFORM_CC_MINGW && !defined(TCP_KEEPCNT)
+#   warning TCP_KEEPCNT not defined
+    return false;
+#else
+#   if NUT_PLATFORM_OS_WINDOWS
+    const int rs = ::setsockopt(socket_fd, IPPROTO_TCP, TCP_KEEPCNT,
+                                (const char*) &count, sizeof(count));
+#   else
+    const int rs = ::setsockopt(socket_fd, IPPROTO_TCP, TCP_KEEPCNT,
+                                &count, sizeof(count));
+#   endif
+
+    if (0 != rs)
+        LOOFAH_LOG_ERR_FD(setsockopt, socket_fd);
+    return 0 == rs;
+#endif
+}
+
+bool SockOperation::set_keep_alive_interval(socket_t socket_fd, unsigned seconds) noexcept
+{
+#if NUT_PLATFORM_CC_MINGW && !defined(TCP_KEEPINTVL)
+#   warning TCP_KEEPINTVL not defined
+    return false;
+#else
+#   if NUT_PLATFORM_OS_WINDOWS
+    const int rs = ::setsockopt(socket_fd, IPPROTO_TCP, TCP_KEEPINTVL,
+                                (const char*) &seconds, sizeof(seconds));
+#   else
+    const int rs = ::setsockopt(socket_fd, IPPROTO_TCP, TCP_KEEPINTVL,
+                                &seconds, sizeof(seconds));
+#   endif
+
+    if (0 != rs)
+        LOOFAH_LOG_ERR_FD(setsockopt, socket_fd);
+    return 0 == rs;
+#endif
+}
+
 bool SockOperation::set_linger(socket_t socket_fd, bool on, unsigned time) noexcept
 {
 #if NUT_PLATFORM_OS_WINDOWS
@@ -498,7 +561,7 @@ bool SockOperation::set_linger(socket_t socket_fd, bool on, unsigned time) noexc
     so_linger.l_onoff = (on ? TRUE : FALSE);
     so_linger.l_linger = time;
     const int rs = ::setsockopt(socket_fd, SOL_SOCKET, SO_LINGER,
-                                (char*) &so_linger, sizeof(so_linger));
+                                (const char*) &so_linger, sizeof(so_linger));
 #else
     struct linger so_linger;
     so_linger.l_onoff = (on ? 1 : 0);

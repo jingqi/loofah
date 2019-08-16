@@ -31,7 +31,7 @@ TARGET = ${OUT_DIR}/lib${TARGET_NAME}.${DL_SUFFIX}
 all: ${TARGET}
 
 clean:
-	rm -rf ${OBJS} ${DEPS} ${TARGET}
+	$(RM) ${OBJS} ${DEPS} ${TARGET}
 
 rebuild:
 	$(MAKE) -f loofah.mk clean

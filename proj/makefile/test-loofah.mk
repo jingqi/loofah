@@ -32,7 +32,7 @@ TARGET = ${OUT_DIR}/${TARGET_NAME}
 all: ${TARGET}
 
 clean:
-	rm -rf ${OBJS} ${DEPS} ${TARGET}
+	$(RM) ${OBJS} ${DEPS} ${TARGET}
 
 rebuild:
 	$(MAKE) -f test-loofah.mk clean

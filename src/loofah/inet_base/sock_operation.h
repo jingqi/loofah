@@ -108,7 +108,25 @@ public:
      */
     static bool set_tcp_nodelay(socket_t socket_fd, bool no_delay = true) noexcept;
 
+    /**
+     * keepalive 心跳机制
+     */
     static bool set_keep_alive(socket_t socket_fd, bool keep_alive = true) noexcept;
+
+    /**
+     * 空闲多长时间后，开始发送 TCP keepalive 心跳检测包. 默认 7200 秒
+     */
+    static bool set_keep_alive_idle(socket_t socket_fd, unsigned seconds) noexcept;
+
+    /**
+     * 发送 TCP keepalive 心跳检测包的数量. 默认 9 次
+     */
+    static bool set_keep_alive_count(socket_t socket_fd, unsigned count) noexcept;
+
+    /**
+     * 发送 TCP keepalive 心跳检测包的间隔. 默认 75 秒
+     */
+    static bool set_keep_alive_interval(socket_t socket_fd, unsigned seconds) noexcept;
 
     /**
      * - on=false: 丢弃发送缓存中的数据，发送 FIN 包
